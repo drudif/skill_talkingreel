@@ -501,15 +501,18 @@ border-color:#444}}"""
 
 _JS = """const E=JSON.parse(document.getElementById('dados').textContent
 .replace('/*E-'+'INI*/','').replace('/*E-'+'FIM*/',''));
+function pinta(){E.itens.forEach(it=>{
+document.querySelectorAll('[data-id="'+CSS.escape(it.id)+'"]').forEach(el=>{
+if(el.tagName==='BUTTON')el.setAttribute('aria-pressed',
+String(el.dataset.d===it.decisao));else el.value=it.nota||''})})}
+pinta();
 function p(){const a=document.documentElement.outerHTML.replace(
 new RegExp('(/\\\\*E-'+'INI\\\\*/)[\\\\s\\\\S]*?(/\\\\*E-'+'FIM\\\\*/)'),
 (m,i,f)=>i+JSON.stringify(E)+f);
 claude.use('artifact').then(a2=>a2&&a2.publish('<!doctype html>'+a)).catch(()=>{})}
 document.addEventListener('click',ev=>{const b=ev.target.closest('button');
 if(!b)return;const it=E.itens.find(x=>x.id===b.dataset.id);
-it.decisao=it.decisao===b.dataset.d?null:b.dataset.d;
-b.parentElement.querySelectorAll('button').forEach(o=>
-o.setAttribute('aria-pressed',String(o.dataset.d===it.decisao)));p()});
+it.decisao=it.decisao===b.dataset.d?null:b.dataset.d;pinta();p()});
 document.addEventListener('change',ev=>{if(ev.target.tagName!=='INPUT')return;
 E.itens.find(x=>x.id===ev.target.dataset.id).nota=ev.target.value;p()});"""
 
@@ -588,6 +591,18 @@ def ler(caminho_ou_texto):
 
 Run: `.venv/bin/pytest tests/test_folha.py -v`
 Expected: 10 passed
+
+**Duas coisas do JavaScript que nao sao detalhe:**
+
+`pinta()` roda no carregamento e desenha botao e nota a partir do estado. Sem ela, depois que a
+pagina se republica e recarrega, tudo volta a parecer nao-decidido — o estado estaria salvo, mas
+a pessoa veria a folha em branco e decidiria tudo de novo. A regra do runtime e essa: a pagina
+renderiza a partir do dado que ela carrega, nao do HTML que veio escrito.
+
+Quem publica a folha tem de declarar a capacidade: `capabilities: {artifact: {}}` na chamada da
+ferramenta Artifact. Sem isso `claude.use('artifact')` devolve `null`, o `publish` nunca acontece,
+e a pessoa marca as coisas sem que nada volte. O `&&` no codigo trata esse caso sem quebrar a
+pagina — ela so deixa de salvar.
 
 - [ ] **Step 5: Commit**
 
