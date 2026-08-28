@@ -115,3 +115,52 @@ def test_alvo_curto_nunca_ganha():
     trocas = legenda.corrigir(palavras, ["que", "te", "Nao", "ele"])
     assert trocas == []
     assert [w["p"] for w in palavras] == ["quem", "deles"]
+
+
+def test_as_quatro_posicoes_existem():
+    assert set(legenda.POSICOES) == {"cheia", "esquerda", "direita", "centro"}
+
+
+def test_legenda_em_tela_cheia_e_centralizada(tmp_path):
+    from PIL import Image
+    p = legenda.png("uma frase", "brutalista", tmp_path / "a.png", posicao="cheia")
+    caixa = Image.open(p).convert("RGBA").getchannel("A").getbbox()
+    x0, y0, x1, y1 = caixa
+    centro = (x0 + x1) / 2
+    assert abs(centro - 540) < 20, "nao ficou centralizada"
+    assert abs(y1 - 1375) < 30, "a base nao e 1375"
+
+
+def test_legenda_a_esquerda_no_split(tmp_path):
+    from PIL import Image
+    p = legenda.png("uma frase", "brutalista", tmp_path / "b.png", posicao="esquerda")
+    x0, y0, _, _ = Image.open(p).convert("RGBA").getchannel("A").getbbox()
+    assert abs(x0 - 60) < 12
+    assert abs(y0 - 827) < 12
+
+
+def test_legenda_a_direita_no_split(tmp_path):
+    from PIL import Image
+    p = legenda.png("uma frase", "brutalista", tmp_path / "c.png", posicao="direita")
+    _, y0, x1, _ = Image.open(p).convert("RGBA").getchannel("A").getbbox()
+    assert abs(x1 - (1080 - 60)) < 12
+    assert abs(y0 - 827) < 12
+
+
+def test_centro_do_split_usa_a_mesma_base_da_tela_cheia(tmp_path):
+    from PIL import Image
+    a = legenda.png("frase", "brutalista", tmp_path / "d.png", posicao="cheia")
+    b = legenda.png("frase", "brutalista", tmp_path / "e.png", posicao="centro")
+    ba = Image.open(a).convert("RGBA").getchannel("A").getbbox()
+    bb = Image.open(b).convert("RGBA").getchannel("A").getbbox()
+    assert abs(ba[3] - bb[3]) < 4, "a legenda saltaria na virada de cena"
+
+
+def test_texto_longo_quebra_e_nao_vaza(tmp_path):
+    from PIL import Image
+    from motor import config
+    p = legenda.png("uma frase bastante longa que precisa quebrar em duas linhas",
+                    "brutalista", tmp_path / "f.png", posicao="cheia")
+    x0, y0, x1, y1 = Image.open(p).convert("RGBA").getchannel("A").getbbox()
+    assert (x1 - x0) <= config.LEG_LARGURA_MAX + 8
+    assert (y1 - y0) > config.LEG_CORPO      # mais de uma linha

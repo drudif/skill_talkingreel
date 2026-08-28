@@ -12,6 +12,10 @@ import difflib
 import re
 import unicodedata
 
+from PIL import Image, ImageDraw, ImageFont
+
+from motor import config, estilos
+
 MAX_PALAVRAS = 4
 RESPIRO = 0.35            # silencio que separa dois blocos
 LIMIAR_PROPRIO = 0.50     # sobre a forma sem acento
@@ -111,3 +115,62 @@ def blocos(palavras):
         else:
             junto.append(b)
     return junto
+
+
+POSICOES = ("cheia", "esquerda", "direita", "centro")
+
+
+def _linhas(desenho, texto, fonte_pil, largura_max):
+    saida, atual = [], ""
+    for palavra in texto.split():
+        tentativa = (atual + " " + palavra).strip()
+        if desenho.textlength(tentativa, font=fonte_pil) <= largura_max:
+            atual = tentativa
+        else:
+            if atual:
+                saida.append(atual)
+            atual = palavra
+    if atual:
+        saida.append(atual)
+    return saida
+
+
+def png(texto, estilo, destino, posicao="cheia"):
+    """Um PNG 1080x1920 transparente com a legenda na posicao pedida.
+
+    As quatro posicoes foram medidas: em tela cheia a base e 1375 (a 1500 caia
+    sob a interface do aplicativo); no split, esquerda e direita se apoiam em
+    827, logo abaixo da divisoria, e a centralizada usa a mesma base da tela
+    cheia — assim a legenda nao salta quando a cena vira."""
+    if posicao not in POSICOES:
+        raise ValueError(f"posicao '{posicao}' desconhecida. Use uma de: "
+                         + ", ".join(POSICOES))
+    ficha = estilos.carregar(estilo)
+    f = ImageFont.truetype(estilos.fonte(estilo), config.LEG_CORPO)
+
+    im = Image.new("RGBA", (config.W, config.H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    util = config.LEG_LARGURA_MAX - config.LEG_PAD_X * 2
+    linhas = _linhas(d, texto, f, util)
+    alt_linha = config.LEG_CORPO * config.LEG_ENTRELINHA
+    largura = max(d.textlength(l, font=f) for l in linhas) + config.LEG_PAD_X * 2
+    altura = alt_linha * len(linhas) + config.LEG_PAD_Y * 2
+
+    if posicao == "esquerda":
+        x0, y0 = config.LEG_SPLIT_X, config.LEG_SPLIT_TOPO
+    elif posicao == "direita":
+        x0, y0 = config.W - config.LEG_SPLIT_X - largura, config.LEG_SPLIT_TOPO
+    else:                                  # cheia e centro
+        x0, y0 = (config.W - largura) / 2, config.LEG_BASE - altura
+
+    d.rectangle([x0, y0, x0 + largura, y0 + altura],
+                fill=estilos.rgb(ficha["legenda_caixa"]) + (255,))
+    cor = estilos.rgb(ficha["legenda_texto"]) + (255,)
+    for i, linha in enumerate(linhas):
+        cx = d.textlength(linha, font=f)
+        alinhado = (x0 + config.LEG_PAD_X if posicao == "esquerda"
+                    else x0 + (largura - cx) / 2)
+        d.text((alinhado, y0 + config.LEG_PAD_Y + i * alt_linha),
+               linha, font=f, fill=cor)
+    im.save(destino)
+    return destino

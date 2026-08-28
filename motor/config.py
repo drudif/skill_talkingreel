@@ -27,3 +27,13 @@ TETO_DB = -1.5                  # teto do limitador, para a voz nao estourar
 VOL_TRILHA = 0.34               # musica bem abaixo da voz
 SR = 48000                      # taxa de amostragem, igual em TODA etapa. Misturar
                                 # taxas foi uma das tres causas do dessync progressivo
+
+LEG_CORPO = 54                  # corpo da legenda
+LEG_ENTRELINHA = 1.16
+LEG_PAD_X, LEG_PAD_Y = 24, 12   # respiro dentro da caixa
+LEG_LARGURA_MAX = 840           # forca quebra antes de vazar
+LEG_BASE = 1375                 # base em tela cheia. A 1500 caia sob a
+                                 # interface do aplicativo
+LEG_SPLIT_X = 60                # margem, na posicao alinhada a esquerda
+LEG_SPLIT_TOPO = 827            # 20px abaixo da divisoria em 807
+LEG_TOPO_LETREIRO = 1300        # letreiro com tinta abaixo disto tapa a legenda
