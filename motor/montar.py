@@ -11,7 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from motor import cenas as mod_cenas
-from motor import config, fala, probe, tratamentos
+from motor import config, fala, probe, tratamentos, trilha
 
 
 def _bordas(cena):
@@ -69,6 +69,14 @@ def montar(caminho_cenas, destino, tmp=None):
     r = subprocess.run(args, capture_output=True, text=True)
     if r.returncode != 0:
         raise RuntimeError("ffmpeg falhou ao juntar: " + r.stderr.strip()[:500])
+
+    if prod.trilha:
+        com_trilha = tmp / "com-trilha.mov"
+        trilha.aplicar(destino, prod.trilha, com_trilha)
+        subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(com_trilha),
+                        "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                        "-ar", str(config.SR), "-movflags", "+faststart",
+                        str(destino)], check=True)
 
     (Path(caminho_cenas).parent / "cenas-mapa.json").write_text(
         json.dumps(mapa, indent=1, ensure_ascii=False), encoding="utf-8")
