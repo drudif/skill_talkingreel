@@ -20,9 +20,10 @@ def main(argv):
     except RuntimeError as e:
         print(f"Nao consegui montar o filme: {e}")
         return 1
-    print(laudo.em_portugues(laudo.rodar(filme, argv[1])))
+    resultado = laudo.rodar(filme, argv[1])
+    print(laudo.em_portugues(resultado))
     print(f"pronto: {filme}")
-    return 0
+    return 0 if resultado["ok"] else 1
 
 
 if __name__ == "__main__":
