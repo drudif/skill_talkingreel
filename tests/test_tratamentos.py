@@ -340,8 +340,44 @@ def test_split_teto_seleciona_a_faixa_certa_na_janela_de_baixo(tmp_path):
         f"SPLIT_TETO={config.SPLIT_TETO}, veio rgb=({r},{g},{b})")
 
 
+def _crop_da_peca(peca):
+    """O recorte exato onde a peca tem tinta.
+
+    Chutar coordenada dilui o sinal: medido, um recorte 4x maior que a tinta
+    baixou a diferenca de 72 para 15. O teste pergunta ao PNG onde ele
+    desenhou, em vez de adivinhar."""
+    from PIL import Image
+    caixa = Image.open(peca).convert("RGBA").getchannel("A").getbbox()
+    x0, y0, x1, y1 = caixa
+    return f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
+
+
+def _regiao(caminho, t, crop="crop=600:200:240:1050"):
+    """Os pixels de uma regiao do quadro, em cinza, sem reduzir a uma media."""
+    import subprocess
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-ss", str(t), "-i", str(caminho),
+         "-frames:v", "1", "-vf", f"{crop},scale=60:20",
+         "-pix_fmt", "gray", "-f", "rawvideo", "-"], capture_output=True)
+    return list(r.stdout[:1200])
+
+
+def _quanto_mudou(caminho, t1, t2, crop="crop=600:200:240:1050"):
+    """Diferenca media pixel a pixel entre dois instantes da mesma regiao.
+
+    NAO usar brilho medio aqui. O letreiro tem contorno preto e preenchimento
+    claro em area parecida, e a media cancela os dois: medido, o amarelo soma
+    +82 de luz e o contorno subtrai 123, e a diferenca de brilho medio fica em
+    5 de 255 — indistinguivel de ruido. Pixel a pixel o mesmo letreiro da 60."""
+    a, b = _regiao(caminho, t1, crop), _regiao(caminho, t2, crop)
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    return sum(abs(x - y) for x, y in zip(a, b)) / len(a)
+
+
 def _brilho(caminho, t, crop="crop=600:200:240:1050"):
-    """Brilho medio de uma regiao do quadro, em 0-255."""
+    """Brilho medio de uma regiao. Serve para comparar com um controle, nao
+    para detectar letreiro — veja `_quanto_mudou`."""
     import subprocess
     r = subprocess.run(
         ["ffmpeg", "-v", "error", "-ss", str(t), "-i", str(caminho),
@@ -356,13 +392,7 @@ def test_overlay_entra_no_instante_pedido(tmp_path):
     peca = arte.letreiro("TESTE", "brutalista", tmp_path / "p.png", base=1200)
     saida = tratamentos.com_overlay(base, peca, tmp_path / "o.mov",
                                     entra=1.5, dura=None)
-    # limiar medido, nao os 20 originais: o contorno preto de 7px do
-    # "brutalista" cobre quase a mesma area que o preenchimento amarelo, entao
-    # a media de luminancia da regiao cancela boa parte do proprio sinal
-    # (~+82 do amarelo contra ~-123 do contorno). Sem overlay o mesmo par de
-    # instantes da 0 de diferenca (fundo cinza estatico, sem ruido de
-    # compressao); com o letreiro certo a diferenca fica em 5-7, medido.
-    assert abs(_brilho(saida, 2.5) - _brilho(saida, 0.5)) > 3, (
+    assert _quanto_mudou(saida, 0.5, 2.5, _crop_da_peca(peca)) > 20, (
         "o letreiro nao mudou o quadro depois de entrar")
 
 
@@ -383,7 +413,7 @@ def test_overlay_com_duracao_sai_do_quadro(tmp_path):
     saida = tratamentos.com_overlay(base, peca, tmp_path / "o3.mov",
                                     entra=0.5, dura=1.0)
     # mesmo limiar medido de test_overlay_entra_no_instante_pedido, mesma razao.
-    assert abs(_brilho(saida, 1.0) - _brilho(saida, 3.5)) > 3, (
+    assert _quanto_mudou(saida, 3.5, 1.0, _crop_da_peca(peca)) > 20, (
         "o letreiro nao saiu do quadro")
 
 
