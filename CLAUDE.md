@@ -2,14 +2,16 @@
 
 A skill **talking reel: done**. Pega um video de talking head gravado pelo usuario e devolve um
 vertical montado, com ritmo, arte e legenda queimada, pronto pra Instagram e TikTok.
-**Estado: so o desenho existe. Nenhum codigo escrito ainda.**
+**Estado: motor do nucleo pronto — cena cheia, split com ancora, ritmo, trilha, laudo.
+Falta arte, legenda, folha e os agentes.**
 
 ## Stack
 Python + ffmpeg (motor de montagem) · mlx-whisper (transcricao com timestamp por palavra) ·
 Pillow + fonte da casa (legenda e letreiro sao texto vetorial) · artefato HTML (folha de aprovacao).
 
 ## Comandos
-- ainda nao ha. O motor sai do plano de implementacao.
+- `python3 -m motor <cenas.json> <saida.mp4>` — monta o filme e imprime o laudo
+- `.venv/bin/pytest` — 77 testes do motor (~60s, monta video de verdade)
 
 ## Convencoes
 - **Quatro agentes**: Bluey (principal e QA), Bandit (roteiro), Chili (arte e som), Bingo (montagem).
@@ -38,6 +40,11 @@ Pillow + fonte da casa (legenda e letreiro sao texto vetorial) · artefato HTML 
 - **A folha encarece pelo codigo da pagina, nao pelo peso do arquivo.** No projeto de origem eram
   50 KB reescritos a cada rodada.
 - MiniMax H3 com referencia de video NAO edita, regenera. Seedance 2.5 em `video_edit` edita.
+- O `alimiter` tem `level=true` por padrao, e essa opcao soma +1.5 dB DEPOIS de limitar,
+  desfazendo o trabalho. Sem `level=disabled` o pico final sai em 0 dB. So aparece com
+  material perto do teto — tom baixo passa nas duas versoes.
+- Teste de video precisa de material com valor esperado CONHECIDO. `tests/fixtures.py`
+  gera clipes com bipe em posicao exata; gravacao real vira chute e vaza video pessoal.
 
 Desenho completo: `docs/superpowers/specs/2026-08-28-skill-video-talking-head-design.md`
 Historico de decisoes: `docs/DIARIO.md`
