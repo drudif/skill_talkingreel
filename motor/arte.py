@@ -35,7 +35,7 @@ def _quebra(desenho, texto, fonte_pil, largura_max):
     return linhas
 
 
-def _fatia(desenho, palavra, fonte_pil, largura_max):
+def fatia(desenho, palavra, fonte_pil, largura_max):
     """Quebra uma palavra unica que sozinha nao cabe na largura maxima,
     caractere a caractere. So acontece com corpo ja no minimo e uma palavra
     mais larga que o quadro -- por exemplo um token de 40 letras sem espaco."""
@@ -52,7 +52,7 @@ def _fatia(desenho, palavra, fonte_pil, largura_max):
     return partes
 
 
-def _quebra_forcando_largura(desenho, texto, fonte_pil, largura_max):
+def quebra_forcando_largura(desenho, texto, fonte_pil, largura_max):
     """Como `_quebra`, mas se uma palavra sozinha estourar a largura maxima
     ela e fatiada em pedacos que cabem, em vez de vazar o quadro."""
     linhas, atual = [], ""
@@ -68,7 +68,7 @@ def _quebra_forcando_largura(desenho, texto, fonte_pil, largura_max):
             atual = palavra
         else:
             # a palavra sozinha nao cabe nem em uma linha vazia: fatia
-            pedacos = _fatia(desenho, palavra, fonte_pil, largura_max)
+            pedacos = fatia(desenho, palavra, fonte_pil, largura_max)
             linhas.extend(pedacos[:-1])
             atual = pedacos[-1] if pedacos else ""
     if atual:
@@ -107,7 +107,7 @@ def letreiro(texto, estilo, destino, base=None, contorno=None, box=False):
 
     Se mesmo no corpo minimo uma palavra sozinha for mais larga que o quadro
     (por exemplo um token sem espaco de 40 caracteres), ela e fatiada em mais
-    de uma linha em vez de vazar a margem -- ver `_quebra_forcando_largura`.
+    de uma linha em vez de vazar a margem -- ver `quebra_forcando_largura`.
 
     `box=True` desenha um retangulo cheio na cor de fundo da ficha, atras do
     texto, com folga de `FOLGA_BOX` em volta da mancha de tinta (nao do
@@ -136,7 +136,7 @@ def letreiro(texto, estilo, destino, base=None, contorno=None, box=False):
         # quadro sozinha. Fatia em vez de deixar a tinta vazar a margem.
         im_sonda = Image.new("RGBA", (10, 10))
         d_sonda = ImageDraw.Draw(im_sonda)
-        linhas = _quebra_forcando_largura(d_sonda, texto, f, largura_max)
+        linhas = quebra_forcando_largura(d_sonda, texto, f, largura_max)
 
     altura_linha = corpo * ENTRELINHA
     y = base - altura_linha * len(linhas)

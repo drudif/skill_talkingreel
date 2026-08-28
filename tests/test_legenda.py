@@ -164,3 +164,42 @@ def test_texto_longo_quebra_e_nao_vaza(tmp_path):
     x0, y0, x1, y1 = Image.open(p).convert("RGBA").getchannel("A").getbbox()
     assert (x1 - x0) <= config.LEG_LARGURA_MAX + 8
     assert (y1 - y0) > config.LEG_CORPO      # mais de uma linha
+
+
+def _bbox(caminho):
+    from PIL import Image
+    return Image.open(caminho).convert("RGBA").getchannel("A").getbbox()
+
+
+def test_palavra_sem_espaco_nao_vaza_o_quadro(tmp_path):
+    """Um link ou hashtag colada e uma palavra so. Sem fatiar, a caixa fica
+    mais larga que o quadro e o Pillow corta a tinta em silencio — e o bbox
+    do PNG nunca denuncia, porque nao pode ser maior que o proprio PNG.
+    Por isso o teste olha a MARGEM, nao o tamanho."""
+    from motor import config
+    palavra = "a" * 40
+    for posicao in legenda.POSICOES:
+        p = legenda.png(palavra, "brutalista", tmp_path / f"{posicao}.png",
+                        posicao=posicao)
+        x0, y0, x1, y1 = _bbox(p)
+        assert x0 > 4, f"{posicao}: a tinta encosta na borda esquerda (x0={x0})"
+        assert x1 < config.W - 4, (
+            f"{posicao}: a tinta encosta na borda direita (x1={x1})")
+        assert (x1 - x0) <= config.LEG_LARGURA_MAX + 8, (
+            f"{posicao}: a caixa passou da largura maxima ({x1 - x0}px)")
+
+
+def test_palavra_sem_espaco_vira_mais_de_uma_linha(tmp_path):
+    from motor import config
+    p = legenda.png("a" * 40, "brutalista", tmp_path / "fatiada.png")
+    _, y0, _, y1 = _bbox(p)
+    assert (y1 - y0) > config.LEG_CORPO * config.LEG_ENTRELINHA * 1.5, (
+        "a palavra longa nao foi fatiada em mais de uma linha")
+
+
+def test_frase_normal_continua_em_uma_linha(tmp_path):
+    """A quebra forcada nao pode fatiar quem cabe."""
+    from motor import config
+    p = legenda.png("uma frase", "brutalista", tmp_path / "curta.png")
+    _, y0, _, y1 = _bbox(p)
+    assert (y1 - y0) < config.LEG_CORPO * config.LEG_ENTRELINHA * 1.5

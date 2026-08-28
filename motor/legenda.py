@@ -14,7 +14,7 @@ import unicodedata
 
 from PIL import Image, ImageDraw, ImageFont
 
-from motor import config, estilos
+from motor import arte, config, estilos
 
 MAX_PALAVRAS = 4
 RESPIRO = 0.35            # silencio que separa dois blocos
@@ -121,18 +121,15 @@ POSICOES = ("cheia", "esquerda", "direita", "centro")
 
 
 def _linhas(desenho, texto, fonte_pil, largura_max):
-    saida, atual = [], ""
-    for palavra in texto.split():
-        tentativa = (atual + " " + palavra).strip()
-        if desenho.textlength(tentativa, font=fonte_pil) <= largura_max:
-            atual = tentativa
-        else:
-            if atual:
-                saida.append(atual)
-            atual = palavra
-    if atual:
-        saida.append(atual)
-    return saida
+    """Quebra o texto em linhas que cabem na largura.
+
+    Usa a mesma quebra do letreiro, que fatia caractere a caractere a palavra
+    que sozinha nao cabe. Sem isso um token sem espaco — um link, uma hashtag
+    colada — monta uma caixa mais larga que o quadro, e o Pillow corta a tinta
+    em silencio nas duas bordas: medido, uma palavra de 40 letras gerava caixa
+    de 1248px num quadro de 1080 e ninguem percebia, porque o bbox de um PNG
+    nunca pode ser maior que o proprio PNG."""
+    return arte.quebra_forcando_largura(desenho, texto, fonte_pil, largura_max)
 
 
 def png(texto, estilo, destino, posicao="cheia"):
