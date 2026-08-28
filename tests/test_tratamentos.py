@@ -233,3 +233,59 @@ def test_split_janela_de_baixo_sem_barra_preta(tmp_path):
     direita = _pixel(saida, 1075, y_meio_baixo)
     assert esquerda != (0, 0, 0), f"pixel esquerdo da janela de baixo saiu preto: {esquerda}"
     assert direita != (0, 0, 0), f"pixel direito da janela de baixo saiu preto: {direita}"
+
+
+def _clipe_bandas_verticais(destino, cores, w=1920, h=1080, falas=((0.4, 1.2),), total=3.0):
+    """Video 16:9 dividido em faixas verticais coloridas iguais (uma ao lado
+    da outra), com audio de fala sintetica -- para provar de onde um crop
+    horizontal pega o pixel."""
+    import subprocess
+    n = len(cores)
+    faixa = w // n
+    entradas = []
+    for cor in cores:
+        entradas += ["-f", "lavfi", "-t", f"{total}",
+                     "-i", f"color=c={cor}:s={faixa}x{h}:r={config.FPS}"]
+    hstack = "".join(f"[{i}:v]" for i in range(n)) + f"hstack=inputs={n}[v]"
+    volume = "+".join(f"between(t,{ini},{ini + dur})" for ini, dur in falas) or "0"
+    args = ["ffmpeg", "-y", "-v", "error"] + entradas + [
+        "-f", "lavfi", "-t", f"{total}", "-i", f"sine=frequency=220:sample_rate={config.SR}",
+        "-filter_complex", f"{hstack};[{n}:a]volume='{volume}':eval=frame[a]",
+        "-map", "[v]", "-map", "[a]",
+        "-c:v", "libx264", "-crf", "18", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+        "-c:a", "pcm_s16le", "-ar", str(config.SR), "-ac", "2",
+        str(destino)]
+    r = subprocess.run(args, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    return destino
+
+
+def test_split_recorta_o_centro_como_tela_cheia(tmp_path):
+    """FIX 1: o crop da janela de baixo do split estava fixo em x=0 (canto
+    esquerdo), enquanto tela_cheia (via enquadrar) deixa o ffmpeg centralizar
+    por padrao -- os dois tratamentos enquadravam a mesma fonte de jeitos
+    diferentes. Fonte 16:9 dividida em tres faixas verticais (vermelho|verde|
+    azul); depois do scale (force_original_aspect_ratio=increase) o quadro
+    fica mais largo que 1080, entao um crop centralizado tem de pegar a
+    faixa do meio (verde) nos dois tratamentos -- um crop pela esquerda
+    pegaria a faixa vermelha."""
+    banda = _clipe_bandas_verticais(tmp_path / "bandas.mov", ["red", "green", "blue"])
+
+    c_cheia = cenas.Cena(n=1, trat="cheia", arquivo=banda, velocidade=1.0)
+    saida_cheia = tratamentos.tela_cheia(c_cheia, tmp_path / "cheia_bandas.mov")
+
+    topo = fixtures.clipe_mudo(tmp_path / "topo_bandas.mp4", total=3.0, w=1920, h=1080)
+    c_split = cenas.Cena(n=2, trat="split", arquivo=banda, velocidade=1.0,
+                         topo=cenas.Topo(arquivo=topo, ancora=0.0))
+    saida_split = tratamentos.split(c_split, tmp_path / "split_bandas.mov")
+
+    r_c, g_c, b_c = _pixel(saida_cheia, config.W // 2, config.H // 2)
+    assert g_c > 100 and r_c < 60 and b_c < 60, (
+        f"tela_cheia: centro do quadro deveria sair verde (faixa do meio), "
+        f"veio rgb=({r_c},{g_c},{b_c})")
+
+    y_meio_baixo = config.DIVISORIA + (config.H - config.DIVISORIA) // 2
+    r_s, g_s, b_s = _pixel(saida_split, config.W // 2, y_meio_baixo)
+    assert g_s > 100 and r_s < 60 and b_s < 60, (
+        f"split: centro da janela de baixo deveria sair verde (faixa do "
+        f"meio), veio rgb=({r_s},{g_s},{b_s})")

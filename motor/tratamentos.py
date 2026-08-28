@@ -102,7 +102,7 @@ def split(cena, destino, ja_cortado=False):
         # janela de baixo: o take, com o teto cortado para o rosto caber
         f"[1:v]{pb}scale={config.W}:{config.H}"
         f":force_original_aspect_ratio=increase:flags=lanczos,"
-        f"crop={config.W}:{baixo}:0:{config.SPLIT_TETO},{_SHARP},"
+        f"crop={config.W}:{baixo}:(iw-{config.W})/2:{config.SPLIT_TETO},{_SHARP},"
         f"fps={config.FPS},setsar=1[baixo];"
         # empilha e fixa o tamanho: sem isto sai 1918 e o concat quebra
         f"[cima][baixo]vstack=inputs=2,scale={config.W}:{config.H},"
