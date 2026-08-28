@@ -69,3 +69,31 @@ def dentro_da_faixa_segura(peca):
     if y1 > config.SEGURO_BASE:
         achados.append({"onde": "embaixo", "y": y1, "limite": config.SEGURO_BASE})
     return achados
+
+
+REPETICOES_DEMAIS = 4      # acima disto o material complementar vira padronagem
+
+
+def repeticao_do_complementar(mapa, topos):
+    """O material que entra na metade de cima repete quantas vezes?
+
+    Medido com gravacao real: um b-roll de 2,4s debaixo de uma cena de 70,9s
+    repete 30 vezes. O motor faz a coisa certa -- da loop em vez de congelar --
+    mas o resultado e monotono. Nao e defeito de motor, e decisao de conteudo:
+    material curto demais debaixo de cena longa demais."""
+    from motor import probe
+    achados = []
+    for c in mapa or []:
+        arquivo = topos.get(c["n"])
+        if not arquivo:
+            continue
+        d_topo = probe.dur(arquivo)
+        d_cena = c["fim"] - c["ini"]
+        if d_topo <= 0 or d_cena <= 0:
+            continue
+        vezes = d_cena / d_topo
+        if vezes > REPETICOES_DEMAIS:
+            achados.append({"n": c["n"], "vezes": round(vezes, 1),
+                            "material_s": round(d_topo, 1),
+                            "cena_s": round(d_cena, 1)})
+    return achados

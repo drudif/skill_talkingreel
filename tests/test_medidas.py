@@ -86,3 +86,32 @@ def test_as_quatro_posicoes_da_legenda_estao_seguras(tmp_path):
                         tmp_path / f"{posicao}.png", posicao=posicao)
         assert medidas.dentro_da_faixa_segura(p) == [], (
             f"a posicao '{posicao}' cai fora da faixa segura")
+
+
+def test_broll_do_tamanho_da_cena_nao_reclama(tmp_path):
+    fixtures.clipe_mudo(tmp_path / "b.mp4", total=6.0, w=1920, h=1080)
+    mapa = [{"n": 1, "trat": "split", "ini": 0.0, "fim": 5.0}]
+    topos = {1: tmp_path / "b.mp4"}
+    assert medidas.repeticao_do_complementar(mapa, topos) == []
+
+
+def test_broll_curto_demais_e_apontado(tmp_path):
+    fixtures.clipe_mudo(tmp_path / "b.mp4", total=2.0, w=1920, h=1080)
+    mapa = [{"n": 1, "trat": "split", "ini": 0.0, "fim": 20.0}]
+    achados = medidas.repeticao_do_complementar(mapa, {1: tmp_path / "b.mp4"})
+    assert len(achados) == 1
+    assert achados[0]["n"] == 1
+    assert achados[0]["vezes"] == 10
+
+
+def test_cena_sem_complementar_e_ignorada(tmp_path):
+    mapa = [{"n": 1, "trat": "cheia", "ini": 0.0, "fim": 20.0}]
+    assert medidas.repeticao_do_complementar(mapa, {}) == []
+
+
+def test_repeticao_no_limite_nao_reclama(tmp_path):
+    """Exatamente no limite ainda passa; e o limite que decide, nao o acaso."""
+    fixtures.clipe_mudo(tmp_path / "b.mp4", total=2.0, w=1920, h=1080)
+    fim = 2.0 * medidas.REPETICOES_DEMAIS
+    mapa = [{"n": 1, "trat": "split", "ini": 0.0, "fim": fim}]
+    assert medidas.repeticao_do_complementar(mapa, {1: tmp_path / "b.mp4"}) == []
