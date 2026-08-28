@@ -163,3 +163,32 @@ def aperta(caminho, destino, ini, fim):
     for p in partes:
         Path(p).unlink(missing_ok=True)
     return destino, len(pausas)
+
+
+def com_overlay(base, peca, destino, entra=0.0, dura=None):
+    """Poe um PNG por cima do video, entrando em `entra` e saindo depois de
+    `dura` segundos. `dura=None` deixa ate o fim.
+
+    Este ffmpeg nao tem drawtext nem subtitles -- todo texto sobre imagem
+    entra por aqui, como PNG desenhado pelo Pillow.
+
+    A imagem parada (segunda entrada) roda em loop e e cortada com `-t d_png`,
+    onde `d_png` e a duracao da base MAIS uma folga de 50ms: se `d_png` saisse
+    igual ou menor que a base por erro de arredondamento (fps, decimais de
+    ffprobe), o `-shortest` cortaria a saida inteira pela imagem parada, nao
+    pela base -- ver test_overlay_duracao_nao_round_bate_com_a_base."""
+    d = probe.dur(base)
+    d_png = d + 0.05
+    saida_fade = (f",fade=t=out:st={entra + dura:.2f}:d=0.3:alpha=1"
+                  if dura else "")
+    _roda([
+        "ffmpeg", "-y", "-v", "error",
+        "-i", str(base),
+        "-loop", "1", "-t", f"{d_png:.3f}", "-i", str(peca),
+        "-filter_complex",
+        f"[1:v]format=rgba,fade=t=in:st={entra:.2f}:d=0.25:alpha=1{saida_fade}[p];"
+        f"[0:v][p]overlay=0:0,format=yuv420p[v]",
+        "-map", "[v]", "-map", "0:a?",
+        "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+        "-c:a", "copy", "-shortest", str(destino)])
+    return destino

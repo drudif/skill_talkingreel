@@ -338,3 +338,171 @@ def test_split_teto_seleciona_a_faixa_certa_na_janela_de_baixo(tmp_path):
     assert g > 100 and r < 60 and b < 60, (
         f"janela de baixo deveria mostrar a faixa do meio (verde) com "
         f"SPLIT_TETO={config.SPLIT_TETO}, veio rgb=({r},{g},{b})")
+
+
+def _brilho(caminho, t, crop="crop=600:200:240:1050"):
+    """Brilho medio de uma regiao do quadro, em 0-255."""
+    import subprocess
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-ss", str(t), "-i", str(caminho),
+         "-frames:v", "1", "-vf", f"{crop},scale=1:1",
+         "-pix_fmt", "gray", "-f", "rawvideo", "-"], capture_output=True)
+    return int(r.stdout[0]) if r.stdout else 0
+
+
+def test_overlay_entra_no_instante_pedido(tmp_path):
+    from motor import arte
+    base = fixtures.clipe_fala(tmp_path / "base.mov", falas=[(0.2, 2.0)], total=3.0)
+    peca = arte.letreiro("TESTE", "brutalista", tmp_path / "p.png", base=1200)
+    saida = tratamentos.com_overlay(base, peca, tmp_path / "o.mov",
+                                    entra=1.5, dura=None)
+    # limiar medido, nao os 20 originais: o contorno preto de 7px do
+    # "brutalista" cobre quase a mesma area que o preenchimento amarelo, entao
+    # a media de luminancia da regiao cancela boa parte do proprio sinal
+    # (~+82 do amarelo contra ~-123 do contorno). Sem overlay o mesmo par de
+    # instantes da 0 de diferenca (fundo cinza estatico, sem ruido de
+    # compressao); com o letreiro certo a diferenca fica em 5-7, medido.
+    assert abs(_brilho(saida, 2.5) - _brilho(saida, 0.5)) > 3, (
+        "o letreiro nao mudou o quadro depois de entrar")
+
+
+def test_overlay_nao_muda_formato_nem_audio(tmp_path):
+    from motor import arte
+    base = fixtures.clipe_fala(tmp_path / "b2.mov", falas=[(0.2, 1.0)], total=2.0)
+    peca = arte.letreiro("X", "brutalista", tmp_path / "p2.png")
+    saida = tratamentos.com_overlay(base, peca, tmp_path / "o2.mov", entra=0.0)
+    assert probe.dimensao(saida) == (1080, 1920)
+    assert probe.tem_audio(saida) is True
+    assert abs(probe.dur(saida) - probe.dur(base)) < 0.10
+
+
+def test_overlay_com_duracao_sai_do_quadro(tmp_path):
+    from motor import arte
+    base = fixtures.clipe_fala(tmp_path / "b3.mov", falas=[(0.2, 3.0)], total=4.0)
+    peca = arte.letreiro("SOME", "brutalista", tmp_path / "p3.png", base=1200)
+    saida = tratamentos.com_overlay(base, peca, tmp_path / "o3.mov",
+                                    entra=0.5, dura=1.0)
+    # mesmo limiar medido de test_overlay_entra_no_instante_pedido, mesma razao.
+    assert abs(_brilho(saida, 1.0) - _brilho(saida, 3.5)) > 3, (
+        "o letreiro nao saiu do quadro")
+
+
+def test_overlay_duracao_nao_round_bate_com_a_base(tmp_path):
+    """Trap H: a segunda entrada (PNG parado, -loop 1 -t d) e limitada por uma
+    duracao `d` calculada a partir da base. Se `d` sair igual ou menor que a
+    base por arredondamento, o -shortest corta a SAIDA inteira pela imagem, nao
+    pela base. Base com duracao nao redonda (2.37s) para forcar o caso."""
+    from motor import arte
+    base = fixtures.clipe_fala(tmp_path / "hnr.mov", falas=[(0.2, 1.5)], total=2.37)
+    peca = arte.letreiro("H", "brutalista", tmp_path / "ph.png")
+    saida = tratamentos.com_overlay(base, peca, tmp_path / "oh.mov",
+                                    entra=0.1, dura=None)
+    d_base, d_saida = probe.dur(base), probe.dur(saida)
+    assert abs(d_saida - d_base) < 0.05, (
+        f"base={d_base:.3f}s saida={d_saida:.3f}s -- o -shortest cortou pela "
+        f"imagem parada, nao pela base")
+
+
+def _ffprobe_audio(caminho):
+    import subprocess
+    r = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "a:0",
+         "-show_entries", "stream=codec_name,sample_rate", "-of", "csv=p=0",
+         str(caminho)], capture_output=True, text=True)
+    codec, taxa = r.stdout.strip().split(",")
+    return codec, int(taxa)
+
+
+def test_overlay_audio_copiado_bit_a_bit(tmp_path):
+    """Trap I: audio dos segmentos fica sem compressao ate a montagem final --
+    com_overlay nao pode reencodar. Codec e taxa de amostragem da saida tem de
+    bater exatamente com os da entrada (pcm_s16le, 48000 Hz)."""
+    from motor import arte
+    base = fixtures.clipe_fala(tmp_path / "bi.mov", falas=[(0.2, 1.0)], total=2.0)
+    peca = arte.letreiro("I", "brutalista", tmp_path / "pi.png")
+    saida = tratamentos.com_overlay(base, peca, tmp_path / "oi.mov", entra=0.0)
+
+    codec_in, taxa_in = _ffprobe_audio(base)
+    codec_out, taxa_out = _ffprobe_audio(saida)
+    assert codec_in == "pcm_s16le" and taxa_in == 48000
+    assert codec_out == codec_in, f"codec mudou: entrada={codec_in} saida={codec_out}"
+    assert taxa_out == taxa_in, f"taxa mudou: entrada={taxa_in} saida={taxa_out}"
+
+
+def test_overlay_duas_vezes_seguidas_sobrevive(tmp_path):
+    """Trap J: uma cena pode levar um letreiro e depois uma legenda. Aplica
+    com_overlay duas vezes no mesmo clipe, com PNGs em linhas diferentes
+    (base=900 e base=1650, que nao se sobrepoem -- ver bbox medido), e confere
+    que as DUAS regioes mudaram em relacao ao clipe original. Se a segunda
+    chamada apagar a primeira, a funcao esta errada para o pipeline que a usa."""
+    from motor import arte
+    base = fixtures.clipe_fala(tmp_path / "bj.mov", falas=[(0.3, 2.0)], total=3.0)
+
+    peca1 = arte.letreiro("UM", "brutalista", tmp_path / "pj1.png", base=900)
+    passo1 = tratamentos.com_overlay(base, peca1, tmp_path / "oj1.mov", entra=0.0)
+
+    peca2 = arte.letreiro("DOIS", "brutalista", tmp_path / "pj2.png", base=1650)
+    passo2 = tratamentos.com_overlay(passo1, peca2, tmp_path / "oj2.mov", entra=0.0)
+
+    # janelas em volta de cada bbox medido (UM: x454-626,y808-901; DOIS:
+    # x412-674,y1556-1651), com folga mas sem se tocar. Uma janela larga
+    # demais dilui o sinal do mesmo jeito descrito no limiar de _brilho acima.
+    regiao_um = "crop=300:150:390:780"
+    regiao_dois = "crop=300:150:390:1530"
+    t = 1.5
+
+    diff_um = abs(_brilho(passo2, t, crop=regiao_um) - _brilho(base, t, crop=regiao_um))
+    diff_dois = abs(_brilho(passo2, t, crop=regiao_dois) - _brilho(base, t, crop=regiao_dois))
+
+    assert diff_um > 3, f"a primeira sobreposicao (UM) sumiu, diff={diff_um}"
+    assert diff_dois > 3, f"a segunda sobreposicao (DOIS) nao apareceu, diff={diff_dois}"
+
+
+def _media_rgb(caminho, t, cx, cy, tam=40):
+    """Media de cor RGB de um quadrado tam x tam centrado em (cx, cy)."""
+    import subprocess
+    meio = tam // 2
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-ss", str(t), "-i", str(caminho),
+         "-frames:v", "1", "-vf",
+         f"crop={tam}:{tam}:{cx - meio}:{cy - meio},scale=1:1",
+         "-pix_fmt", "rgb24", "-f", "rawvideo", "-"], capture_output=True)
+    dado = r.stdout[:3]
+    return tuple(dado) if len(dado) == 3 else (0, 0, 0)
+
+
+def test_overlay_transparente_nao_muda_a_imagem(tmp_path):
+    """Trap K: um PNG 1080x1920 totalmente transparente (alpha 0 em todo
+    pixel) nao pode mudar a imagem nem de leve -- prova que o overlay nao
+    desloca cor nem aplica blend por conta propria. Base em quatro quadrantes
+    de cor bem diferentes, pra pegar qualquer desvio em qualquer regiao."""
+    import subprocess
+    from PIL import Image
+
+    base = tmp_path / "bk.mov"
+    subprocess.run([
+        "ffmpeg", "-y", "-v", "error",
+        "-f", "lavfi", "-t", "2", "-i", "color=c=red:s=540x960",
+        "-f", "lavfi", "-t", "2", "-i", "color=c=green:s=540x960",
+        "-f", "lavfi", "-t", "2", "-i", "color=c=blue:s=540x960",
+        "-f", "lavfi", "-t", "2", "-i", "color=c=yellow:s=540x960",
+        "-filter_complex",
+        "[0][1]hstack=inputs=2[cima];[2][3]hstack=inputs=2[baixo];"
+        "[cima][baixo]vstack=inputs=2,format=yuv420p[v]",
+        "-map", "[v]",
+        "-c:v", "libx264", "-crf", "18", "-preset", "ultrafast",
+        str(base)], capture_output=True, text=True, check=True)
+
+    transparente = tmp_path / "vazio.png"
+    Image.new("RGBA", (1080, 1920), (0, 0, 0, 0)).save(transparente)
+
+    saida = tratamentos.com_overlay(base, transparente, tmp_path / "ok.mov",
+                                    entra=0.0, dura=None)
+
+    pontos = [(270, 480), (810, 480), (270, 1440), (810, 1440), (540, 960)]
+    for cx, cy in pontos:
+        antes = _media_rgb(base, 0.5, cx, cy)
+        depois = _media_rgb(saida, 0.5, cx, cy)
+        for canal_antes, canal_depois in zip(antes, depois):
+            assert abs(canal_antes - canal_depois) < 3, (
+                f"ponto ({cx},{cy}) mudou: antes={antes} depois={depois}")
