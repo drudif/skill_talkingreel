@@ -14,7 +14,7 @@ def _producao(tmp_path, n_cenas=3):
         lista.append({"n": i, "trat": "cheia",
                       "arquivo": f"gravacoes/take-{i:02d}.mov"})
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.0, "cenas": lista}), encoding="utf-8")
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": lista}), encoding="utf-8")
     return p
 
 
@@ -98,7 +98,7 @@ def test_audio_cai_onde_o_mapa_diz(tmp_path):
         lista.append({"n": i, "trat": "cheia",
                       "arquivo": f"gravacoes/take-{i:02d}.mov"})
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.0, "cenas": lista}), encoding="utf-8")
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": lista}), encoding="utf-8")
 
     filme = montar.montar(p, tmp_path / "filme.mp4")
     mapa = json.loads((tmp_path / "cenas-mapa.json").read_text(encoding="utf-8"))
@@ -120,7 +120,7 @@ def test_pausa_interna_longa_e_comprimida(tmp_path):
     fixtures.clipe_fala(tmp_path / "gravacoes" / "take-01.mov",
                         falas=[(0.3, 0.6), (1.9, 0.6)], total=3.0)
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]}),
         encoding="utf-8")
     filme = montar.montar(p, tmp_path / "filme.mp4")
@@ -137,7 +137,7 @@ def test_pausa_comprimida_preserva_a_fala(tmp_path):
     fixtures.clipe_fala(tmp_path / "gravacoes" / "take-01.mov",
                         falas=[(0.3, 0.6), (1.9, 0.6), (3.5, 0.6)], total=4.5)
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]}),
         encoding="utf-8")
     filme = montar.montar(p, tmp_path / "filme.mp4")
@@ -169,7 +169,7 @@ def test_pausa_ausente_nao_altera_a_cena(tmp_path):
     esperado = fim - ini
 
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]}),
         encoding="utf-8")
     filme = montar.montar(p, tmp_path / "filme.mp4")
@@ -189,7 +189,7 @@ def test_split_funciona_com_pausa_comprimida(tmp_path):
                         total=3.0, w=1920, h=1080)
 
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "split", "arquivo": "gravacoes/take-01.mov",
          "topo": {"arquivo": "gravacoes/broll.mp4", "ancora": 0.0}}]}),
         encoding="utf-8")
@@ -212,7 +212,7 @@ def test_split_velocidade_alta_mantem_video_e_audio_juntos(tmp_path):
     fixtures.clipe_mudo(tmp_path / "gravacoes" / "broll.mp4",
                         total=3.0, w=1920, h=1080)
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.3, "cenas": [
+    p.write_text(json.dumps({"velocidade": 1.3, "legenda": False, "cenas": [
         {"n": 1, "trat": "split", "arquivo": "gravacoes/take-01.mov",
          "topo": {"arquivo": "gravacoes/broll.mp4", "ancora": 0.0}}]}),
         encoding="utf-8")
@@ -265,7 +265,7 @@ def test_area_util_do_original_mesmo_com_pouca_fala_na_cena(tmp_path):
     _pillarbox_com_fala(tmp_path / "gravacoes" / "take-01.mov",
                         falas=[(0.5, 0.3)], total=3.0)
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
          "teto": 0.02}]}),
         encoding="utf-8")
@@ -296,7 +296,7 @@ def test_letreiro_aparece_no_filme(tmp_path):
     fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
                         falas=[(0.3, 2.5)], total=3.5)
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov",
          "letreiro": {"texto": "APARECE", "entra": 1.0, "base": 1300}}]}),
         encoding="utf-8")
@@ -335,7 +335,7 @@ def test_letreiro_entra_e_relativo_a_cena(tmp_path):
                         falas=[(0.3, 2.5)], total=3.5)
     entra = 1.0
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t1.mov"},
         {"n": 2, "trat": "cheia", "arquivo": "gravacoes/t2.mov",
          "letreiro": {"texto": "SEGUNDA", "entra": entra, "base": 1300}}]}),
@@ -394,7 +394,7 @@ def test_letreiro_mais_longo_que_a_cena_nao_quebra_montagem(tmp_path):
     fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
                         falas=[(0.3, 2.5)], total=3.5)
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov",
          "letreiro": {"texto": "MAIS LONGO QUE A CENA", "entra": 0.0,
                       "dura": 999.0}}]}),
@@ -418,9 +418,9 @@ def test_letreiro_nao_altera_o_audio(tmp_path):
     (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
     fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
                         falas=[(0.3, 1.5)], total=2.5)
-    dados_base = {"velocidade": 1.0, "cenas": [
+    dados_base = {"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov"}]}
-    dados_com = {"velocidade": 1.0, "cenas": [
+    dados_com = {"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov",
          "letreiro": {"texto": "SOM IGUAL", "entra": 0.5, "dura": 1.0}}]}
     p_sem = tmp_path / "cenas-sem.json"
@@ -457,26 +457,147 @@ def test_letreiro_nao_altera_o_audio(tmp_path):
         f"o envelope de audio mudou com o letreiro presente (diff={dif:.5f})")
 
 
-def test_legenda_desligada_nao_afeta_montagem(tmp_path):
-    """O: 'legenda' e apenas lida e guardada nesta tarefa -- quem a usa e uma
-    tarefa futura. Confirma que 'legenda: false' hoje nao muda NADA na
-    montagem: dois filmes com o mesmo cenas.json, um com legenda ligada
-    (padrao) e outro desligada, tem que sair byte a byte identicos."""
+def test_legenda_desligada_nao_chama_a_transcricao(tmp_path):
+    """Desligar a legenda tem de pular a transcricao INTEIRA, nao so a queima.
+    Transcrever e a etapa mais cara do motor: num video de quatro minutos sao
+    minutos de espera. Se o campo so evitasse a queima, quem desligou a legenda
+    pagaria o preco sem receber nada."""
     (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
     fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
                         falas=[(0.3, 1.0)], total=2.0)
-    dados = {"velocidade": 1.0, "cenas": [
-        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov"}]}
-    p_ligada = tmp_path / "cenas-ligada.json"
-    p_ligada.write_text(json.dumps(dados), encoding="utf-8")
-    p_desligada = tmp_path / "cenas-desligada.json"
-    p_desligada.write_text(json.dumps({**dados, "legenda": False}), encoding="utf-8")
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov"}]}),
+        encoding="utf-8")
 
-    f1 = montar.montar(p_ligada, tmp_path / "ligada.mp4", tmp=tmp_path / "tmp1")
-    f2 = montar.montar(p_desligada, tmp_path / "desligada.mp4", tmp=tmp_path / "tmp2")
+    chamadas = []
 
-    assert probe.dimensao(f1) == probe.dimensao(f2)
-    assert abs(probe.dur(f1) - probe.dur(f2)) < 0.01
-    assert f1.read_bytes() == f2.read_bytes(), (
-        "o filme mudou so por causa de 'legenda' -- o campo deveria ser "
-        "inerte nesta tarefa")
+    def _espia(caminho):
+        chamadas.append(caminho)
+        return [{"p": "nada", "t": 0.2, "f": 0.6}]
+
+    filme = montar.montar(p, tmp_path / "f.mp4", transcrever=_espia)
+    assert chamadas == [], "transcreveu mesmo com a legenda desligada"
+    assert probe.dimensao(filme) == (config.W, config.H)
+
+
+def _fala_falsa(palavras):
+    """Uma transcricao de mentira, com tempos escolhidos por nos. Serve para
+    exercitar toda a fiacao da legenda sem baixar o modelo de 3GB nem depender
+    de fala humana num clipe sintetico."""
+    return lambda _caminho: [dict(w) for w in palavras]
+
+
+def _crop_da_legenda(tmp_path, texto, posicao):
+    from PIL import Image
+    from motor import legenda as mod_leg
+    ref = mod_leg.png(texto, "brutalista", tmp_path / f"_ref-{posicao}.png",
+                      posicao=posicao)
+    x0, y0, x1, y1 = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
+    return f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
+
+
+def _tinta(caminho, t, crop):
+    import subprocess
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-ss", str(t), "-i", str(caminho),
+         "-frames:v", "1", "-vf", f"{crop},scale=48:16",
+         "-pix_fmt", "gray", "-f", "rawvideo", "-"], capture_output=True)
+    return list(r.stdout[:768])
+
+
+def _mudou(caminho, t1, t2, crop):
+    a, b = _tinta(caminho, t1, crop), _tinta(caminho, t2, crop)
+    assert a and b, "nao consegui ler o quadro"
+    return sum(abs(x - y) for x, y in zip(a, b)) / len(a)
+
+
+def test_a_legenda_e_queimada_no_filme(tmp_path):
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
+                        falas=[(0.3, 3.2)], total=4.0)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "proprios": ["Ginsu"],
+                             "cenas": [{"n": 1, "trat": "cheia",
+                                        "arquivo": "gravacoes/t.mov"}]}),
+                 encoding="utf-8")
+    filme = montar.montar(
+        p, tmp_path / "f.mp4",
+        transcrever=_fala_falsa([{"p": "guinco", "t": 1.0, "f": 1.8}]))
+
+    # o nome proprio foi consertado antes de virar legenda
+    crop = _crop_da_legenda(tmp_path, "Ginsu", "cheia")
+    assert _mudou(filme, 1.4, 3.5, crop) > 20, "a legenda nao apareceu"
+
+
+def test_a_legenda_desligada_nao_queima_nada(tmp_path):
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
+                        falas=[(0.3, 3.2)], total=4.0)
+    dados = {"velocidade": 1.0,
+             "cenas": [{"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov"}]}
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({**dados, "legenda": False}), encoding="utf-8")
+    filme = montar.montar(
+        p, tmp_path / "f.mp4",
+        transcrever=_fala_falsa([{"p": "palavra", "t": 1.0, "f": 1.8}]))
+    crop = _crop_da_legenda(tmp_path, "palavra", "cheia")
+    assert _mudou(filme, 1.4, 3.5, crop) < 6, (
+        "queimou legenda mesmo com legenda desligada")
+
+
+def test_a_legenda_muda_de_lugar_conforme_a_cena(tmp_path):
+    """Cena 1 em tela cheia, cena 2 com a tela dividida. A mesma palavra tem
+    de cair centralizada na primeira e no canto escolhido na segunda."""
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "broll").mkdir(parents=True, exist_ok=True)
+    for i in (1, 2):
+        fixtures.clipe_fala(tmp_path / "gravacoes" / f"t{i}.mov",
+                            falas=[(0.3, 2.2)], total=2.8)
+    fixtures.clipe_mudo(tmp_path / "broll" / "b.mp4", total=3.0, w=1920, h=1080)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda_split": "esquerda",
+                             "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t1.mov"},
+        {"n": 2, "trat": "split", "arquivo": "gravacoes/t2.mov",
+         "topo": {"arquivo": "broll/b.mp4"}}]}), encoding="utf-8")
+
+    filme = montar.montar(p, tmp_path / "f.mp4", transcrever=_fala_falsa([
+        {"p": "primeira", "t": 0.8, "f": 1.6},
+        {"p": "segunda", "t": 3.4, "f": 4.2}]))
+
+    mapa = json.loads((tmp_path / "cenas-mapa.json").read_text())
+    assert mapa[1]["trat"] == "split"
+    assert mapa[1]["ini"] < 3.8 < mapa[1]["fim"], "o teste mirou fora da cena 2"
+
+    cheia = _crop_da_legenda(tmp_path, "primeira", "cheia")
+    esquerda = _crop_da_legenda(tmp_path, "segunda", "esquerda")
+    vazio = (mapa[0]["fim"] + mapa[1]["ini"]) / 2 - 0.4   # entre as duas falas
+
+    assert _mudou(filme, 1.2, vazio, cheia) > 20, (
+        "a legenda da cena cheia nao apareceu centralizada")
+    assert _mudou(filme, 3.8, vazio, esquerda) > 20, (
+        "a legenda da cena dividida nao apareceu no canto esquerdo")
+
+
+def test_a_legenda_some_sob_o_letreiro(tmp_path):
+    """O letreiro escreve a frase em corpo grande; legendar por baixo mostra a
+    mesma frase duas vezes."""
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
+                        falas=[(0.3, 3.2)], total=4.0)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov",
+         "letreiro": {"texto": "GRANDE", "entra": 0.0, "dura": 3.0}}]}),
+        encoding="utf-8")
+    filme = montar.montar(
+        p, tmp_path / "f.mp4",
+        transcrever=_fala_falsa([{"p": "escondida", "t": 1.0, "f": 1.8}]))
+
+    mapa = json.loads((tmp_path / "cenas-mapa.json").read_text())
+    assert "letreiro" in mapa[0], "o mapa nao registrou a janela do letreiro"
+
+    crop = _crop_da_legenda(tmp_path, "escondida", "cheia")
+    assert _mudou(filme, 1.4, 3.5, crop) < 6, (
+        "a legenda apareceu por baixo do letreiro")

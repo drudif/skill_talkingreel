@@ -11,7 +11,7 @@ def _filme(tmp_path):
         fixtures.clipe_fala(tmp_path / "gravacoes" / f"take-{i:02d}.mov",
                             falas=[(0.4, 1.2)], total=3.0)
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"},
         {"n": 2, "trat": "cheia", "arquivo": "gravacoes/take-02.mov"}]}),
         encoding="utf-8")

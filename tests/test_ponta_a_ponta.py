@@ -51,7 +51,7 @@ def test_um_filme_com_tela_cheia_e_split(tmp_path):
     fixtures.clipe_mudo(tmp_path / "broll" / "vertical.mp4", total=4.0, w=1080, h=1920)
 
     (tmp_path / "cenas.json").write_text(json.dumps({
-        "velocidade": 1.15,
+        "velocidade": 1.15, "legenda": False,
         "cenas": [
             {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"},
             {"n": 2, "trat": "split", "arquivo": "gravacoes/take-02.mov",
@@ -98,7 +98,7 @@ def test_trilha_sobrevive_a_cadeia_completa(tmp_path):
     _tom_audio(tmp_path / "trilha.wav", freq=880, total=10.0)
 
     (tmp_path / "cenas.json").write_text(json.dumps({
-        "velocidade": 1.15,
+        "velocidade": 1.15, "legenda": False,
         "trilha": "trilha.wav",
         "cenas": [
             {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"},

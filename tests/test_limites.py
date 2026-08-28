@@ -53,7 +53,7 @@ def test_o_laudo_reprova_instalacao_alterada(tmp_path, monkeypatch):
     fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
                         falas=[(0.4, 1.0)], total=2.5)
     p = tmp_path / "cenas.json"
-    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov"}]}),
         encoding="utf-8")
     filme = montar.montar(p, tmp_path / "f.mp4")

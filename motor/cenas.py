@@ -7,6 +7,10 @@ from typing import Optional
 
 from motor import config, estilos
 
+# Onde a legenda pode ficar quando a tela esta dividida em duas. Em tela
+# cheia ela e sempre centralizada, entao "cheia" nao e escolha de ninguem.
+LEGENDA_NO_SPLIT = ("esquerda", "direita", "centro")
+
 TRATAMENTOS = ("cheia", "split")
 
 
@@ -48,6 +52,8 @@ class Producao:
     cenas: list = field(default_factory=list)
     estilo: str = estilos.PADRAO
     legenda: bool = True
+    legenda_split: str = "esquerda"
+    proprios: list = field(default_factory=list)
 
 
 def _caminho(raiz, rel, onde):
@@ -84,6 +90,16 @@ def carregar(caminho):
             f"nao conheco o estilo '{estilo}'. Os que existem sao: "
             + ", ".join(sorted(estilos.ESTILOS)))
     legenda = bool(dados.get("legenda", True))
+    legenda_split = dados.get("legenda_split", "esquerda")
+    if legenda_split not in LEGENDA_NO_SPLIT:
+        raise CenasInvalidas(
+            f"nao sei por a legenda em '{legenda_split}' quando a tela esta "
+            "dividida. Use uma de: " + ", ".join(LEGENDA_NO_SPLIT))
+    proprios = list(dados.get("proprios", []))
+    if any(not isinstance(x, str) or not x.strip() for x in proprios):
+        raise CenasInvalidas(
+            "'proprios' e uma lista de nomes escritos do jeito certo, "
+            "por exemplo [\"Ginsu\", \"Anthropic\"]")
 
     # Trilha sonora (opcional)
     trilha = dados.get("trilha")
@@ -164,4 +180,6 @@ def carregar(caminho):
         trilha=_caminho(raiz, trilha, "trilha") if trilha else None,
         cenas=montadas,
         estilo=estilo,
+        legenda_split=legenda_split,
+        proprios=proprios,
         legenda=legenda)

@@ -188,7 +188,23 @@ def sob_letreiro(ini, fim, mapa):
     return False
 
 
-def faixa(blocos_, estilo, destino, total, mapa=None):
+def posicao_do_bloco(ini, fim, mapa, posicao_split="esquerda"):
+    """Onde este bloco cai na tela.
+
+    Bloco numa cena de tela dividida usa a posicao escolhida na producao —
+    esquerda, direita ou centro, conforme onde a pessoa aparece. Bloco em tela
+    cheia e sempre centralizado. O criterio e o MEIO do bloco: um bloco que
+    atravessa a virada de cena escolhe um lado so, senao a legenda saltaria no
+    meio da propria frase."""
+    meio = (ini + fim) / 2
+    for c in mapa or []:
+        if c["ini"] <= meio < c["fim"]:
+            return posicao_split if c.get("trat") == "split" else "cheia"
+    return "cheia"
+
+
+def faixa(blocos_, estilo, destino, total, mapa=None,
+          posicao_split="esquerda"):
     """Uma faixa RGBA com todos os blocos, para entrar num overlay so.
 
     ARMADILHA: no concat de imagens a ULTIMA entrada duplicada herda a duracao
@@ -207,7 +223,7 @@ def faixa(blocos_, estilo, destino, total, mapa=None):
         if ini > t + 0.02:
             partes.append((vazio, ini - t))
         p = tmp / f"b{k:04d}.png"
-        posicao = b[0].get("pos", "cheia")
+        posicao = posicao_do_bloco(ini, fim, mapa, posicao_split)
         png(" ".join(w["p"] for w in b), estilo, p, posicao=posicao)
         partes.append((p, max(0.08, fim - ini)))
         t = fim
@@ -233,12 +249,14 @@ def faixa(blocos_, estilo, destino, total, mapa=None):
     return destino, omitidos
 
 
-def queimar(filme, blocos_, estilo, destino, mapa=None):
+def queimar(filme, blocos_, estilo, destino, mapa=None,
+            posicao_split="esquerda"):
     """Queima a legenda no filme, com um overlay so."""
     from motor import probe
     total = probe.dur(filme)
     tmp = Path(tempfile.mkdtemp(prefix="queimar-"))
-    trilha_leg, _ = faixa(blocos_, estilo, tmp / "faixa.mov", total, mapa)
+    trilha_leg, _ = faixa(blocos_, estilo, tmp / "faixa.mov", total,
+                          mapa, posicao_split)
     r = subprocess.run(
         ["ffmpeg", "-y", "-v", "error", "-i", str(filme), "-i", str(trilha_leg),
          "-filter_complex",
