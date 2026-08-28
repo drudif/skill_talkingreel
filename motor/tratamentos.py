@@ -112,8 +112,11 @@ def split(cena, destino, ja_cortado=False, area=None):
         f"crop={config.W}:{baixo}:(iw-{config.W})/2:{config.SPLIT_TETO},{_SHARP},"
         f"fps={config.FPS},setsar=1[baixo];"
         # empilha e fixa o tamanho: sem isto sai 1918 e o concat quebra
+        # fps DEPOIS do setpts da velocidade (vf_vel), igual em tela_cheia():
+        # sem isto o encoder arredonda os quadros por conta propria e o
+        # video sai mais longo que o audio.
         f"[cima][baixo]vstack=inputs=2,scale={config.W}:{config.H},"
-        f"setsar=1{vf_vel},format=yuv420p[v]",
+        f"setsar=1{vf_vel},fps={config.FPS},format=yuv420p[v]",
         "-map", "[v]", "-map", "1:a",
         "-af", (f"atempo={cena.velocidade}," if abs(cena.velocidade - 1.0) > 0.001 else "")
                 + f"loudnorm=I={config.LUFS}:TP={config.TETO_DB}",

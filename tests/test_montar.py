@@ -199,6 +199,31 @@ def test_split_funciona_com_pausa_comprimida(tmp_path):
     assert probe.tem_audio(filme) is True
 
 
+def test_split_velocidade_alta_mantem_video_e_audio_juntos(tmp_path):
+    """FIX 6: split() aplicava fps=30 nas janelas de cima e de baixo ANTES do
+    setpts da velocidade (vf_vel), e nao tinha nenhum fps depois -- ao
+    contrario de tela_cheia(), que poe fps={FPS} DEPOIS do setpts. Sem isso o
+    encoder arredonda os quadros por conta propria e o video sai mais longo
+    que o audio. Medido: em 1.3x a diferenca ficava a 3 milissegundos da
+    tolerancia do laudo (0.10s) -- por um defeito sistematico, nao ruido."""
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "take-01.mov",
+                        falas=[(0.4, 1.2)], total=3.0)
+    fixtures.clipe_mudo(tmp_path / "gravacoes" / "broll.mp4",
+                        total=3.0, w=1920, h=1080)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.3, "cenas": [
+        {"n": 1, "trat": "split", "arquivo": "gravacoes/take-01.mov",
+         "topo": {"arquivo": "gravacoes/broll.mp4", "ancora": 0.0}}]}),
+        encoding="utf-8")
+
+    filme = montar.montar(p, tmp_path / "filme.mp4")
+    d_v, d_a = montar.duracoes(filme)
+    assert abs(d_v - d_a) < 0.05, (
+        f"video {d_v:.3f}s vs audio {d_a:.3f}s -- diferenca de "
+        f"{abs(d_v - d_a):.3f}s (video mais longo que o audio)")
+
+
 def _pillarbox_com_fala(destino, falas, total, cor="teal", vw=608, vh=1080, fw=1920, fh=1080, x=200):
     """Simula a gravacao real deste projeto: vertical (608x1080) dentro de um
     quadro deitado (1920x1080), pillarbox do CapCut, com audio de fala
