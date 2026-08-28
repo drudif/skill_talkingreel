@@ -10,6 +10,7 @@ import tempfile
 from dataclasses import replace
 from pathlib import Path
 
+from motor import arte
 from motor import cenas as mod_cenas
 from motor import config, fala, probe, tratamentos, trilha
 
@@ -56,6 +57,15 @@ def montar(caminho_cenas, destino, tmp=None):
         cena_apertada = replace(cena, arquivo=Path(apertado))
         seg = _segmento(cena_apertada, tmp / f"s{cena.n:03d}.mov",
                         ja_cortado=True, area=area)
+        if cena.letreiro:
+            peca = tmp / f"l{cena.n:03d}.png"
+            arte.letreiro(cena.letreiro.texto, prod.estilo, peca,
+                          base=cena.letreiro.base, box=cena.letreiro.box)
+            com_arte = tmp / f"la{cena.n:03d}.mov"
+            tratamentos.com_overlay(seg, peca, com_arte,
+                                    entra=cena.letreiro.entra,
+                                    dura=cena.letreiro.dura)
+            seg = com_arte
         d = probe.dur(seg)
         mapa.append({"n": cena.n, "trat": cena.trat, "pausas": n_pausas,
                      "ini": round(t, 3), "fim": round(t + d, 3)})
