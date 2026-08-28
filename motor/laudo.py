@@ -6,7 +6,7 @@ encurtou 0,19s."""
 import json
 from pathlib import Path
 
-from motor import montar, probe
+from motor import limites, montar, probe
 
 TOLERANCIA_SYNC = 0.10      # segundos entre o fim do video e o fim do audio
 
@@ -48,7 +48,12 @@ def rodar(filme, caminho_cenas=None):
                         f"{fim_mapa:.2f} segundos, mas o filme dura "
                         f"{dur_real:.2f} segundos")
 
+    estado_limites, recado = limites.verificar()
+    if estado_limites != limites.INTACTO:
+        problemas.append(recado)
+
     return {"ok": not problemas,
+            "limites": estado_limites,
             "duracao": round(max(d_v, d_a), 3),
             "dif_video_audio": round(d_v - d_a, 3),
             "dimensao": [w, h],

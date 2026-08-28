@@ -5,10 +5,14 @@ der errado, a mensagem diz o que corrigir e o codigo de saida vem diferente
 de zero -- e assim que um agente sabe que precisa agir de novo."""
 import sys
 
-from motor import cenas, laudo, montar
+from motor import cenas, laudo, limites, montar
 
 
 def main(argv):
+    estado, recado = limites.verificar()
+    if estado != limites.INTACTO:
+        print(recado)
+
     if len(argv) != 3:
         print(__doc__.strip())
         return 2

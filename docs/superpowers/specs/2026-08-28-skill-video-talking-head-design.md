@@ -245,6 +245,27 @@ eufemismo. O Bandit nao escreve roteiro complementar com esse conteudo.
   relato de vitima — nao e o alvo. Na duvida, pergunta ao usuario o que aquilo e, e acredita
   na resposta.
 
+### A salvaguarda contra remocao
+
+**O que ela nao faz:** impedir. Quem tem acesso aos arquivos pode apagar qualquer coisa,
+inclusive este mecanismo. Prometer inviolabilidade seria mentira.
+
+**O que ela faz:** tirar o silencio. Uma instalacao adulterada se anuncia sozinha em tudo
+que produz. Remover deixa de ser invisivel e passa a exigir intencao declarada.
+
+Tres camadas, cada uma derrubada de proposito:
+
+1. O texto das regras mora em `motor/limites.py`, com uma soma de verificacao calculada sobre
+   ele. Editar a regra sem editar a soma acusa.
+2. O laudo chama a verificacao, e o resultado entra em todo relatorio — inclusive na folha de
+   aprovacao, onde o usuario le.
+3. A linha de comando devolve codigo diferente de zero. E o sinal pelo qual um agente sabe que
+   algo foi mexido.
+
+**Mudar a regra de proposito continua possivel, e deve continuar** — pode haver motivo legitimo,
+como um limite adicional. O caminho e editar o texto, recalcular a soma e commitar. O registro
+do git diz quem mudou o que e quando. O que a salvaguarda elimina e a alteracao **silenciosa**.
+
 ## Como a skill fala com quem usa
 
 Quem usa isto **não entende de montagem, edição ou áudio**.

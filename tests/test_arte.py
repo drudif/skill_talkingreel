@@ -90,31 +90,76 @@ def test_palavra_sem_espaco_nao_trava_nem_vaza(tmp_path):
     assert x1 <= config.W
 
 
-# --- Checagem E: a moldura de televendas -- janela vazada transparente,
-# resto opaco na cor de fundo do estilo. ---
+# --- Checagem E (escopo corrigido): sem moldura de cena -- so um box atras
+# do proprio letreiro, para sustentacao sobre imagem clara. ---
 
-def test_moldura_sai_no_formato_do_filme(tmp_path):
-    p, _ = arte.moldura("brutalista", tmp_path / "m.png")
-    im = Image.open(p)
-    assert im.size == (config.W, config.H)
-    assert im.mode == "RGBA"
+def test_box_pinta_ao_redor_do_texto_e_sem_box_fica_transparente(tmp_path):
+    """Um pixel logo fora da mancha de texto, mas dentro da folga do box
+    (28px), tem que estar opaco e na cor de fundo da ficha quando box=True --
+    e transparente na mesma posicao quando box=False."""
+    sem_box = arte.letreiro("TESTE", "neubrutal", tmp_path / "sem.png")
+    com_box = arte.letreiro("TESTE", "neubrutal", tmp_path / "com.png", box=True)
+    ficha = estilos.carregar("neubrutal")
+
+    x0, x1, y0, _ = _tinta(sem_box)
+    px, py = (x0 + x1) // 2, max(0, y0 - 10)
+
+    im_sem = Image.open(sem_box).convert("RGBA")
+    assert im_sem.getpixel((px, py))[3] == 0, \
+        "sem box, o pixel ao redor do texto deveria ser transparente"
+
+    im_com = Image.open(com_box).convert("RGBA")
+    pixel = im_com.getpixel((px, py))
+    assert pixel[3] == 255, f"com box, o pixel deveria ser opaco: {pixel}"
+    assert pixel[:3] == estilos.rgb(ficha["fundo"]), \
+        f"com box, a cor deveria ser o fundo da ficha: {pixel[:3]}"
 
 
-def test_moldura_janela_transparente_resto_opaco_na_cor_do_fundo(tmp_path):
-    """Amostra um pixel no centro da janela (tem que ser 100% transparente)
-    e um pixel no canto superior esquerdo, fora da janela (tem que ser
-    100% opaco e bater com o `fundo` da ficha de estilo)."""
-    ficha = estilos.carregar("brutalista")
-    p, (jx, jy, jw, jh) = arte.moldura("brutalista", tmp_path / "m.png")
+def test_box_acompanha_o_tamanho_do_texto(tmp_path):
+    """Texto de tres linhas produz um box mais alto que um de uma linha,
+    mesmo estilo e mesma base."""
+    def altura_do_box(caminho):
+        im = Image.open(caminho).convert("RGBA")
+        _, y0, _, y1 = im.getchannel("A").getbbox()
+        return y1 - y0
+
+    uma_linha = arte.letreiro("OI", "neubrutal", tmp_path / "uma.png", box=True)
+    tres_linhas = arte.letreiro("AGENTES DE IA SAO COMO FACAS GINSU",
+                                "neubrutal", tmp_path / "tres.png", box=True)
+    assert altura_do_box(tres_linhas) > altura_do_box(uma_linha)
+
+
+def test_box_nao_vaza_a_margem_lateral_do_quadro(tmp_path):
+    p = arte.letreiro("UMA FRASE MUITO LONGA QUE PRECISA CABER NO QUADRO",
+                      "neubrutal", tmp_path / "l.png", box=True)
     im = Image.open(p).convert("RGBA")
+    x0, _, x1, _ = im.getchannel("A").getbbox()
+    assert x0 >= 0
+    assert x1 <= config.W
 
-    dentro = im.getpixel((jx + jw // 2, jy + jh // 2))
-    assert dentro[3] == 0, f"centro da janela nao esta transparente: {dentro}"
 
-    fora = im.getpixel((10, 10))
-    assert fora[3] == 255, f"fora da janela nao esta opaco: {fora}"
-    assert fora[:3] == estilos.rgb(ficha["fundo"]), \
-        f"fora da janela nao bate com o fundo do estilo: {fora[:3]}"
+def test_box_usa_contorno_quando_texto_e_fundo_sao_iguais(tmp_path):
+    """No brutalista, `texto` e `fundo` sao os dois #FFE800 (amarelo): se o
+    box usasse o fundo, o texto sumiria em cima dele. Confere que so o
+    brutalista cai nesse caso entre os sete estilos, e que o box dele de
+    fato usa a cor de `contorno`, nao a de `fundo`."""
+    fichas_com_texto_igual_ao_fundo = sorted(
+        chave for chave, e in estilos.ESTILOS.items() if e["fundo"] == e["texto"])
+    assert fichas_com_texto_igual_ao_fundo == ["brutalista"], \
+        f"esperava so o brutalista, achei: {fichas_com_texto_igual_ao_fundo}"
+
+    ficha = estilos.carregar("brutalista")
+    sem_box = arte.letreiro("TESTE", "brutalista", tmp_path / "sem.png")
+    com_box = arte.letreiro("TESTE", "brutalista", tmp_path / "com.png", box=True)
+
+    x0, x1, y0, _ = _tinta(sem_box)
+    px, py = (x0 + x1) // 2, max(0, y0 - 10)
+    im_com = Image.open(com_box).convert("RGBA")
+    pixel = im_com.getpixel((px, py))
+    assert pixel[3] == 255
+    assert pixel[:3] == estilos.rgb(ficha["contorno"]), \
+        f"o box do brutalista deveria usar o contorno, saiu {pixel[:3]}"
+    assert pixel[:3] != estilos.rgb(ficha["fundo"])
 
 
 # --- Checagem F: as sete fichas tem que produzir tinta visualmente
