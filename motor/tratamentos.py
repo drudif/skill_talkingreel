@@ -11,6 +11,7 @@ REGRAS QUE NAO PODEM SER QUEBRADAS:
      concat quebra.
 """
 import subprocess
+from pathlib import Path
 
 from motor import config, fala, probe
 
@@ -44,8 +45,11 @@ def enquadrar(caminho):
             f"crop={config.W}:{config.H},{_SHARP},setsar=1")
 
 
-def tela_cheia(cena, destino):
-    ini, fim = fala.bordas_com_teto(cena.arquivo, cena.teto)
+def tela_cheia(cena, destino, ja_cortado=False):
+    if ja_cortado:
+        ini, fim = 0.0, probe.dur(cena.arquivo)
+    else:
+        ini, fim = fala.bordas_com_teto(cena.arquivo, cena.teto)
     vf_vel = _velocidade(cena.velocidade)
     muda_vel = abs(cena.velocidade - 1.0) > 0.001
     af = ["-af", (f"atempo={cena.velocidade}," if muda_vel else "")
@@ -74,11 +78,14 @@ def recorte_topo(largura, altura, ancora):
             f"crop={jan_w}:{jan_h}:{x}:{y}")
 
 
-def split(cena, destino):
+def split(cena, destino, ja_cortado=False):
     """Cena 3-em-1: material complementar na janela de cima, o take embaixo.
     O audio e sempre o do take; o material de cima entra mudo."""
-    baixo = config.H - config.DIVISORIA
-    ini, fim = fala.bordas_com_teto(cena.arquivo, cena.teto)
+    alto, baixo = config.DIVISORIA, config.H - config.DIVISORIA
+    if ja_cortado:
+        ini, fim = 0.0, probe.dur(cena.arquivo)
+    else:
+        ini, fim = fala.bordas_com_teto(cena.arquivo, cena.teto)
     d = fim - ini
     tw, th = probe.dimensao(cena.topo.arquivo)
     vf_vel = _velocidade(cena.velocidade)
@@ -105,3 +112,44 @@ def split(cena, destino):
                 + f"loudnorm=I={config.LUFS}:TP={config.TETO_DB}",
     ] + _saida_padrao(destino))
     return destino
+
+
+def aperta(caminho, destino, ini, fim):
+    """Corta as pontas E comprime as pausas internas. Devolve (arquivo, quantas
+    pausas foram comprimidas).
+
+    So cortar as pontas deixa buraco no meio da fala. Pausa acima de PAUSA_MAX
+    vira PAUSA_FICA, e e isso que da o ritmo sem pausa entre falas."""
+    pausas = fala.pausas_internas(caminho, ini, fim)
+    if not pausas:
+        _roda(["ffmpeg", "-y", "-v", "error",
+               "-ss", f"{ini:.3f}", "-to", f"{fim:.3f}", "-i", str(caminho)]
+              + _saida_padrao(destino))
+        return destino, 0
+
+    marcas, t = [], 0.0
+    for a, b in pausas:
+        marcas.append((t, a + config.PAUSA_FICA))
+        t = b
+    marcas.append((t, fim - ini))
+
+    partes = []
+    for k, (a, b) in enumerate(marcas):
+        if b - a < 0.05:
+            continue
+        pedaco = f"{destino}.p{k}.mov"
+        _roda(["ffmpeg", "-y", "-v", "error",
+               "-ss", f"{ini + a:.3f}", "-to", f"{ini + b:.3f}", "-i", str(caminho)]
+              + _saida_padrao(pedaco))
+        partes.append(pedaco)
+
+    args = ["ffmpeg", "-y", "-v", "error"]
+    for p in partes:
+        args += ["-i", p]
+    cadeia = "".join(f"[{i}:v][{i}:a]" for i in range(len(partes)))
+    args += ["-filter_complex", f"{cadeia}concat=n={len(partes)}:v=1:a=1[v][a]",
+             "-map", "[v]", "-map", "[a]"] + _saida_padrao(destino)
+    _roda(args)
+    for p in partes:
+        Path(p).unlink(missing_ok=True)
+    return destino, len(pausas)

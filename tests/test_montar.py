@@ -108,3 +108,88 @@ def test_audio_cai_onde_o_mapa_diz(tmp_path):
     assert len(regioes) == 3
     for (ini, _fim), cena in zip(regioes, mapa):
         assert abs(ini - cena["ini"]) < 0.15
+
+
+def test_pausa_interna_longa_e_comprimida(tmp_path):
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    # duas falas de 0.6s com 1.0s de silencio entre elas
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "take-01.mov",
+                        falas=[(0.3, 0.6), (1.9, 0.6)], total=3.0)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]}),
+        encoding="utf-8")
+    filme = montar.montar(p, tmp_path / "filme.mp4")
+    # sem comprimir daria ~2.5s; com a pausa reduzida a 0.10s cai bem abaixo
+    assert probe.dur(filme) < 2.0
+
+
+def test_pausa_comprimida_preserva_a_fala(tmp_path):
+    """K: a compressao nao pode destruir a fala. Tres falas de 0.6s com duas
+    pausas de 1.0s no meio: depois de comprimir, as tres tem que sobreviver
+    no audio final, e a pausa entre elas tem que cair para perto de
+    PAUSA_FICA (0.10s), bem abaixo do 1.0s original."""
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "take-01.mov",
+                        falas=[(0.3, 0.6), (1.9, 0.6), (3.5, 0.6)], total=4.5)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]}),
+        encoding="utf-8")
+    filme = montar.montar(p, tmp_path / "filme.mp4")
+
+    regioes = _regioes_altas(filme)
+    print("\nregioes de fala depois da compressao:")
+    for ini, fim in regioes:
+        print(f"  {ini:.3f}s-{fim:.3f}s")
+    assert len(regioes) == 3, (
+        f"esperava 3 falas sobreviventes, achei {len(regioes)}: {regioes}")
+
+    gaps = [b_ini - a_fim for (_, a_fim), (b_ini, _) in zip(regioes, regioes[1:])]
+    print("gaps entre as falas (original era 1.0s):", [f"{g:.3f}s" for g in gaps])
+    for g in gaps:
+        assert g < 0.4, (
+            f"gap de {g:.3f}s ainda perto do original de 1.0s -- "
+            f"a pausa nao foi comprimida")
+
+
+def test_pausa_ausente_nao_altera_a_cena(tmp_path):
+    """L: uma fala continua, sem pausa interna, nao pode ser tocada pela
+    compressao. A duracao do filme tem que bater com o span que
+    fala.bordas mede para o arquivo (o mesmo span que a montagem usava
+    antes desta mudanca), e o mapa de cenas tem que reportar 0 pausas."""
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    arq = fixtures.clipe_fala(tmp_path / "gravacoes" / "take-01.mov",
+                              falas=[(0.5, 2.0)], total=3.5)
+    ini, fim = fala.bordas(arq)
+    esperado = fim - ini
+
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]}),
+        encoding="utf-8")
+    filme = montar.montar(p, tmp_path / "filme.mp4")
+
+    assert abs(probe.dur(filme) - esperado) < 0.15
+    mapa = json.loads((tmp_path / "cenas-mapa.json").read_text(encoding="utf-8"))
+    assert mapa[0]["pausas"] == 0
+
+
+def test_split_funciona_com_pausa_comprimida(tmp_path):
+    """M: split agora recebe o arquivo ja cortado por aperta() (ja_cortado=
+    True). Nada testava essa combinacao antes desta mudanca."""
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "take-01.mov",
+                        falas=[(0.3, 0.6), (1.9, 0.6)], total=3.0)
+    fixtures.clipe_mudo(tmp_path / "gravacoes" / "broll.mp4",
+                        total=3.0, w=1920, h=1080)
+
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+        {"n": 1, "trat": "split", "arquivo": "gravacoes/take-01.mov",
+         "topo": {"arquivo": "gravacoes/broll.mp4", "ancora": 0.0}}]}),
+        encoding="utf-8")
+
+    filme = montar.montar(p, tmp_path / "filme.mp4")
+    assert probe.dimensao(filme) == (1080, 1920)
+    assert probe.tem_audio(filme) is True

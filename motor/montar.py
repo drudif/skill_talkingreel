@@ -7,10 +7,15 @@ tamanho — alguma etapa devolve um pixel a menos."""
 import json
 import subprocess
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 
 from motor import cenas as mod_cenas
-from motor import config, probe, tratamentos
+from motor import config, fala, probe, tratamentos
+
+
+def _bordas(cena):
+    return fala.bordas_com_teto(cena.arquivo, cena.teto)
 
 
 def duracoes(caminho):
@@ -24,11 +29,11 @@ def duracoes(caminho):
     return _d("v:0"), _d("a:0")
 
 
-def _segmento(cena, destino):
+def _segmento(cena, destino, ja_cortado=False):
     if cena.trat == "cheia":
-        return tratamentos.tela_cheia(cena, destino)
+        return tratamentos.tela_cheia(cena, destino, ja_cortado)
     if cena.trat == "split":
-        return tratamentos.split(cena, destino)
+        return tratamentos.split(cena, destino, ja_cortado)
     raise ValueError(f"tratamento sem implementacao: {cena.trat}")
 
 
@@ -40,9 +45,13 @@ def montar(caminho_cenas, destino, tmp=None):
 
     segmentos, mapa, t = [], [], 0.0
     for cena in prod.cenas:
-        seg = _segmento(cena, tmp / f"s{cena.n:03d}.mov")
+        ini, fim = _bordas(cena)
+        apertado, n_pausas = tratamentos.aperta(
+            cena.arquivo, tmp / f"a{cena.n:03d}.mov", ini, fim)
+        cena_apertada = replace(cena, arquivo=Path(apertado))
+        seg = _segmento(cena_apertada, tmp / f"s{cena.n:03d}.mov", ja_cortado=True)
         d = probe.dur(seg)
-        mapa.append({"n": cena.n, "trat": cena.trat,
+        mapa.append({"n": cena.n, "trat": cena.trat, "pausas": n_pausas,
                      "ini": round(t, 3), "fim": round(t + d, 3)})
         t += d
         segmentos.append(seg)
