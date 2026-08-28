@@ -1,4 +1,4 @@
-from motor import cenas, config, probe, tratamentos
+from motor import arte, cenas, config, probe, tratamentos
 from tests import fixtures
 
 
@@ -536,3 +536,60 @@ def test_overlay_transparente_nao_muda_a_imagem(tmp_path):
         for canal_antes, canal_depois in zip(antes, depois):
             assert abs(canal_antes - canal_depois) < 3, (
                 f"ponto ({cx},{cy}) mudou: antes={antes} depois={depois}")
+
+
+def _streams(caminho):
+    """(duracao do video, n de quadros, duracao do audio)."""
+    import subprocess
+    def _q(fluxo, campos):
+        return subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", fluxo,
+             "-show_entries", f"stream={campos}", "-of", "csv=p=0",
+             str(caminho)], capture_output=True, text=True).stdout.strip()
+    dv, nf = (_q("v:0", "duration,nb_frames") + ",0").split(",")[:2]
+    da = (_q("a:0", "duration") or "0").split(",")[0]
+    return float(dv), int(nf or 0), float(da or 0)
+
+
+def test_overlay_nao_perde_quadro_em_nenhuma_duracao(tmp_path):
+    """O DEFEITO QUE ISTO GUARDA: com `-shortest`, o overlay devolvia menos
+    quadros de video que a base enquanto o audio ficava inteiro. Medido: 135
+    quadros viravam 133, e a folga variava de 0,057s a 0,157s sem relacao com
+    o tamanho da cena — a cena mais LONGA era a pior. Um filme de dez cenas com
+    letreiro acumulava mais de um segundo de descompasso entre boca e som."""
+    peca = arte.letreiro("TESTE", "brutalista", tmp_path / "p.png", base=1400)
+    for total in (1.3, 2.4, 4.5):
+        base = fixtures.clipe_fala(tmp_path / f"b{total}.mov",
+                                   falas=[(0.15, total - 0.15)], total=total)
+        dv_b, nf_b, da_b = _streams(base)
+        for rot, dura in (("com fim", 0.8), ("ate o fim", None)):
+            saida = tratamentos.com_overlay(
+                base, peca, tmp_path / f"s{total}-{dura}.mov",
+                entra=0.2, dura=dura)
+            dv_s, nf_s, da_s = _streams(saida)
+            assert nf_s == nf_b, (
+                f"{total}s, letreiro {rot}: sobraram {nf_b - nf_s} quadros a "
+                f"menos que a base ({nf_s} contra {nf_b})")
+            assert abs(dv_s - da_s) <= abs(dv_b - da_b) + 0.005, (
+                f"{total}s, letreiro {rot}: o overlay AFASTOU video e audio "
+                f"(base {dv_b - da_b:+.3f}s, saida {dv_s - da_s:+.3f}s)")
+
+
+def test_overlay_sobrevive_a_peca_mais_curta_que_a_base(tmp_path, monkeypatch):
+    """Se por qualquer motivo a imagem acabar antes do video, o filme nao pode
+    encolher junto. Quem garante isso e `eof_action=pass`.
+
+    Para forcar o caso, mentimos a duracao da base: `com_overlay` corta a
+    imagem em `duracao + 0.05`, entao uma duracao menor produz uma imagem que
+    acaba no meio do filme."""
+    from motor import probe as mod_probe
+    base = fixtures.clipe_fala(tmp_path / "b.mov", falas=[(0.2, 3.3)], total=3.5)
+    peca = arte.letreiro("CURTA", "brutalista", tmp_path / "p.png", base=1400)
+    verdadeira = mod_probe.dur(base)
+
+    monkeypatch.setattr("motor.tratamentos.probe.dur", lambda _: 1.0)
+    saida = tratamentos.com_overlay(base, peca, tmp_path / "s.mov")
+    monkeypatch.undo()
+
+    assert abs(mod_probe.dur(saida) - verdadeira) < 0.02, (
+        "a imagem acabou antes e levou o filme junto")
