@@ -6,7 +6,7 @@ encurtou 0,19s."""
 import json
 from pathlib import Path
 
-from motor import limites, montar, probe
+from motor import limites, medidas, montar, probe
 
 TOLERANCIA_SYNC = 0.10      # segundos entre o fim do video e o fim do audio
 
@@ -48,6 +48,20 @@ def rodar(filme, caminho_cenas=None):
                         f"{fim_mapa:.2f} segundos, mas o filme dura "
                         f"{dur_real:.2f} segundos")
 
+    emendas, repeticao = [], []
+    if cenas_mapa:
+        # as emendas sao os inicios de cena, da segunda em diante
+        emendas = medidas.emendas(filme, [c["ini"] for c in cenas_mapa[1:]])
+        for e in emendas:
+            problemas.append(
+                f"na emenda aos {e['instante']:.1f} segundos ainda ha som de "
+                f"fala: o corte pode ter comido um pedaco de palavra")
+
+        raiz = Path(caminho_cenas).parent
+        topos = {c["n"]: raiz / c["topo"] for c in cenas_mapa
+                 if c.get("topo") and (raiz / c["topo"]).exists()}
+        repeticao = medidas.repeticao_do_complementar(cenas_mapa, topos)
+
     estado_limites, recado = limites.verificar()
     if estado_limites != limites.INTACTO:
         problemas.append(recado)
@@ -58,6 +72,9 @@ def rodar(filme, caminho_cenas=None):
             "dif_video_audio": round(d_v - d_a, 3),
             "dimensao": [w, h],
             "cenas": len(cenas_mapa),
+            "emendas": emendas,
+            # repeticao AVISA e nao reprova: repetir pode ser deliberado
+            "repeticao": repeticao,
             "problemas": problemas}
 
 
@@ -74,4 +91,11 @@ def em_portugues(resultado):
     else:
         linhas.append("Encontrei isto:")
         linhas += [f"- {p}" for p in resultado["problemas"]]
+    if resultado.get("repeticao"):
+        linhas.append("Uma observacao, que nao e erro:")
+    for r in resultado.get("repeticao", []):
+        linhas.append(
+            f"- na cena {r['n']}, o video de apoio tem {r['material_s']:.0f} "
+            f"segundos e a cena tem {r['cena_s']:.0f}: ele repete "
+            f"{r['vezes']:.0f} vezes. Nao esta errado, mas cansa de ver.")
     return "\n".join(linhas)

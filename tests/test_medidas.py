@@ -1,6 +1,7 @@
 import subprocess
 
 from motor import medidas
+from motor import fala
 from tests import fixtures
 
 # Piso de ruido de uma sala silenciosa. Sem ele o silencio do clipe e zero
@@ -33,7 +34,7 @@ def test_emenda_no_meio_do_som_reclama(tmp_path):
     achados = medidas.emendas(filme, [2.0])
     assert len(achados) == 1
     assert achados[0]["instante"] == 2.0
-    assert achados[0]["dB"] > achados[0]["silencio_dB"] + 10
+    assert achados[0]["abaixo_da_fala"] < medidas.MARGEM_EMENDA
 
 
 def test_emenda_fora_do_filme_e_ignorada(tmp_path):
@@ -122,46 +123,67 @@ def test_repeticao_no_limite_nao_reclama(tmp_path):
 
 
 def test_o_limiar_fica_entre_a_emenda_limpa_e_a_suja(tmp_path):
-    """O numero que justifica FOLGA_EMENDA.
+    """O numero que justifica MARGEM_EMENDA.
 
-    Medido com piso de ruido de -50 dB: emenda limpa fica 5,4 dB acima do
-    silencio, emenda que corta palavra fica 45,3 dB. Se este teste comecar a
-    falhar, o limiar saiu do meio e a medicao virou enfeite."""
-    def distancia(fa, fb):
-        a = fixtures.clipe_fala(tmp_path / f"a{fa[0][1]}.mov", falas=fa,
+    Medido: emenda limpa fica ~41 dB abaixo do nivel de fala do filme; emenda
+    que corta palavra fica a 0-3 dB dela. Se este teste comecar a falhar, o
+    limiar saiu do meio e a medicao virou enfeite."""
+    def abaixo(fa, fb, rot):
+        a = fixtures.clipe_fala(tmp_path / f"a{rot}.mov", falas=fa,
                                 total=2.0, ruido_dB=RUIDO)
-        b = fixtures.clipe_fala(tmp_path / f"b{fb[0][1]}.mov", falas=fb,
+        b = fixtures.clipe_fala(tmp_path / f"b{rot}.mov", falas=fb,
                                 total=2.0, ruido_dB=RUIDO)
-        f = _cola(tmp_path / f"f{fa[0][1]}.mov", a, b)
-        x = medidas.emendas(f, [2.0], folga=-999)[0]
-        return x["dB"] - x["silencio_dB"]
+        f = _cola(tmp_path / f"f{rot}.mov", a, b)
+        return medidas.emendas(f, [2.0], margem=999)[0]["abaixo_da_fala"]
 
-    limpa = distancia([(0.3, 1.0)], [(0.6, 1.2)])
-    suja = distancia([(0.3, 1.7)], [(0.0, 1.5)])
+    limpa = abaixo([(0.3, 1.0)], [(0.6, 1.2)], "limpa")
+    suja = abaixo([(0.3, 1.7)], [(0.0, 1.5)], "suja")
 
-    assert limpa < medidas.FOLGA_EMENDA, (
-        f"a emenda limpa mede {limpa:.1f} dB e o limiar e "
-        f"{medidas.FOLGA_EMENDA}: vai acusar emenda que esta boa")
-    assert suja > medidas.FOLGA_EMENDA, (
-        f"a emenda suja mede {suja:.1f} dB e o limiar e "
-        f"{medidas.FOLGA_EMENDA}: vai deixar passar corte no meio da palavra")
-    assert suja - limpa > 25, (
-        f"so {suja - limpa:.1f} dB separam emenda boa de emenda ruim; "
+    assert limpa > medidas.MARGEM_EMENDA, (
+        f"a emenda limpa fica {limpa:.1f} dB abaixo da fala e a margem e "
+        f"{medidas.MARGEM_EMENDA}: vai acusar emenda que esta boa")
+    assert suja < medidas.MARGEM_EMENDA, (
+        f"a emenda suja fica {suja:.1f} dB abaixo da fala e a margem e "
+        f"{medidas.MARGEM_EMENDA}: vai deixar passar corte no meio da palavra")
+    assert limpa - suja > 25, (
+        f"so {limpa - suja:.1f} dB separam emenda boa de emenda ruim; "
         "com margem tao pequena o limiar e chute")
 
 
-def test_sem_ruido_o_teste_de_emenda_nao_mede_nada(tmp_path):
+def test_a_referencia_e_a_fala_e_nao_o_silencio(tmp_path):
+    """O DEFEITO QUE ISTO GUARDA. Num talking head bem cortado quase nao sobra
+    silencio. Se a referencia fosse o percentil de baixo do envelope, ela seria
+    FALA — medido, um filme de duas cenas coladas devolvia 'silencio' a -0,8 dB
+    e nenhuma emenda suja era detectada."""
+    a = fixtures.clipe_fala(tmp_path / "a.mov", falas=[(0.02, 1.96)],
+                            total=2.0, ruido_dB=RUIDO)
+    b = fixtures.clipe_fala(tmp_path / "b.mov", falas=[(0.02, 1.96)],
+                            total=2.0, ruido_dB=RUIDO)
+    f = _cola(tmp_path / "f.mov", a, b)
+    achados = medidas.emendas(f, [2.0])
+    assert achados, (
+        "filme quase todo fala: a emenda no meio do som passou despercebida")
+
+
+def test_sem_ruido_o_clipe_mente_sobre_nivel(tmp_path):
     """POR QUE O PISO DE RUIDO EXISTE NOS OUTROS TESTES.
 
-    Com silencio de zero digital, o piso vira -120 dB e a distancia entre fala
-    e silencio vira 120 dB — numero que nao existe em gravacao nenhuma. Ai
-    QUALQUER limiar ate 120 'passa' no teste sem medir coisa alguma."""
-    a = fixtures.clipe_fala(tmp_path / "a.mov", falas=[(0.3, 1.7)], total=2.0)
-    b = fixtures.clipe_fala(tmp_path / "b.mov", falas=[(0.0, 1.5)], total=2.0)
-    f = _cola(tmp_path / "f.mov", a, b)
-    x = medidas.emendas(f, [2.0], folga=-999)[0]
-    assert x["silencio_dB"] < -100, "o clipe sem ruido deveria ter piso irreal"
-    assert x["dB"] - x["silencio_dB"] > 100
+    Com silencio de zero digital o piso vira -120 dB, distancia que nao existe
+    em gravacao nenhuma. Qualquer limiar calibrado ali e ficcao."""
+    a = fixtures.clipe_fala(tmp_path / "a.mov", falas=[(0.3, 1.0)], total=2.0)
+    piso_seco = medidas._dB(medidas._percentil(fala.envelope(a), 0.10))
+    assert piso_seco < -100, (
+        f"o clipe sem ruido deveria ter piso irreal, deu {piso_seco:.1f} dB")
+
+    b = fixtures.clipe_fala(tmp_path / "b.mov", falas=[(0.3, 1.0)],
+                            total=2.0, ruido_dB=RUIDO)
+    piso_real = medidas._dB(medidas._percentil(fala.envelope(b), 0.10))
+    assert -60 < piso_real < -30, (
+        f"o piso com ruido deveria parecer com o de uma sala silenciosa, "
+        f"deu {piso_real:.1f} dB")
+    assert piso_real - piso_seco > 50, (
+        "os dois pisos tem de ser MUITO diferentes; e essa diferenca que "
+        "torna ficcao qualquer limiar calibrado no clipe seco")
 
 
 def test_o_limite_de_baixo_pega_o_erro_que_o_motivou(tmp_path):

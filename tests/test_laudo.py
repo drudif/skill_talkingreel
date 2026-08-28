@@ -127,3 +127,59 @@ def test_laudo_texto_livre_de_jargao_filme_reprovado(tmp_path):
     texto2 = laudo.em_portugues(r2)
     for proibido in JARGAO:
         assert proibido not in texto2, f"'{proibido}' vazou no texto: {texto2!r}"
+
+
+def test_o_laudo_traz_as_medidas_novas(tmp_path):
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
+                        falas=[(0.3, 1.0)], total=2.5, ruido_dB=-50)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov"}]}),
+        encoding="utf-8")
+    filme = montar.montar(p, tmp_path / "f.mp4")
+    r = laudo.rodar(filme, p)
+    for chave in ("emendas", "repeticao"):
+        assert chave in r, f"o laudo nao trouxe '{chave}'"
+    assert r["ok"] is True, r["problemas"]
+
+
+def test_material_em_loop_avisa_mas_nao_reprova(tmp_path):
+    """Repetir pode ser deliberado. E observacao, nao defeito."""
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "broll").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
+                        falas=[(0.3, 5.5)], total=6.0, ruido_dB=-50)
+    fixtures.clipe_mudo(tmp_path / "broll" / "b.mp4", total=0.8, w=1920, h=1080)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
+        {"n": 1, "trat": "split", "arquivo": "gravacoes/t.mov",
+         "topo": {"arquivo": "broll/b.mp4"}}]}), encoding="utf-8")
+    filme = montar.montar(p, tmp_path / "f.mp4")
+    r = laudo.rodar(filme, p)
+    assert r["repeticao"], "nao viu o material repetindo"
+    assert r["ok"] is True, "repeticao nao deveria reprovar o filme"
+    texto = laudo.em_portugues(r)
+    assert "repete" in texto
+    for jargao in ("loop", "b-roll", "buffer", "frame"):
+        assert jargao not in texto.lower(), f"vazou jargao: {jargao}"
+
+
+def test_emenda_que_corta_palavra_reprova(tmp_path):
+    """Duas cenas cuja fala vai ate a ultima fracao de segundo: a costura cai
+    no meio do som, que e exatamente o engasgo que o ouvido pega."""
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "a.mov",
+                        falas=[(0.05, 2.9)], total=3.0, ruido_dB=-50)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "b.mov",
+                        falas=[(0.05, 2.9)], total=3.0, ruido_dB=-50)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/a.mov"},
+        {"n": 2, "trat": "cheia", "arquivo": "gravacoes/b.mov"}]}),
+        encoding="utf-8")
+    filme = montar.montar(p, tmp_path / "f.mp4")
+    r = laudo.rodar(filme, p)
+    assert r["emendas"], "nao viu a emenda no meio do som"
+    assert r["ok"] is False
+    assert any("pedaco de palavra" in x for x in r["problemas"])

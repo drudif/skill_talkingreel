@@ -9,17 +9,14 @@ import math
 from motor import config, fala
 
 JANELA_EMENDA = 0.04       # 40 ms de cada lado do ponto de corte
-FOLGA_EMENDA = 20.0        # dB acima do silencio da propria gravacao.
-                           # MEDIDO, com piso de ruido realista de -50 dB:
-                           # emenda limpa fica 5,4 dB acima do silencio;
-                           # emenda que corta palavra fica 45,3 dB. O limiar
-                           # em 20 deixa 15 dB de margem para o ruido de boca
-                           # e respiracao perto do corte, e ainda sobra 25 dB
-                           # ate o caso que importa. NAO calibrar isto contra
-                           # clipe sintetico sem ruido: la o silencio e zero
-                           # digital, o piso vira -120 dB, e qualquer limiar
-                           # ate 120 "passa" sem medir nada.
-
+MARGEM_EMENDA = 15.0       # dB abaixo do nivel de FALA do proprio filme.
+                           # MEDIDO: emenda limpa fica 41 dB abaixo da fala;
+                           # emenda que corta palavra fica a 0 a 3 dB dela.
+                           # A referencia e a FALA, nao o silencio: num talking
+                           # head bem cortado quase nao sobra silencio, e ai o
+                           # percentil de baixo do envelope JA E fala -- medido,
+                           # um filme de duas cenas coladas deu "silencio" a
+                           # -0,8 dB, e nenhuma emenda suja era detectada.
 
 def _dB(x):
     return 20 * math.log10(x) if x > 1e-9 else -120.0
@@ -32,17 +29,23 @@ def _percentil(valores, p):
     return ordenado[min(len(ordenado) - 1, int(len(ordenado) * p))]
 
 
-def emendas(filme, instantes, janela=JANELA_EMENDA, folga=FOLGA_EMENDA):
-    """Onde o filme foi costurado, o som deveria estar no nivel do silencio.
+def emendas(filme, instantes, janela=JANELA_EMENDA, margem=MARGEM_EMENDA):
+    """Onde o filme foi costurado, ainda ha som de fala?
 
-    Se estiver perto do nivel da fala, a emenda cortou palavra pela metade --
-    a pessoa ouve como um engasgo. Devolve uma lista de achados; lista vazia
-    quer dizer que todas as emendas estao limpas."""
+    Se houver, a emenda cortou palavra pela metade -- a pessoa ouve como um
+    engasgo. Devolve uma lista de achados; lista vazia quer dizer que todas as
+    emendas estao limpas.
+
+    A REFERENCIA E O NIVEL DA FALA DO PROPRIO FILME, nunca um numero absoluto
+    nem o silencio. Absoluto nao serve porque os takes chegam a -36 dB. E o
+    silencio nao serve porque num talking head bem cortado quase nao sobra
+    silencio: medido, um filme de duas cenas coladas devolveu "silencio" a
+    -0,8 dB, que era fala, e nenhuma emenda suja aparecia."""
     env = fala.envelope(filme)
     if not env:
         return []
     dur = len(env) * fala.PASSO
-    silencio = _dB(_percentil(env, 0.10))
+    nivel_fala = _dB(_percentil(env, 0.75))
 
     achados = []
     for t in instantes:
@@ -53,10 +56,11 @@ def emendas(filme, instantes, janela=JANELA_EMENDA, folga=FOLGA_EMENDA):
         if not pedaco:
             continue
         nivel = _dB(max(pedaco))
-        if nivel > silencio + folga:
+        if nivel > nivel_fala - margem:
             achados.append({"instante": round(t, 3),
                             "dB": round(nivel, 1),
-                            "silencio_dB": round(silencio, 1)})
+                            "fala_dB": round(nivel_fala, 1),
+                            "abaixo_da_fala": round(nivel_fala - nivel, 1)})
     return achados
 
 
