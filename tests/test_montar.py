@@ -36,11 +36,15 @@ def test_audio_e_video_terminam_juntos(tmp_path):
 
 
 def test_o_mapa_de_cenas_e_gravado(tmp_path):
-    montar.montar(_producao(tmp_path), tmp_path / "filme.mp4")
+    filme = montar.montar(_producao(tmp_path), tmp_path / "filme.mp4")
     mapa = json.loads((tmp_path / "cenas-mapa.json").read_text(encoding="utf-8"))
     assert len(mapa) == 3
     assert mapa[0]["ini"] == 0.0
-    assert mapa[0]["fim"] == mapa[1]["ini"]      # sem buraco entre as cenas
+    # "ini" e "fim" vem do mesmo total corrente (montar.py soma "d" nos dois
+    # ao mesmo tempo): mapa[0]["fim"] == mapa[1]["ini"] e tautologia, sempre
+    # bate mesmo que "d" esteja errado. O que prova algo de verdade e
+    # comparar contra uma medida INDEPENDENTE -- a duracao real do filme.
+    assert abs(mapa[-1]["fim"] - probe.dur(filme)) < 0.10
 
 
 def test_dessync_nao_acumula_em_muitas_emendas(tmp_path):

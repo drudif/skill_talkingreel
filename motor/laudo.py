@@ -33,10 +33,20 @@ def rodar(filme, caminho_cenas=None):
         mapa = Path(caminho_cenas).parent / "cenas-mapa.json"
         if mapa.exists():
             cenas_mapa = json.loads(mapa.read_text(encoding="utf-8"))
-            for a, b in zip(cenas_mapa, cenas_mapa[1:]):
-                if abs(a["fim"] - b["ini"]) > 0.001:
+            # "ini" e "fim" no mapa vem do mesmo total corrente (montar.py
+            # soma "d" nos dois ao mesmo tempo) -- comparar um com o outro e
+            # tautologia, sempre bate, mesmo que "d" esteja errado. O que
+            # prova algo de verdade e comparar o mapa contra uma medida
+            # INDEPENDENTE: a duracao real do filme ja montado.
+            if cenas_mapa:
+                fim_mapa = cenas_mapa[-1]["fim"]
+                dur_real = max(d_v, d_a)
+                if abs(fim_mapa - dur_real) > TOLERANCIA_SYNC:
                     problemas.append(
-                        f"ha um buraco entre a cena {a['n']} e a cena {b['n']}")
+                        f"o mapa de cenas (cena {cenas_mapa[0]['n']} a cena "
+                        f"{cenas_mapa[-1]['n']}) diz que o filme termina em "
+                        f"{fim_mapa:.2f} segundos, mas o filme dura "
+                        f"{dur_real:.2f} segundos")
 
     return {"ok": not problemas,
             "duracao": round(max(d_v, d_a), 3),
