@@ -74,6 +74,10 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
         d = probe.dur(seg)
         registro = {"n": cena.n, "trat": cena.trat, "pausas": n_pausas,
                     "ini": round(t, 3), "fim": round(t + d, 3)}
+        if cena.topo:
+            # o laudo precisa saber que material entrou na metade de cima
+            # para medir quantas vezes ele repete dentro da cena.
+            registro["topo"] = str(cena.topo.arquivo)
         if cena.letreiro:
             # em tempo de FILME, para a legenda saber onde sumir. `entra` e
             # `dura` sao contados na cena ja pronta -- depois do corte de

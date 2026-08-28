@@ -601,3 +601,31 @@ def test_a_legenda_some_sob_o_letreiro(tmp_path):
     crop = _crop_da_legenda(tmp_path, "escondida", "cheia")
     assert _mudou(filme, 1.4, 3.5, crop) < 6, (
         "a legenda apareceu por baixo do letreiro")
+
+
+def test_o_mapa_registra_o_material_do_topo(tmp_path):
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "broll").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
+                        falas=[(0.3, 2.2)], total=2.8)
+    fixtures.clipe_mudo(tmp_path / "broll" / "b.mp4", total=3.0, w=1920, h=1080)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
+        {"n": 1, "trat": "split", "arquivo": "gravacoes/t.mov",
+         "topo": {"arquivo": "broll/b.mp4"}}]}), encoding="utf-8")
+    montar.montar(p, tmp_path / "f.mp4")
+    mapa = json.loads((tmp_path / "cenas-mapa.json").read_text())
+    assert mapa[0]["topo"].endswith("broll/b.mp4")
+
+
+def test_cena_cheia_nao_registra_topo(tmp_path):
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
+                        falas=[(0.3, 2.2)], total=2.8)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov"}]}),
+        encoding="utf-8")
+    montar.montar(p, tmp_path / "f.mp4")
+    mapa = json.loads((tmp_path / "cenas-mapa.json").read_text())
+    assert "topo" not in mapa[0]
