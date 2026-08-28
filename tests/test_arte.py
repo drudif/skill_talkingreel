@@ -77,7 +77,7 @@ def test_acento_e_desenhado_certo(tmp_path):
 
 
 # --- Checagem D: uma palavra sem espaco, mais larga que o quadro mesmo no
-# corpo minimo, nao pode travar (NameError) nem vazar a moldura. ---
+# corpo minimo, nao pode travar (NameError) nem vazar o quadro. ---
 
 def test_palavra_sem_espaco_nao_trava_nem_vaza(tmp_path):
     """120 'M' seguidos, sem espaco: em uma linha unica no corpo minimo isso
