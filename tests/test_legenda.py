@@ -1,3 +1,7 @@
+import os
+
+import pytest
+
 from motor import legenda
 
 
@@ -203,3 +207,29 @@ def test_frase_normal_continua_em_uma_linha(tmp_path):
     p = legenda.png("uma frase", "brutalista", tmp_path / "curta.png")
     _, y0, _, y1 = _bbox(p)
     assert (y1 - y0) < config.LEG_CORPO * config.LEG_ENTRELINHA * 1.5
+
+
+LENTO = pytest.mark.skipif(
+    os.environ.get("TESTE_LENTO") != "1",
+    reason="baixa e roda o modelo de transcricao; ligue com TESTE_LENTO=1")
+
+
+def test_transcrever_devolve_o_formato_que_os_blocos_esperam():
+    """Sem rodar o modelo: prova o contrato de dados que o resto consome."""
+    palavras = [{"p": "ola", "t": 0.0, "f": 0.4}]
+    assert legenda.blocos(palavras)[0][0]["p"] == "ola"
+
+
+@LENTO
+def test_transcrever_acha_as_palavras(tmp_path):
+    import subprocess
+    fala = tmp_path / "fala.wav"
+    # voz sintetica do proprio macOS: fala de verdade, sem depender de gravacao
+    subprocess.run(["say", "-v", "Luciana", "-o", str(fala),
+                    "--data-format=LEF32@22050", "as facas ginsu cortam tudo"],
+                   check=True)
+    palavras = legenda.transcrever(fala, modelo="medium")
+    texto = " ".join(w["p"] for w in palavras).lower()
+    assert "facas" in texto
+    assert all(w["f"] >= w["t"] for w in palavras)
+    assert palavras == sorted(palavras, key=lambda w: w["t"])

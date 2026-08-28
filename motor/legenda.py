@@ -171,3 +171,24 @@ def png(texto, estilo, destino, posicao="cheia"):
                linha, font=f, fill=cor)
     im.save(destino)
     return destino
+
+
+MODELO = "large-v3"
+
+
+def transcrever(caminho, modelo=MODELO):
+    """Transcreve com timestamp por palavra. Devolve
+    [{"p": palavra, "t": inicio, "f": fim}, ...].
+
+    O modelo baixa no primeiro uso. Isto e lento e nao entra na suite normal."""
+    import mlx_whisper
+    r = mlx_whisper.transcribe(
+        str(caminho),
+        path_or_hf_repo=f"mlx-community/whisper-{modelo}-mlx",
+        language="pt", word_timestamps=True, verbose=False)
+    palavras = []
+    for seg in r["segments"]:
+        for w in seg.get("words", []):
+            palavras.append({"p": w["word"].strip(),
+                             "t": float(w["start"]), "f": float(w["end"])})
+    return palavras
