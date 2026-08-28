@@ -37,3 +37,6 @@ LEG_BASE = 1375                 # base em tela cheia. A 1500 caia sob a
 LEG_SPLIT_X = 60                # margem, na posicao alinhada a esquerda
 LEG_SPLIT_TOPO = 827            # 20px abaixo da divisoria em 807
 LEG_TOPO_LETREIRO = 1300        # letreiro com tinta abaixo disto tapa a legenda
+
+SEGURO_TOPO = 180        # acima disto o aplicativo desenha a propria interface
+SEGURO_BASE = 1560       # abaixo disto idem. A legenda a 1500 caia sob ela

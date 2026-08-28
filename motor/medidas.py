@@ -49,3 +49,23 @@ def emendas(filme, instantes, janela=JANELA_EMENDA, folga=FOLGA_EMENDA):
                             "dB": round(nivel, 1),
                             "silencio_dB": round(silencio, 1)})
     return achados
+
+
+def dentro_da_faixa_segura(peca):
+    """A tinta desta peca (legenda ou letreiro) cai onde o aplicativo desenha
+    a propria interface?
+
+    Instagram e TikTok escrevem nome de perfil, legenda do post e botoes por
+    cima do video. Texto que cai ali fica ilegivel. A base da legenda foi de
+    1500 para 1375 exatamente por causa disto."""
+    from PIL import Image
+    caixa = Image.open(peca).convert("RGBA").getchannel("A").getbbox()
+    if caixa is None:
+        return []
+    _, y0, _, y1 = caixa
+    achados = []
+    if y0 < config.SEGURO_TOPO:
+        achados.append({"onde": "em cima", "y": y0, "limite": config.SEGURO_TOPO})
+    if y1 > config.SEGURO_BASE:
+        achados.append({"onde": "embaixo", "y": y1, "limite": config.SEGURO_BASE})
+    return achados
