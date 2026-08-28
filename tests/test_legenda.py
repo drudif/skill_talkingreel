@@ -97,3 +97,21 @@ def test_correcao_nao_move_palavra_no_tempo():
     originais = [(w["t"], w["f"]) for w in palavras]
     legenda.corrigir(palavras, ["Ginsu"])
     assert [(w["t"], w["f"]) for w in palavras] == originais
+
+
+def test_nome_proprio_de_quatro_letras_ainda_e_corrigido():
+    """A guarda protege a fala sem cegar a correcao. Subir MIN_LETRAS para 5
+    faria este teste falhar: 'Nike' tem quatro letras."""
+    palavras = [_p("comprei", 0.0, 0.4), _p("naique", 0.4, 0.9)]
+    trocas = legenda.corrigir(palavras, ["Nike"])
+    assert palavras[1]["p"] == "Nike"
+    assert len(trocas) == 1
+
+
+def test_alvo_curto_nunca_ganha():
+    """A origem de toda troca errada: um alvo de duas ou tres letras bate alto
+    contra qualquer palavra curta da fala."""
+    palavras = [_p("quem", 0.0, 0.3), _p("deles", 0.3, 0.7)]
+    trocas = legenda.corrigir(palavras, ["que", "te", "Nao", "ele"])
+    assert trocas == []
+    assert [w["p"] for w in palavras] == ["quem", "deles"]

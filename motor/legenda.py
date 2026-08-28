@@ -15,7 +15,15 @@ import unicodedata
 MAX_PALAVRAS = 4
 RESPIRO = 0.35            # silencio que separa dois blocos
 LIMIAR_PROPRIO = 0.50     # sobre a forma sem acento
-MIN_LETRAS = 5            # palavra menor que isto nunca e corrigida
+MIN_LETRAS = 4            # vale para os DOIS lados: palavra menor que isto
+                          # nunca e corrigida, e nome proprio menor que isto
+                          # nunca serve de alvo. Medido: toda troca errada do
+                          # projeto de origem veio de um ALVO curto — "te",
+                          # "que", "Nao". Filtrando o alvo, nenhuma palavra da
+                          # fala passa de 0.29 de semelhanca; sem filtrar, tres
+                          # passavam de 0.80. Subir este numero para 5 tambem
+                          # resolveria, mas cegaria a correcao para nome proprio
+                          # de quatro letras (Nike, Ford, Java).
 FIM_DE_FRASE = re.compile(r"[.!?…]$")
 
 
@@ -50,6 +58,8 @@ def corrigir(palavras, proprios, pedidas=None):
 
         melhor, semelhanca = None, 0.0
         for pr in proprios:
+            if len(normal(pr)) < MIN_LETRAS:
+                continue          # alvo curto e a origem de toda troca errada
             s = difflib.SequenceMatcher(None, sem_acento(n), sem_acento(pr)).ratio()
             if s > semelhanca:
                 melhor, semelhanca = pr, s
