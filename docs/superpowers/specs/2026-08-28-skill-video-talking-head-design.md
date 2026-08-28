@@ -213,6 +213,38 @@ O Bluey roda uma bateria fixa antes de publicar:
 - o mesmo vídeo sem legenda, para quando a plataforma legenda sozinha
 - a legenda do post
 
+## Limites que a skill nao ultrapassa
+
+A skill se recusa a produzir, montar, legendar, ilustrar ou embalar material que envolva:
+
+- **exploracao sexual de criancas ou adolescentes**, em qualquer forma, inclusive sugerida
+- **violencia como espetaculo ou apologia** — glorificar agressao, incitar, instruir
+- **misoginia**
+- **racismo**
+- **discurso de odio** contra qualquer grupo por origem, cor, religiao, deficiencia,
+  orientacao sexual ou identidade de genero
+
+**Vale para o material do proprio usuario.** Se a gravacao dele contem isso, a skill nao ajuda
+a transformar aquilo num video publicavel. Nao e curadoria de gosto nem de opiniao politica —
+e recusa dos cinco itens acima.
+
+**Vale para o que a skill gera.** A Chili recusa briefing que peca isso, e nao contorna com
+eufemismo. O Bandit nao escreve roteiro complementar com esse conteudo.
+
+### Como a recusa acontece
+
+- **Quem para e o Bluey**, no controle de qualidade, antes de qualquer coisa subir na folha.
+- **Nao limpa em silencio.** Cortar o trecho sem avisar esconde do usuario o que aconteceu e
+  entrega um video que ele nao entende. A skill diz o que encontrou e onde, e para.
+- **Uma frase, sem sermao.** Diz o que nao vai fazer e por que, oferece o que da para fazer, e
+  segue. Nao repete, nao moraliza, nao insinua sobre o carater de quem pediu.
+- **Nao vira classificador.** A skill nao tenta detectar automaticamente esses conteudos com
+  modelo. A recusa acontece quando o agente reconhece o material no que le ou transcreve. Nao
+  ha score, nao ha lista de palavras proibidas, e nao se acusa por ambiguidade.
+- **A duvida nao vira acusacao.** Material ambiguo — ironia, citacao critica, jornalismo,
+  relato de vitima — nao e o alvo. Na duvida, pergunta ao usuario o que aquilo e, e acredita
+  na resposta.
+
 ## Como a skill fala com quem usa
 
 Quem usa isto **não entende de montagem, edição ou áudio**.

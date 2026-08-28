@@ -17,16 +17,19 @@ Pillow + fonte da casa (legenda e letreiro sao texto vetorial) · artefato HTML 
 - **Quatro agentes**: Bluey (principal e QA), Bandit (roteiro), Chili (arte e som), Bingo (montagem).
 - **Os agentes nao escrevem comando de video.** Eles preenchem uma lista de cenas; um script fixo
   executa. Toda a calibragem mora no script, nao no prompt.
-- **A skill nao reescreve fala.** A selecao e subtrativa: escolhe trechos e apaga outros.
 - **O material do usuario entra como esta.** Gerar imagem ou video por IA so acontece se ele pedir.
 - **Tres fases de aprovacao**: estrutura, arte e trilha, corte. Uma folha por fase, e o que foi
   aprovado ou descartado SAI da folha.
-- **A folha mostra o fato medido, nao a opiniao do agente.** "A legenda aparece 0,2s depois da
-  palavra", nao "ficou bom".
 - **Linguagem**: quem usa nao entende de montagem, edicao ou audio. Sem termo tecnico; se for
   inevitavel, explicar em uma frase. Sem metafora. Sem verborragia. Fechar com checklist enxuto
   e esperar resposta.
 - A trilha e aprovada ANTES da montagem; o efeito sonoro entra DURANTE.
+- **Recusa dura**: a skill nao produz, monta, legenda nem embala material com exploracao
+  sexual de menores, apologia de violencia, misoginia, racismo ou discurso de odio. Vale
+  para a gravacao do proprio usuario e para o que a skill gera. Quem para e o Bluey, antes
+  da folha. **Nao limpa em silencio** — diz o que achou e onde, em uma frase, sem sermao.
+  Nao vira classificador automatico: sem score, sem lista de palavras. Material ambiguo
+  (ironia, citacao critica, relato de vitima) nao e alvo — na duvida, pergunta.
 
 ## Armadilhas
 - **O que faz o video funcionar e calibragem, nao conhecimento.** Cada constante do desenho custou
@@ -35,16 +38,10 @@ Pillow + fonte da casa (legenda e letreiro sao texto vetorial) · artefato HTML 
   seguinte.
 - A transcricao diz QUAL e a palavra; a energia do audio diz ONDE cortar. Oclusiva (p t k b d g)
   tem silencio DENTRO da palavra — cortar no primeiro silencio depois de "tudo" decepa o "do".
-- Audio sem compressao nos segmentos, comprimido so no final, taxa de amostragem igual em tudo, e
-  juntar por filtro (nao por lista). As quatro coisas juntas resolvem o dessync; nenhuma sozinha.
-- **A folha encarece pelo codigo da pagina, nao pelo peso do arquivo.** No projeto de origem eram
-  50 KB reescritos a cada rodada.
 - MiniMax H3 com referencia de video NAO edita, regenera. Seedance 2.5 em `video_edit` edita.
 - O `alimiter` tem `level=true` por padrao, e essa opcao soma +1.5 dB DEPOIS de limitar,
   desfazendo o trabalho. Sem `level=disabled` o pico final sai em 0 dB. So aparece com
   material perto do teto — tom baixo passa nas duas versoes.
-- Teste de video precisa de material com valor esperado CONHECIDO. `tests/fixtures.py`
-  gera clipes com bipe em posicao exata; gravacao real vira chute e vaza video pessoal.
 
 Desenho completo: `docs/superpowers/specs/2026-08-28-skill-video-talking-head-design.md`
 Historico de decisoes: `docs/DIARIO.md`

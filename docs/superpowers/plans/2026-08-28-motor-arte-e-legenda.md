@@ -8,9 +8,13 @@
 
 **Tech Stack:** Python 3.9 · ffmpeg 8.1.1 · Pillow · mlx-whisper · pytest.
 
-**Escopo deste plano:** as sete fichas de estilo, letreiro com contorno, moldura de GC, legenda transcrita com correção de nome próprio, as quatro posições de legenda, e a omissão da legenda sob letreiro grande.
+**Escopo deste plano:** as sete fichas de estilo, letreiro com contorno e box opcional, legenda transcrita com correção de nome próprio, as quatro posições de legenda, e a omissão da legenda sob letreiro grande.
 
 **Fora deste plano:** folha de aprovação, os quatro agentes, integração com serviços de IA.
+
+**Grafismo esta fora, por decisao do dono.** A Chili nao faz enfeite: faz letreiro, e no
+maximo um box ou moldura que de sustentacao ao proprio letreiro. Nao ha moldura de cena,
+nao ha grafismo decorativo.
 
 ---
 
@@ -37,7 +41,7 @@
 | arquivo | responsabilidade |
 |---|---|
 | `motor/estilos.py` | as sete fichas: cor, fonte, contorno, posição de legenda e de letreiro |
-| `motor/arte.py` | desenhar letreiro e moldura em PNG |
+| `motor/arte.py` | desenhar letreiro em PNG, com box opcional atras |
 | `motor/legenda.py` | transcrever, corrigir nome próprio, quebrar em blocos, desenhar, compor a faixa |
 | `motor/tratamentos.py` | ganha `com_overlay` |
 | `motor/cenas.py` | contrato cresce: `estilo`, `letreiro`, `legenda` |
