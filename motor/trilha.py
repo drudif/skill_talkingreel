@@ -3,7 +3,12 @@
 A ORDEM IMPORTA: comprimir a MUSICA tendo a VOZ como chave, e so depois
 misturar. Inverter as entradas do sidechaincompress comprime a voz usando a
 musica como chave — o contrario do que se quer, e o erro passa despercebido
-porque o arquivo sai sem erro."""
+porque o arquivo sai sem erro.
+
+SEGUNDA ARMADILHA: o `alimiter` tem `level=true` por padrao, e essa opcao
+normaliza o audio de volta para 0 dB DEPOIS de limitar — desfazendo o
+trabalho. Sem `level=disabled` o pico final sai em 0 dB em vez do teto.
+Medido: -0.0 dB com a opcao padrao, -1.5 dB com ela desligada."""
 import subprocess
 
 from motor import config, probe
@@ -21,7 +26,7 @@ def aplicar(filme, musica, destino, volume=None):
         # a voz e a chave; quem abaixa e a musica
         f"[m][0:a]sidechaincompress=threshold=0.06:ratio=6:attack=20:release=350[duck];"
         f"[0:a][duck]amix=inputs=2:duration=first:normalize=0,"
-        f"alimiter=limit={10 ** (config.TETO_DB / 20):.4f}[a]",
+        f"alimiter=limit={10 ** (config.TETO_DB / 20):.4f}:level=disabled[a]",
         "-map", "0:v", "-map", "[a]",
         "-c:v", "copy", "-c:a", "pcm_s16le", "-ar", str(config.SR), "-ac", "2",
         "-t", f"{total:.3f}", str(destino)],
