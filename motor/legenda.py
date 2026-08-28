@@ -10,7 +10,10 @@ QUEBRA DE BLOCO: so teto de palavras e respiro emenda frases. Tem de quebrar
 tambem em fim de frase."""
 import difflib
 import re
+import subprocess
+import tempfile
 import unicodedata
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -170,6 +173,83 @@ def png(texto, estilo, destino, posicao="cheia"):
         d.text((alinhado, y0 + config.LEG_PAD_Y + i * alt_linha),
                linha, font=f, fill=cor)
     im.save(destino)
+    return destino
+
+
+def sob_letreiro(ini, fim, mapa):
+    """O bloco cai onde um letreiro grande ja ocupa a faixa da legenda?
+
+    Nessas cenas o letreiro escreve a mesma frase em corpo grande; legendar por
+    baixo duplica o texto e briga com a arte."""
+    for c in mapa or []:
+        janela = c.get("letreiro")
+        if janela and ini < janela[1] and fim > janela[0]:
+            return True
+    return False
+
+
+def faixa(blocos_, estilo, destino, total, mapa=None):
+    """Uma faixa RGBA com todos os blocos, para entrar num overlay so.
+
+    ARMADILHA: no concat de imagens a ULTIMA entrada duplicada herda a duracao
+    da anterior. Sem `-t` na duracao total a faixa infla — no projeto de origem
+    passou de 48s para 90s e o video saiu curto."""
+    tmp = Path(tempfile.mkdtemp(prefix="legenda-"))
+    vazio = tmp / "vazio.png"
+    Image.new("RGBA", (config.W, config.H), (0, 0, 0, 0)).save(vazio)
+
+    partes, t, omitidos = [], 0.0, 0
+    for k, b in enumerate(blocos_):
+        ini, fim = b[0]["t"], b[-1]["f"]
+        if sob_letreiro(ini, fim, mapa):
+            omitidos += 1
+            continue
+        if ini > t + 0.02:
+            partes.append((vazio, ini - t))
+        p = tmp / f"b{k:04d}.png"
+        posicao = b[0].get("pos", "cheia")
+        png(" ".join(w["p"] for w in b), estilo, p, posicao=posicao)
+        partes.append((p, max(0.08, fim - ini)))
+        t = fim
+    if total > t:
+        partes.append((vazio, total - t))
+    if not partes:
+        partes.append((vazio, total))
+
+    lista = tmp / "faixa.txt"
+    with open(lista, "w", encoding="utf-8") as fh:
+        for p, d in partes:
+            fh.write(f"file '{Path(p).resolve()}'\nduration {d:.3f}\n")
+        fh.write(f"file '{Path(partes[-1][0]).resolve()}'\n")
+
+    r = subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0",
+         "-i", str(lista), "-vf", f"fps={config.FPS},format=rgba",
+         "-t", f"{total:.3f}", "-c:v", "qtrle", str(destino)],
+        capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError("nao consegui montar a faixa de legenda: "
+                           + r.stderr.strip()[:400])
+    return destino, omitidos
+
+
+def queimar(filme, blocos_, estilo, destino, mapa=None):
+    """Queima a legenda no filme, com um overlay so."""
+    from motor import probe
+    total = probe.dur(filme)
+    tmp = Path(tempfile.mkdtemp(prefix="queimar-"))
+    trilha_leg, _ = faixa(blocos_, estilo, tmp / "faixa.mov", total, mapa)
+    r = subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-i", str(filme), "-i", str(trilha_leg),
+         "-filter_complex",
+         "[0:v][1:v]overlay=0:0:format=auto,format=yuv420p[v]",
+         "-map", "[v]", "-map", "0:a?", "-t", f"{total:.3f}",
+         "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+         "-c:a", "copy", str(destino)],
+        capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError("nao consegui queimar a legenda: "
+                           + r.stderr.strip()[:400])
     return destino
 
 

@@ -233,3 +233,88 @@ def test_transcrever_acha_as_palavras(tmp_path):
     assert "facas" in texto
     assert all(w["f"] >= w["t"] for w in palavras)
     assert palavras == sorted(palavras, key=lambda w: w["t"])
+
+
+def test_sob_letreiro_reconhece_a_janela():
+    mapa = [{"n": 1, "ini": 0.0, "fim": 3.0, "letreiro": [0.0, 3.0]},
+            {"n": 2, "ini": 3.0, "fim": 6.0}]
+    assert legenda.sob_letreiro(0.5, 1.5, mapa) is True
+    assert legenda.sob_letreiro(4.0, 5.0, mapa) is False
+
+
+def test_sob_letreiro_pega_sobreposicao_parcial():
+    mapa = [{"n": 1, "ini": 0.0, "fim": 3.0, "letreiro": [1.0, 2.0]}]
+    assert legenda.sob_letreiro(1.8, 2.5, mapa) is True
+
+
+def _crop_da_legenda(tmp_path, texto, posicao="cheia"):
+    """O recorte exato onde a legenda tem tinta. Chutar coordenada dilui o
+    sinal — medido antes, um recorte quatro vezes maior que a tinta baixou a
+    diferenca de 72 para 15."""
+    from PIL import Image
+    ref = legenda.png(texto, "brutalista", tmp_path / "_ref.png", posicao=posicao)
+    x0, y0, x1, y1 = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
+    return f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
+
+
+def _regiao(caminho, t, crop):
+    import subprocess
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-ss", str(t), "-i", str(caminho),
+         "-frames:v", "1", "-vf", f"{crop},scale=48:16",
+         "-pix_fmt", "gray", "-f", "rawvideo", "-"], capture_output=True)
+    return list(r.stdout[:768])
+
+
+def _quanto_mudou(caminho, t1, t2, crop):
+    a, b = _regiao(caminho, t1, crop), _regiao(caminho, t2, crop)
+    assert a and b, "nao consegui ler o quadro"
+    return sum(abs(x - y) for x, y in zip(a, b)) / len(a)
+
+
+def test_a_faixa_tem_a_duracao_do_filme(tmp_path):
+    from motor import probe
+    from tests import fixtures
+    filme = fixtures.clipe_fala(tmp_path / "f.mov", falas=[(0.3, 2.0)], total=4.0)
+    palavras = [{"p": "uma", "t": 0.5, "f": 0.8},
+                {"p": "frase", "t": 0.8, "f": 1.2}]
+    faixa, omitidos = legenda.faixa(legenda.blocos(palavras), "brutalista",
+                                    tmp_path / "faixa.mov", total=probe.dur(filme),
+                                    mapa=[])
+    assert abs(probe.dur(faixa) - 4.0) < 0.15, (
+        "a faixa inflou — a ultima entrada duplicada herdou a duracao anterior")
+    assert omitidos == 0
+
+
+def test_queimar_nao_muda_duracao_nem_audio(tmp_path):
+    from motor import probe
+    from tests import fixtures
+    filme = fixtures.clipe_fala(tmp_path / "g.mov", falas=[(0.3, 2.0)], total=4.0)
+    palavras = [{"p": "teste", "t": 0.5, "f": 1.0}]
+    saida = legenda.queimar(filme, legenda.blocos(palavras), "brutalista",
+                            tmp_path / "leg.mp4", mapa=[])
+    assert abs(probe.dur(saida) - probe.dur(filme)) < 0.15
+    assert probe.tem_audio(saida) is True
+    assert probe.dimensao(saida) == (1080, 1920)
+
+
+def test_a_legenda_aparece_no_quadro(tmp_path):
+    from tests import fixtures
+    filme = fixtures.clipe_fala(tmp_path / "h.mov", falas=[(0.3, 2.0)], total=4.0)
+    palavras = [{"p": "teste", "t": 1.0, "f": 1.8}]
+    saida = legenda.queimar(filme, legenda.blocos(palavras), "brutalista",
+                            tmp_path / "leg2.mp4", mapa=[])
+    crop = _crop_da_legenda(tmp_path, "teste")
+    assert _quanto_mudou(saida, 1.4, 3.5, crop) > 20, "a legenda nao apareceu"
+
+
+def test_bloco_sob_letreiro_e_omitido(tmp_path):
+    from tests import fixtures
+    filme = fixtures.clipe_fala(tmp_path / "i.mov", falas=[(0.3, 3.0)], total=4.0)
+    palavras = [{"p": "escondido", "t": 1.0, "f": 1.8}]
+    mapa = [{"n": 1, "ini": 0.0, "fim": 4.0, "letreiro": [0.0, 4.0]}]
+    saida = legenda.queimar(filme, legenda.blocos(palavras), "brutalista",
+                            tmp_path / "leg3.mp4", mapa=mapa)
+    crop = _crop_da_legenda(tmp_path, "escondido")
+    assert _quanto_mudou(saida, 1.4, 3.5, crop) < 6, (
+        "a legenda apareceu mesmo sob o letreiro")
