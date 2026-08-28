@@ -1,0 +1,53 @@
+# Segredos — nunca commitar
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# Dependências
+node_modules/
+.pnpm-store/
+bower_components/
+vendor/
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.Python
+*.egg-info/
+
+# Build
+dist/
+build/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+.parcel-cache/
+*.tsbuildinfo
+
+# Cache e logs
+.cache/
+.eslintcache
+*.log
+npm-debug.log*
+yarn-error.log*
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/settings.json
+
+# Claude Code
+.claude/settings.local.json
