@@ -1,4 +1,4 @@
-from motor import cenas, probe, tratamentos
+from motor import cenas, config, probe, tratamentos
 from tests import fixtures
 
 
@@ -115,3 +115,121 @@ def test_corte_cai_onde_fala_bordas_diz(tmp_path):
     assert inicio_tom < 0.3, (
         f"o tom comecou em {inicio_tom:.3f}s da saida, esperado perto do "
         f"inicio (o -ss pode ter escorregado para depois do -i)")
+
+
+def _cena_split(tmp_path, topo_w, topo_h, ancora=0.0):
+    take = fixtures.clipe_fala(tmp_path / f"t{topo_w}x{topo_h}.mov",
+                               falas=[(0.4, 1.2)], total=3.0)
+    broll = fixtures.clipe_mudo(tmp_path / f"b{topo_w}x{topo_h}.mp4",
+                                total=3.0, w=topo_w, h=topo_h)
+    return cenas.Cena(n=3, trat="split", arquivo=take, velocidade=1.0,
+                      topo=cenas.Topo(arquivo=broll, ancora=ancora))
+
+
+def test_split_sai_no_formato_do_filme(tmp_path):
+    c = _cena_split(tmp_path, 1920, 1080)
+    saida = tratamentos.split(c, tmp_path / "sp1.mov")
+    assert probe.dimensao(saida) == (1080, 1920)
+
+
+def test_split_mantem_o_audio_do_take(tmp_path):
+    c = _cena_split(tmp_path, 1920, 1080)
+    saida = tratamentos.split(c, tmp_path / "sp2.mov")
+    assert probe.tem_audio(saida) is True
+
+
+def test_material_deitado_nao_precisa_de_ancora():
+    # 1920x1080 na janela 1080x807: a altura sobra inteira, o corte e na largura
+    assert tratamentos.recorte_topo(1920, 1080, ancora=0.0) == \
+           tratamentos.recorte_topo(1920, 1080, ancora=1.0)
+
+
+def test_ancora_muda_o_corte_de_material_vertical():
+    do_topo = tratamentos.recorte_topo(1080, 1920, ancora=0.0)
+    do_meio = tratamentos.recorte_topo(1080, 1920, ancora=0.5)
+    da_base = tratamentos.recorte_topo(1080, 1920, ancora=1.0)
+    assert do_topo != do_meio != da_base
+
+
+def test_ancora_zero_pega_o_topo_da_imagem():
+    filtro = tratamentos.recorte_topo(1080, 1920, ancora=0.0)
+    assert filtro.endswith(":0:0")
+
+
+def test_ancora_um_pega_a_base_da_imagem():
+    # 1080x1920 escalado para largura 1080 continua 1920 de altura;
+    # a janela pede 807, entao o corte comeca em 1920-807 = 1113
+    filtro = tratamentos.recorte_topo(1080, 1920, ancora=1.0)
+    assert filtro.endswith(":0:1113")
+
+
+def _pixel(caminho, x, y):
+    """Le 1 pixel da SAIDA (o video ja montado) em (x, y), via crop + rawvideo.
+    Prova que o filtro chegou de fato no quadro final, nao so na string do
+    filtro. O crop pede 2x2 (nao 1x1): a saida e yuv420p, e o filtro de crop
+    arredonda dimensao impar para baixo em formato com chroma subsampled --
+    1x1 vira 0x0 e a leitura falha em silencio. So o primeiro pixel do 2x2
+    interessa."""
+    import subprocess
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(caminho), "-vf", f"crop=2:2:{x}:{y}",
+         "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        capture_output=True)
+    dado = r.stdout[:3]
+    return tuple(dado) if len(dado) == 3 else (0, 0, 0)
+
+
+def test_ancora_muda_o_pixel_de_verdade(tmp_path):
+    """As comparacoes de string acima nao provam que o filtro chega inteiro
+    no comando do ffmpeg. Aqui o material do topo e metade vermelha, metade
+    azul (1080x1920, dividido ao meio); a ancora 0.0 tem de pegar o vermelho
+    (topo da imagem), a ancora 1.0 tem de pegar o azul (base da imagem).
+    Amostra o pixel em x=540, y=400 -- bem dentro da janela de cima, acima
+    da divisoria em y=807."""
+    import subprocess
+
+    vert = tmp_path / "vert_vermelho_azul.mp4"
+    r = subprocess.run([
+        "ffmpeg", "-y", "-v", "error",
+        "-f", "lavfi", "-t", "3", "-i", "color=c=red:s=1080x960:r=30",
+        "-f", "lavfi", "-t", "3", "-i", "color=c=blue:s=1080x960:r=30",
+        "-filter_complex", "[0][1]vstack=inputs=2",
+        "-c:v", "libx264", "-crf", "28", "-preset", "ultrafast",
+        "-pix_fmt", "yuv420p", str(vert)],
+        capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+
+    take = fixtures.clipe_fala(tmp_path / "take_pixel.mov", falas=[(0.4, 1.2)], total=3.0)
+
+    c_topo = cenas.Cena(n=3, trat="split", arquivo=take, velocidade=1.0,
+                        topo=cenas.Topo(arquivo=vert, ancora=0.0))
+    c_base = cenas.Cena(n=3, trat="split", arquivo=take, velocidade=1.0,
+                        topo=cenas.Topo(arquivo=vert, ancora=1.0))
+
+    saida_topo = tratamentos.split(c_topo, tmp_path / "sp_ancora_topo.mov")
+    saida_base = tratamentos.split(c_base, tmp_path / "sp_ancora_base.mov")
+
+    rt, gt, bt = _pixel(saida_topo, 540, 400)
+    rb, gb, bb = _pixel(saida_base, 540, 400)
+
+    assert rt > 150 and bt < 100, (
+        f"ancora 0.0 devia sair avermelhada (topo da imagem), veio rgb=({rt},{gt},{bt})")
+    assert bb > 150 and rb < 100, (
+        f"ancora 1.0 devia sair azulada (base da imagem), veio rgb=({rb},{gb},{bb})")
+
+
+def test_split_janela_de_baixo_sem_barra_preta(tmp_path):
+    """A janela de baixo (o take) tem de preencher 1080 de largura por corte,
+    nunca por padding -- senao sobra barra preta nas laterais. Amostra um
+    pixel perto da borda esquerda (x=5) e outro perto da direita (x=1075),
+    na metade da altura da janela de baixo (y = 807 + (1920-807)/2 = 1363),
+    e confere que nenhum e preto puro."""
+    c = _cena_split(tmp_path, 1920, 1080)
+    saida = tratamentos.split(c, tmp_path / "sp3.mov")
+    assert probe.dimensao(saida) == (1080, 1920)
+
+    y_meio_baixo = config.DIVISORIA + (config.H - config.DIVISORIA) // 2
+    esquerda = _pixel(saida, 5, y_meio_baixo)
+    direita = _pixel(saida, 1075, y_meio_baixo)
+    assert esquerda != (0, 0, 0), f"pixel esquerdo da janela de baixo saiu preto: {esquerda}"
+    assert direita != (0, 0, 0), f"pixel direito da janela de baixo saiu preto: {direita}"
