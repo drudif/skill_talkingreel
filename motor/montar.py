@@ -29,11 +29,11 @@ def duracoes(caminho):
     return _d("v:0"), _d("a:0")
 
 
-def _segmento(cena, destino, ja_cortado=False):
+def _segmento(cena, destino, ja_cortado=False, area=None):
     if cena.trat == "cheia":
-        return tratamentos.tela_cheia(cena, destino, ja_cortado)
+        return tratamentos.tela_cheia(cena, destino, ja_cortado, area)
     if cena.trat == "split":
-        return tratamentos.split(cena, destino, ja_cortado)
+        return tratamentos.split(cena, destino, ja_cortado, area)
     raise ValueError(f"tratamento sem implementacao: {cena.trat}")
 
 
@@ -45,11 +45,17 @@ def montar(caminho_cenas, destino, tmp=None):
 
     segmentos, mapa, t = [], [], 0.0
     for cena in prod.cenas:
+        # a area util (crop de pillarbox) e uma propriedade de ENQUADRAMENTO,
+        # nao de tempo: tem de vir do arquivo ORIGINAL. aperta() corta pelo
+        # span da fala e pode devolver um arquivo com menos de 1s -- rodar a
+        # deteccao nele deixa a funcao cega (ver motor/probe.py:area_util).
+        area = probe.area_util(cena.arquivo) or ""
         ini, fim = _bordas(cena)
         apertado, n_pausas = tratamentos.aperta(
             cena.arquivo, tmp / f"a{cena.n:03d}.mov", ini, fim)
         cena_apertada = replace(cena, arquivo=Path(apertado))
-        seg = _segmento(cena_apertada, tmp / f"s{cena.n:03d}.mov", ja_cortado=True)
+        seg = _segmento(cena_apertada, tmp / f"s{cena.n:03d}.mov",
+                        ja_cortado=True, area=area)
         d = probe.dur(seg)
         mapa.append({"n": cena.n, "trat": cena.trat, "pausas": n_pausas,
                      "ini": round(t, 3), "fim": round(t + d, 3)})

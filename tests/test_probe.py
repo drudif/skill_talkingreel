@@ -47,3 +47,33 @@ def test_area_util_encontra_o_crop_de_gravacao_pillarbox(tmp_path):
     cw, ch = numeros[0], numeros[1]
     assert abs(cw - 608) <= 10
     assert abs(ch - 1080) <= 10
+
+
+def test_area_util_funciona_em_arquivo_com_menos_de_1s(tmp_path):
+    """FIX 2a: o ponto de amostra do cropdetect era fixo em -ss 1. Num arquivo
+    com menos de 1s (cena com pouca fala, depois de aperta() cortar as
+    pontas) o -ss pulava direto para o fim, cropdetect nao lia nada e a
+    funcao devolvia None -- lido por quem chama como 'ja esta vertical, nao
+    mexe'. Mesma gravacao pillarbox do teste acima, so que cortada para
+    0.9s."""
+    vertical = fixtures.clipe_mudo(tmp_path / "vertical_curto.mp4", total=0.9,
+                                   w=608, h=1080, cor="teal")
+    pillarbox = tmp_path / "pillarbox_curto.mp4"
+    r = subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-i", str(vertical),
+         "-vf", "scale=608:1080,pad=1920:1080:(ow-iw)/2:0:black",
+         "-c:v", "libx264", "-crf", "28", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+         "-an", str(pillarbox)],
+        capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    assert abs(probe.dur(pillarbox) - 0.9) < 0.2
+
+    crop = probe.area_util(pillarbox)
+    assert crop is not None, (
+        "esperava um crop mesmo com o arquivo tendo menos de 1s, veio None "
+        "(o -ss fixo em 1s pulou o arquivo inteiro)")
+
+    numeros = [int(x) for x in crop.replace("crop=", "").rstrip(",").split(":")]
+    cw, ch = numeros[0], numeros[1]
+    assert abs(cw - 608) <= 10
+    assert abs(ch - 1080) <= 10

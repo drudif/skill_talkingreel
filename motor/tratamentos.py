@@ -37,15 +37,19 @@ def _velocidade(vel):
     return f",setpts=PTS/{vel}"
 
 
-def enquadrar(caminho):
-    """Preenche 1080x1920 cortando o excesso, nunca deformando."""
-    pb = probe.area_util(caminho) or ""
+def enquadrar(caminho, area=None):
+    """Preenche 1080x1920 cortando o excesso, nunca deformando.
+
+    `area` e o filtro de crop da area util ja detectado (string, possivelmente
+    vazia) por quem chama. Se vier None, detecta sozinho a partir de `caminho`
+    -- e o que preserva o uso direto desta funcao e das chamadas de teste."""
+    pb = area if area is not None else (probe.area_util(caminho) or "")
     return (f"{pb}scale={config.W}:{config.H}"
             f":force_original_aspect_ratio=increase:flags=lanczos,"
             f"crop={config.W}:{config.H},{_SHARP},setsar=1")
 
 
-def tela_cheia(cena, destino, ja_cortado=False):
+def tela_cheia(cena, destino, ja_cortado=False, area=None):
     if ja_cortado:
         ini, fim = 0.0, probe.dur(cena.arquivo)
     else:
@@ -56,7 +60,7 @@ def tela_cheia(cena, destino, ja_cortado=False):
           + f"loudnorm=I={config.LUFS}:TP={config.TETO_DB}"]
     _roda(["ffmpeg", "-y", "-v", "error",
            "-ss", f"{ini:.3f}", "-to", f"{fim:.3f}", "-i", str(cena.arquivo),
-           "-vf", f"{enquadrar(cena.arquivo)}{vf_vel},fps={config.FPS},format=yuv420p",
+           "-vf", f"{enquadrar(cena.arquivo, area)}{vf_vel},fps={config.FPS},format=yuv420p",
            *af] + _saida_padrao(destino))
     return destino
 
@@ -78,9 +82,12 @@ def recorte_topo(largura, altura, ancora):
             f"crop={jan_w}:{jan_h}:{x}:{y}")
 
 
-def split(cena, destino, ja_cortado=False):
+def split(cena, destino, ja_cortado=False, area=None):
     """Cena 3-em-1: material complementar na janela de cima, o take embaixo.
-    O audio e sempre o do take; o material de cima entra mudo."""
+    O audio e sempre o do take; o material de cima entra mudo.
+
+    `area` funciona como em enquadrar(): filtro de crop ja detectado por quem
+    chama, ou None para detectar sozinho a partir de `cena.arquivo`."""
     alto, baixo = config.DIVISORIA, config.H - config.DIVISORIA
     if ja_cortado:
         ini, fim = 0.0, probe.dur(cena.arquivo)
@@ -89,7 +96,7 @@ def split(cena, destino, ja_cortado=False):
     d = fim - ini
     tw, th = probe.dimensao(cena.topo.arquivo)
     vf_vel = _velocidade(cena.velocidade)
-    pb = probe.area_util(cena.arquivo) or ""
+    pb = area if area is not None else (probe.area_util(cena.arquivo) or "")
 
     _roda([
         "ffmpeg", "-y", "-v", "error",

@@ -29,9 +29,18 @@ def tem_audio(caminho):
 def area_util(caminho):
     """Gravacao exportada de app de edicao chega deitada com o vertical no meio e
     barra preta nos lados. Devolve o filtro de crop da area util, ou None se o
-    arquivo ja for vertical."""
+    arquivo ja for vertical.
+
+    O ponto de amostra do cropdetect nao pode ser fixo em 1s: um arquivo com
+    menos de 1s (cena com pouca fala, por exemplo) faz o -ss pular direto
+    para o fim, o cropdetect nao le nenhum quadro e a funcao devolve None --
+    que quem chama le como "ja esta vertical, nao mexe"."""
+    duracao = dur(caminho)
+    if duracao <= 0:
+        return None
+    ss = min(1.0, duracao / 3)
     r = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-ss", "1", "-i", str(caminho),
+        ["ffmpeg", "-hide_banner", "-ss", f"{ss:.3f}", "-i", str(caminho),
          "-vf", "cropdetect=24:2:0", "-frames:v", "12", "-f", "null", "-"],
         capture_output=True, text=True)
     achados = re.findall(r"crop=(\d+):(\d+):(\d+):(\d+)", r.stderr)

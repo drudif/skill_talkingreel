@@ -193,3 +193,68 @@ def test_split_funciona_com_pausa_comprimida(tmp_path):
     filme = montar.montar(p, tmp_path / "filme.mp4")
     assert probe.dimensao(filme) == (1080, 1920)
     assert probe.tem_audio(filme) is True
+
+
+def _pillarbox_com_fala(destino, falas, total, cor="teal", vw=608, vh=1080, fw=1920, fh=1080, x=200):
+    """Simula a gravacao real deste projeto: vertical (608x1080) dentro de um
+    quadro deitado (1920x1080), pillarbox do CapCut, com audio de fala
+    sintetica. Cor nao-preta (teal) para distinguir 'janela do rosto
+    preenchida' de 'janela do rosto preta'. O conteudo NAO fica centralizado
+    (x=200, nao (1920-608)/2=656) de proposito: se o crop cair no fallback
+    'sem deteccao', que assume o conteudo centralizado, o resultado sai
+    errado -- e a deteccao de verdade tem de achar o deslocamento certo."""
+    import subprocess
+    volume = "+".join(f"between(t,{ini},{ini + dur})" for ini, dur in falas) or "0"
+    args = [
+        "ffmpeg", "-y", "-v", "error",
+        "-f", "lavfi", "-t", f"{total}", "-i", f"color=c={cor}:s={vw}x{vh}:r={config.FPS}",
+        "-f", "lavfi", "-t", f"{total}", "-i", f"sine=frequency=220:sample_rate={config.SR}",
+        "-filter_complex",
+        f"[0:v]pad={fw}:{fh}:{x}:0:black[v];[1:a]volume='{volume}':eval=frame[a]",
+        "-map", "[v]", "-map", "[a]",
+        "-c:v", "libx264", "-crf", "18", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+        "-c:a", "pcm_s16le", "-ar", str(config.SR), "-ac", "2",
+        str(destino)]
+    r = subprocess.run(args, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    return destino
+
+
+def test_area_util_do_original_mesmo_com_pouca_fala_na_cena(tmp_path):
+    """FIX 2 (as duas metades juntas): a gravacao chega pillarbox (vertical
+    dentro de quadro deitado, barra preta nos lados, NAO centralizado). O
+    fluxo antigo cortava as pontas com aperta() ANTES de detectar a area
+    util, e a deteccao rodava sobre esse arquivo JA CORTADO. `teto` forca a
+    cena a ficar com bem menos de 1s depois do corte (0.02s aqui) -- o caso
+    em que o arquivo cortado nao tem quadro nenhum sobrando depois do -ss
+    fixo em 1s do probe.area_util antigo, que devolvia None, lido por quem
+    chama como 'ja esta vertical, nao corta nada'. Sem cortar a barra preta,
+    a janela do rosto sai cortada do centro do quadro DEITADO inteiro (que
+    aqui e maioria barra preta, ja que o conteudo real esta deslocado para a
+    esquerda) -- ela sai preta."""
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    _pillarbox_com_fala(tmp_path / "gravacoes" / "take-01.mov",
+                        falas=[(0.5, 0.3)], total=3.0)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "teto": 0.02}]}),
+        encoding="utf-8")
+
+    filme = montar.montar(p, tmp_path / "filme.mp4")
+
+    import subprocess
+    def _pixel(x, y):
+        r = subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", str(filme), "-vf", f"crop=2:2:{x}:{y}",
+             "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+            capture_output=True)
+        dado = r.stdout[:3]
+        return tuple(dado) if len(dado) == 3 else (0, 0, 0)
+
+    pontos = [(200, 700), (540, 960), (860, 1250)]
+    for x, y in pontos:
+        px = _pixel(x, y)
+        assert px != (0, 0, 0), (
+            f"pixel ({x},{y}) da janela do rosto saiu preto: {px} -- a area "
+            f"util nao foi detectada no arquivo original")
