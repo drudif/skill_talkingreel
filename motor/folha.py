@@ -145,3 +145,21 @@ def ler(caminho_ou_texto):
             "pessoa decidiu.")
     bruto = texto[texto.index(INI) + len(INI):texto.index(FIM)]
     return json.loads(bruto)
+
+
+def publicar(itens, fase, destino, caminho_registro):
+    """A folha com SO o que falta decidir."""
+    from motor import registro
+    return escrever(registro.pendentes(itens, caminho_registro), fase, destino)
+
+
+def recolher(estado, caminho_registro):
+    """Guarda no registro o que a pessoa decidiu nesta folha.
+
+    Quem nao foi decidido nao entra: continua pendente e volta na proxima."""
+    from motor import registro
+    novas = {i["id"]: {"decisao": i["decisao"], "nota": i.get("nota", "")}
+             for i in estado.get("itens", [])
+             if i.get("decisao") in ("aprovado", "descartado")}
+    return registro.anotar(caminho_registro, novas) if novas else \
+        registro.carregar(caminho_registro)

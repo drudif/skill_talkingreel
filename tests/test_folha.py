@@ -91,3 +91,48 @@ def test_a_pagina_e_pequena(tmp_path):
     p = folha.escrever(_itens(5), "estrutura", tmp_path / "f.html")
     assert len(p.read_bytes()) < 12_000, (
         f"a folha de 5 itens saiu com {len(p.read_bytes())} bytes")
+
+
+def test_a_folha_seguinte_carrega_so_o_pendente(tmp_path):
+    from motor import registro
+    itens = [{"id": f"i{k}", "titulo": f"Item {k}", "fato": "."}
+             for k in range(5)]
+    reg = tmp_path / "registro.json"
+
+    p1 = folha.publicar(itens, "estrutura", tmp_path / "f1.html", reg)
+    assert len(folha.ler(p1)["itens"]) == 5
+
+    # a pessoa decide tres e a pagina se republica
+    estado = folha.ler(p1)
+    for k, d in ((0, "aprovado"), (1, "descartado"), (2, "aprovado")):
+        estado["itens"][k]["decisao"] = d
+    folha.recolher(estado, reg)
+
+    p2 = folha.publicar(itens, "estrutura", tmp_path / "f2.html", reg)
+    assert [i["id"] for i in folha.ler(p2)["itens"]] == ["i3", "i4"]
+
+
+def test_recolher_guarda_a_nota_junto(tmp_path):
+    from motor import registro
+    reg = tmp_path / "r.json"
+    folha.recolher({"fase": "arte", "itens": [
+        {"id": "a", "decisao": "descartado", "nota": "muito rapido"}]}, reg)
+    assert registro.carregar(reg)["a"]["nota"] == "muito rapido"
+
+
+def test_recolher_ignora_quem_nao_decidiu(tmp_path):
+    from motor import registro
+    reg = tmp_path / "r.json"
+    folha.recolher({"fase": "arte", "itens": [
+        {"id": "a", "decisao": None, "nota": ""}]}, reg)
+    assert registro.carregar(reg) == {}
+
+
+def test_tudo_decidido_da_uma_folha_vazia(tmp_path):
+    reg = tmp_path / "r.json"
+    itens = [{"id": "a", "titulo": "A", "fato": "."}]
+    folha.recolher({"fase": "corte", "itens": [
+        {"id": "a", "decisao": "aprovado", "nota": ""}]}, reg)
+    p = folha.publicar(itens, "corte", tmp_path / "f.html", reg)
+    assert folha.ler(p)["itens"] == []
+    assert "nada" in p.read_text(encoding="utf-8").lower()
