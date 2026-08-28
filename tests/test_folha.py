@@ -136,3 +136,43 @@ def test_tudo_decidido_da_uma_folha_vazia(tmp_path):
     p = folha.publicar(itens, "corte", tmp_path / "f.html", reg)
     assert folha.ler(p)["itens"] == []
     assert "nada" in p.read_text(encoding="utf-8").lower()
+
+
+def test_nota_com_fecha_script_nao_quebra_a_pagina_republicada(tmp_path):
+    """A pessoa escreve `</script>` numa observacao. Sem escapar, o navegador
+    fecha a tag do bloco de dados ali e a pagina republicada nasce quebrada:
+    o estado some e ela perde tudo que decidiu.
+
+    O Python ja escapa quando GERA a folha; este teste cobre o outro lado, o
+    JavaScript que a pagina roda quando se republica."""
+    import json
+    import re
+    import subprocess
+
+    p = folha.escrever([{"id": "a", "titulo": "A", "fato": "."}],
+                       "estrutura", tmp_path / "f.html")
+    html = p.read_text(encoding="utf-8")
+    js = re.findall(r"<script>([\s\S]*?)</script>", html)[-1]
+
+    programa = f"""
+const E = {{"fase":"estrutura","itens":[
+  {{"id":"a","titulo":"A","decisao":"aprovado","nota":"olha o </script> aqui"}}]}};
+const saida = {json.dumps(html)}.replace(
+  new RegExp('(/\\\\*E-'+'INI\\\\*/)[\\\\s\\\\S]*?(/\\\\*E-'+'FIM\\\\*/)'),
+  (m,i,f)=>i+JSON.stringify(E).replace(/</g,'\\\\u003c')+f);
+process.stdout.write(saida);
+"""
+    r = subprocess.run(["node", "-e", programa], capture_output=True, text=True)
+    if r.returncode != 0:
+        import pytest
+        pytest.skip(f"node nao rodou aqui: {r.stderr[:120]}")
+
+    novo = tmp_path / "g.html"
+    novo.write_text(r.stdout, encoding="utf-8")
+    bloco = r.stdout[r.stdout.index(folha.INI):r.stdout.index(folha.FIM)]
+    assert "</script>" not in bloco, (
+        "o `</script>` foi para dentro do bloco de dados e fecha a tag cedo")
+    assert folha.ler(novo)["itens"][0]["nota"] == "olha o </script> aqui", (
+        "o texto nao sobreviveu a ida e volta")
+    assert js.count("JSON.stringify(E).replace") == 1, (
+        "o JavaScript da pagina voltou a serializar sem escapar")

@@ -9,7 +9,16 @@ import math
 from motor import config, fala
 
 JANELA_EMENDA = 0.04       # 40 ms de cada lado do ponto de corte
-FOLGA_EMENDA = 10.0        # dB acima do silencio da propria gravacao
+FOLGA_EMENDA = 20.0        # dB acima do silencio da propria gravacao.
+                           # MEDIDO, com piso de ruido realista de -50 dB:
+                           # emenda limpa fica 5,4 dB acima do silencio;
+                           # emenda que corta palavra fica 45,3 dB. O limiar
+                           # em 20 deixa 15 dB de margem para o ruido de boca
+                           # e respiracao perto do corte, e ainda sobra 25 dB
+                           # ate o caso que importa. NAO calibrar isto contra
+                           # clipe sintetico sem ruido: la o silencio e zero
+                           # digital, o piso vira -120 dB, e qualquer limiar
+                           # ate 120 "passa" sem medir nada.
 
 
 def _dB(x):

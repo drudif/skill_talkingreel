@@ -58,7 +58,7 @@ String(el.dataset.d===it.decisao));else el.value=it.nota||''})})}
 pinta();
 function p(){const a=document.documentElement.outerHTML.replace(
 new RegExp('(/\\\\*E-'+'INI\\\\*/)[\\\\s\\\\S]*?(/\\\\*E-'+'FIM\\\\*/)'),
-(m,i,f)=>i+JSON.stringify(E)+f);
+(m,i,f)=>i+JSON.stringify(E).replace(/</g,'\\u003c')+f);
 claude.use('artifact').then(a2=>a2&&a2.publish('<!doctype html>'+a)).catch(()=>{})}
 document.addEventListener('click',ev=>{const b=ev.target.closest('button');
 if(!b)return;const it=E.itens.find(x=>x.id===b.dataset.id);
