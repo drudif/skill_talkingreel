@@ -289,3 +289,52 @@ def test_split_recorta_o_centro_como_tela_cheia(tmp_path):
     assert g_s > 100 and r_s < 60 and b_s < 60, (
         f"split: centro da janela de baixo deveria sair verde (faixa do "
         f"meio), veio rgb=({r_s},{g_s},{b_s})")
+
+
+def _clipe_bandas_horizontais(destino, cores, w=1080, h=1920, falas=((0.4, 1.2),), total=3.0):
+    """Video vertical (9:16 exato, sem folga de escala) dividido em faixas
+    HORIZONTAIS coloridas iguais (uma em cima da outra), com audio de fala
+    sintetica -- para provar que o deslocamento vertical do crop
+    (SPLIT_TETO) muda qual faixa cai na janela de baixo."""
+    import subprocess
+    n = len(cores)
+    faixa = h // n
+    entradas = []
+    for cor in cores:
+        entradas += ["-f", "lavfi", "-t", f"{total}",
+                     "-i", f"color=c={cor}:s={w}x{faixa}:r={config.FPS}"]
+    vstack = "".join(f"[{i}:v]" for i in range(n)) + f"vstack=inputs={n}[v]"
+    volume = "+".join(f"between(t,{ini},{ini + dur})" for ini, dur in falas) or "0"
+    args = ["ffmpeg", "-y", "-v", "error"] + entradas + [
+        "-f", "lavfi", "-t", f"{total}", "-i", f"sine=frequency=220:sample_rate={config.SR}",
+        "-filter_complex", f"{vstack};[{n}:a]volume='{volume}':eval=frame[a]",
+        "-map", "[v]", "-map", "[a]",
+        "-c:v", "libx264", "-crf", "18", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+        "-c:a", "pcm_s16le", "-ar", str(config.SR), "-ac", "2",
+        str(destino)]
+    r = subprocess.run(args, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    return destino
+
+
+def test_split_teto_seleciona_a_faixa_certa_na_janela_de_baixo(tmp_path):
+    """FIX 3: SPLIT_TETO nao tinha nenhum teste que dependesse do seu valor --
+    mudar de 380 para 0 fazia os 77 testes originais passarem do mesmo jeito.
+    Fonte vertical 1080x1920 exata (sem folga de escala: scale com
+    force_original_aspect_ratio=increase nao mexe em nada aqui) dividida em
+    tres faixas horizontais iguais de 640px (vermelho|verde|azul, de cima
+    para baixo). O pixel amostrado no meio da janela de baixo corresponde a
+    linha 936 da fonte (556 do offset de amostragem + 380 do SPLIT_TETO
+    calibrado) -- dentro da faixa do meio (verde, linhas 640-1280). Com
+    SPLIT_TETO=0 cairia na linha 556, dentro da faixa de cima (vermelha)."""
+    banda = _clipe_bandas_horizontais(tmp_path / "bandas_h.mov", ["red", "green", "blue"])
+    topo = fixtures.clipe_mudo(tmp_path / "topo_h.mp4", total=3.0, w=1920, h=1080)
+    c = cenas.Cena(n=4, trat="split", arquivo=banda, velocidade=1.0,
+                   topo=cenas.Topo(arquivo=topo, ancora=0.0))
+    saida = tratamentos.split(c, tmp_path / "split_bandas_h.mov")
+
+    y_meio_baixo = config.DIVISORIA + (config.H - config.DIVISORIA) // 2
+    r, g, b = _pixel(saida, config.W // 2, y_meio_baixo)
+    assert g > 100 and r < 60 and b < 60, (
+        f"janela de baixo deveria mostrar a faixa do meio (verde) com "
+        f"SPLIT_TETO={config.SPLIT_TETO}, veio rgb=({r},{g},{b})")
