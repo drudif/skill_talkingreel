@@ -5,6 +5,53 @@ Entrada nova no topo, com data.
 
 ---
 
+## 2026-08-28 — arte e legenda
+
+Sete fichas de estilo, letreiro por cena, e legenda queimada nas quatro posicoes medidas.
+176 testes. O motor esta completo: entra `cenas.json` e gravacao, sai o filme legendado.
+
+### Decisoes
+
+- **A fonte e um problema de distribuicao, nao de gosto.** A do projeto de origem e licenciada e
+  mora na maquina do autor. Cada ficha lista candidatas em ordem e cai numa fonte do sistema. Sem
+  isso a skill quebra na maquina de outra pessoa.
+- **Texto vetorial, nunca modelo de imagem.** Modelo de imagem erra acento em portugues.
+- **Base 1375 em tela cheia.** A 1500 caia sob a interface do aplicativo. A posicao centralizada do
+  split usa a mesma base, para a legenda nao saltar na virada de cena.
+- **A legenda some sob letreiro grande**, senao a mesma frase aparece duas vezes, uma grande e uma
+  miuda. O mapa de cenas registra a janela do letreiro em tempo de filme; a legenda consulta.
+- **`entra` e `dura` do letreiro contam na cena JA PRONTA**, depois do corte de silencio e da
+  velocidade. Nao ha como ser diferente — as duas etapas mudam a escala do tempo de forma nao
+  linear. Quem preenche o contrato tira o instante da transcricao do filme montado.
+- **Transcricao injetavel.** `montar(..., transcrever=...)` existe porque, sem isso, testar a
+  fiacao da legenda exigia baixar um modelo de 2,9GB e ter fala humana num clipe de bipe. Com a
+  costura, toda a fiacao e testada de forma deterministica, e `tests/conftest.py` faz qualquer
+  teste que caia na transcricao de verdade falhar alto em vez de travar a suite baixando modelo.
+
+### Defeitos que so apareceram medindo
+
+- **`-shortest` no overlay comia quadros.** Com letreiro, o video perdia de 2 a 5 quadros enquanto
+  o audio ficava inteiro. A folga ia de 0,057s a 0,157s, sem relacao com o tamanho da cena — a cena
+  mais LONGA era a pior, o que derruba a hipotese obvia de arredondamento. Num filme de dez cenas
+  com letreiro isso passa de um segundo de descompasso entre boca e som. Trocado por
+  `eof_action=pass`: quando a imagem acaba, os quadros da base seguem passando. Depois da troca a
+  diferenca video/audio ficou constante em -0,023s, identica a de um filme sem letreiro nenhum.
+- **A guarda contra correcao errada estava no lado errado.** O codigo recusava corrigir palavra
+  curta da FALA. Medindo, as tres trocas erradas do teste vinham todas do ALVO curto: "te" bate
+  0,80 contra "ter", "que" bate 0,857 contra "quem", "Nao" bate 0,80 contra "no". Filtrando o alvo,
+  nenhuma palavra da fala passa de 0,29. A guarda mudou de lado, o que preserva a correcao de nome
+  proprio de quatro letras (Nike, Ford, Java) que a outra solucao teria perdido em silencio.
+- **Palavra sem espaco maior que a largura era cortada sem aviso.** Um token de 40 caracteres monta
+  caixa de 1248px num quadro de 1080. O Pillow corta o que sai do canvas sem erro nenhum, e o bbox
+  do PNG nunca denuncia — nao pode ser maior que o proprio PNG. Por isso o teste olha a MARGEM, nao
+  o tamanho. A quebra caractere a caractere ja existia no letreiro; virou funcao comum aos dois.
+- **Um teste media no lugar errado.** O brilho medio de uma regiao cancela contorno preto contra
+  preenchimento amarelo (+82 contra -123 de luma), e o recorte chutado cobria 26% da tinta. Recorte
+  chutado dava 15; recorte tirado do bbox do proprio PNG deu 72. Todo teste de "apareceu na tela"
+  passou a derivar o recorte da peca e comparar pixel a pixel.
+
+---
+
 ## 2026-08-28 — motor do nucleo pronto
 
 Le um `cenas.json` e devolve o filme montado: corte de silencio pelas pontas, compressao de
