@@ -1,0 +1,5 @@
+# O que o motor precisa para rodar. O ffmpeg nao esta aqui: ele nao e um pacote
+# do Python. Instale com `brew install ffmpeg`.
+Pillow>=10.0
+# So e usado quando `"legenda": true`. Baixa um modelo de ~2,9GB no primeiro uso.
+mlx-whisper>=0.4

@@ -629,3 +629,41 @@ def test_cena_cheia_nao_registra_topo(tmp_path):
     montar.montar(p, tmp_path / "f.mp4")
     mapa = json.loads((tmp_path / "cenas-mapa.json").read_text())
     assert "topo" not in mapa[0]
+
+
+def test_o_filme_sem_legenda_tambem_fica_em_disco(tmp_path):
+    """E um dos entregaveis: serve para quando o aplicativo legenda sozinho.
+    Antes ele so existia na pasta temporaria, que e descartada."""
+    from motor import probe as mod_probe
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
+                        falas=[(0.3, 3.2)], total=4.0)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov"}]}),
+        encoding="utf-8")
+    filme = montar.montar(
+        p, tmp_path / "f.mp4",
+        transcrever=_fala_falsa([{"p": "aparece", "t": 1.0, "f": 1.8}]))
+
+    sem = tmp_path / "f-sem-legenda.mp4"
+    assert sem.exists(), "o filme sem legenda nao foi guardado"
+    assert abs(mod_probe.dur(sem) - mod_probe.dur(filme)) < 0.05
+    assert mod_probe.dimensao(sem) == (config.W, config.H)
+
+    crop = _crop_da_legenda(tmp_path, "aparece", "cheia")
+    assert _mudou(filme, 1.4, 3.5, crop) > 20, "o filme entregue perdeu a legenda"
+    assert _mudou(sem, 1.4, 3.5, crop) < 6, "a copia sem legenda veio legendada"
+
+
+def test_sem_legenda_nao_cria_copia(tmp_path):
+    """Com a legenda desligada os dois arquivos seriam iguais; um so basta."""
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
+                        falas=[(0.3, 1.5)], total=2.0)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov"}]}),
+        encoding="utf-8")
+    montar.montar(p, tmp_path / "f.mp4")
+    assert not (tmp_path / "f-sem-legenda.mp4").exists()

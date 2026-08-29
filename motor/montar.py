@@ -119,6 +119,12 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
         ler = transcrever or mod_legenda.transcrever
         palavras = ler(destino)
         mod_legenda.corrigir(palavras, prod.proprios)
+        # guarda o filme SEM legenda antes de queimar: e um dos
+        # entregaveis, para quando o aplicativo legenda sozinho. Sem isto ele
+        # so existiria na pasta temporaria, que e descartada.
+        sem_legenda = destino.with_name(destino.stem + "-sem-legenda"
+                                        + destino.suffix)
+        shutil.copyfile(destino, sem_legenda)
         com_leg = tmp / "legendado.mp4"
         mod_legenda.queimar(destino, mod_legenda.blocos(palavras), prod.estilo,
                             com_leg, mapa=mapa,

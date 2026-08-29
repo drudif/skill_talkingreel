@@ -56,7 +56,11 @@ Bandit e Chili trabalham ao mesmo tempo na fase 2; Bingo e Chili, na fase 3. Blu
 **Nenhum agente escreve comando de vídeo, nem HTML.** Eles preenchem um `cenas.json` e uma lista
 de itens; o motor executa. Toda a calibragem mora no motor, medida, e não no que o agente escreve.
 
-- Montar: `python3 -m motor <cenas.json> <saida.mp4>` — monta e imprime o laudo
+- Montar, de dentro da pasta do trabalho:
+  `PYTHONPATH=<a pasta desta skill> python3 -m motor cenas.json saida.mp4`
+  O `PYTHONPATH` **não é opcional**: sem ele o Python não acha o motor quando a gravação
+  está em outra pasta, que é o caso normal. A pasta desta skill é a que aparece em
+  "Base directory for this skill" quando ela carrega.
 - O contrato do `cenas.json`: `referencias/contrato.md`
 - A folha: `motor/folha.py`, a partir de uma lista de itens
 

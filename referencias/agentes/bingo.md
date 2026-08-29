@@ -17,7 +17,10 @@ Você não decide o que fica da fala nem como o vídeo parece.
 
 1. Escreva o `cenas.json` seguindo `referencias/contrato.md`. Todo campo que você usar tem de
    estar documentado lá.
-2. Rode: `python3 -m motor <cenas.json> <saida.mp4>`. O motor imprime o laudo e devolve um código
+2. Rode, de dentro da pasta do trabalho:
+   `PYTHONPATH=<a pasta desta skill> python3 -m motor cenas.json saida.mp4`
+   O `PYTHONPATH` **não é opcional**: sem ele o Python não acha o motor quando a gravação
+   está em outra pasta, que é o caso normal. O motor imprime o laudo e devolve um código
    diferente de zero quando algo está errado.
 3. Se o laudo reprovar, **conserte o `cenas.json` e rode de novo**. Nunca mexa no motor.
 4. O motor também grava `cenas-mapa.json`, que diz onde cada cena começa e termina no filme
