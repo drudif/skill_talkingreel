@@ -5,6 +5,61 @@ Entrada nova no topo, com data.
 
 ---
 
+## 2026-08-28 — laudo completo e folha de aprovacao
+
+O motor esta fechado: entra `cenas.json` e gravacao, sai o filme legendado, o laudo do que foi
+medido, e a folha que a pessoa marca. 227 testes.
+
+### O laudo
+
+Tres medicoes novas, cada uma ligada a um erro que aconteceu e que ninguem viu no olho: emenda que
+decepa palavra, legenda sob a interface do aplicativo, e material de apoio repetindo em loop.
+
+- **Emenda medida por energia, nao por transcricao.** Transcrever cada corte custaria um modelo de
+  2,9GB por emenda e responderia de forma indireta.
+- **A referencia e a FALA, nao o silencio — e isso custou uma correcao.** A primeira versao usava o
+  percentil 10 do envelope como "nivel do silencio". Funciona em clipe de teste; falha no caso real.
+  Num talking head bem cortado quase nao sobra silencio, entao esse percentil E fala: medido, um
+  filme de duas cenas coladas devolveu "silencio" a -0,8 dB e nenhuma emenda suja era detectada. A
+  fala, ao contrario, sempre existe num video de alguem falando. Emenda limpa fica 41 dB abaixo da
+  fala; emenda que corta palavra, de 0 a 3 dB. Margem em 15.
+- **Repeticao avisa e nao reprova.** Repetir pode ser deliberado.
+
+### Duas medicoes que estavam calibradas contra numero que nao existe
+
+- **O clipe de teste mentia sobre nivel.** O silencio de `clipe_fala` era zero DIGITAL, o que poe o
+  piso em -120 dB e cria uma distancia de 120 dB entre fala e silencio — distancia que nao existe em
+  gravacao nenhuma. Qualquer limiar ate 120 "passava" no teste sem medir coisa alguma. O fixture
+  ganhou `ruido_dB`, e uma sala silenciosa fica por volta de -50 dB.
+- **O limite da faixa segura nao pegaria o erro que o motivou.** A legenda na base 1500 caiu sob a
+  interface do aplicativo, e por isso virou 1375. Mas 1500 termina em y=1501, e o limite escrito era
+  1560. Foi para 1400, logo acima do unico valor que sabemos bom.
+
+### A folha
+
+- **O template mora no Python.** O custo real do projeto de origem nao foi o tamanho do arquivo: foi
+  o modelo reescrever 50 KB de HTML a cada rodada. Agora ele produz so a lista de itens.
+- **O decidido sai da folha.** Medido: folha de 10 itens com 6.561 bytes; depois de decidir 7, a
+  folha seguinte tem 3.866. O que nao encolhe e a estrutura fixa (CSS e JS, ~2.700 bytes).
+- **A armadilha do estado foi eliminada, nao documentada.** Antes havia dois trechos parecidos com
+  `<script id="dados">` no mesmo arquivo — o bloco de verdade e a mesma string dentro do JavaScript
+  que regenera a pagina — e quem lesse o segundo apagava o feedback. Agora os marcadores sao
+  montados por concatenacao, aparecem uma vez so, e o leitor falha alto se achar mais de um.
+- **`</script>` dentro do texto quebrava a pagina**, nos dois lados: no Python que gera e no
+  JavaScript que republica. Os dois escapam `<` agora.
+- **Miniatura, nunca video.** Video embutido levou a folha do projeto de origem a 5 MB.
+
+### Uma armadilha da maquina, nao do codigo
+
+Este Mac guarda o bytecode do Python em `~/Library/Caches/com.apple.python`, fora do projeto, e
+invalida o cache comparando data **e tamanho** do arquivo. Trocar `1400` por `1560` — mesmo numero
+de caracteres, no mesmo segundo — nao invalida nada, e o Python roda o codigo velho sem avisar. Isso
+apareceu justamente numa verificacao do tipo "quebra o codigo e ve o teste falhar", que e onde mais
+machuca: o resultado da verificacao vira ficcao. Toda verificacao desse tipo passou a rodar com
+`PYTHONDONTWRITEBYTECODE=1`.
+
+---
+
 ## 2026-08-28 — arte e legenda
 
 Sete fichas de estilo, letreiro por cena, e legenda queimada nas quatro posicoes medidas.
