@@ -53,3 +53,37 @@ def test_todo_arquivo_citado_existe():
     texto = SKILL.read_text(encoding="utf-8")
     for rel in re.findall(r"`(referencias/[\w/.-]+\.md)`", texto):
         assert (RAIZ / rel).exists(), f"o SKILL.md cita {rel}, que nao existe"
+
+
+def test_os_limites_apontam_para_o_modulo_e_nao_repetem_a_regra():
+    """Duplicar o texto das regras cria duas fontes de verdade, e uma delas
+    fica para tras. A soma de verificacao vigia so uma."""
+    t = (RAIZ / "referencias/limites.md").read_text(encoding="utf-8")
+    assert "motor/limites.py" in t
+    assert "python3 -c" in t or "python3 -m" in t, (
+        "o arquivo tem de dizer COMO ler as regras do modulo")
+
+
+def test_o_modelo_de_perfil_esta_vazio():
+    """O perfil preenchido do autor nao pode vazar para o repositorio."""
+    t = (RAIZ / "talkingreel-perfil-modelo.md").read_text(encoding="utf-8")
+    for dado in ("Drudi", "Fernando", "@drudif", "gmail", "instagram.com/",
+                 "linkedin.com/in"):
+        assert dado.lower() not in t.lower(), f"o modelo traz '{dado}'"
+    assert t.count("[") >= 5, "o modelo deveria ser so lacunas para preencher"
+
+
+def test_o_contrato_descreve_todo_campo_que_o_motor_le():
+    """Um campo sem documentacao e um campo que nenhum agente vai usar."""
+    from motor import cenas
+    t = (RAIZ / "referencias/contrato.md").read_text(encoding="utf-8")
+    for campo in ("estilo", "legenda", "legenda_split", "proprios",
+                  "velocidade", "trilha", "cenas", "trat", "arquivo",
+                  "topo", "teto", "letreiro"):
+        assert f"`{campo}`" in t, f"o contrato nao explica o campo '{campo}'"
+
+
+def test_o_contrato_avisa_da_escala_de_tempo_do_letreiro():
+    """A armadilha mais facil de cair: ler o instante da gravacao crua."""
+    t = (RAIZ / "referencias/contrato.md").read_text(encoding="utf-8").lower()
+    assert "depois do corte" in t and "velocidade" in t
