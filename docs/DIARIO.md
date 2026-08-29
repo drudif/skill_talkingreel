@@ -5,6 +5,44 @@ Entrada nova no topo, com data.
 
 ---
 
+## 2026-08-28 — a skill fechada
+
+O `SKILL.md`, os quatro agentes, o perfil, e o que veio embutido das outras skills. 279 testes.
+
+### Decisoes
+
+- **Os limites nao sao repetidos, sao apontados.** `referencias/limites.md` manda ler
+  `motor/limites.py`, que e onde as regras moram com soma de verificacao. Repetir o texto criaria
+  duas fontes de verdade, e a soma so vigia uma delas.
+- **O arquivo de estilos descreve, nao repete valor.** Cor e fonte moram em `motor/estilos.py`; o
+  arquivo que a Chili le so diz como cada ficha parece e quando serve. Um teste recusa codigo de
+  cor e nome de fonte no arquivo, para os dois nao sairem de sincronia no primeiro ajuste.
+- **A varredura de jargao virou teste.** "Sem termo tecnico" e a instrucao mais facil de escrever e
+  a mais facil de esquecer. O teste varre o `SKILL.md`, as referencias, o laudo, a folha e a
+  mensagem de erro do contrato. A excecao — o termo passa se a frase explicar ali mesmo — pula 5%
+  das frases, e nenhuma delas tem jargao, entao nao esta escondendo nada.
+- **A limpeza de dado pessoal foi menor do que o desenho previa.** Medido nas quatro skills
+  incorporadas: `audio-speed` e `audio-silence-cut` nao tem nenhum; no `deslopar` e no carrossel o
+  que aparece e credito de autoria, que fica. O perfil preenchido do autor mora em `~/.claude/`,
+  fora da pasta da skill, entao nunca seria copiado — o que entra e um modelo vazio.
+
+### Duas falhas que so apareceram tentando usar
+
+- **`python3 -m motor cenas.json saida.mp4` nao roda.** A skill mora em `~/.claude/skills/` e a
+  gravacao da pessoa mora em outro lugar; sem `PYTHONPATH` o Python nao acha o motor. O comando
+  estava escrito assim no `SKILL.md` e no arquivo do Bingo. Agora um teste roda o comando de uma
+  pasta estranha, e outro guarda o texto da documentacao para o comando errado nao voltar.
+- **O entregavel "o mesmo video sem legenda" nao existia.** O `SKILL.md` prometia, mas o motor
+  sobrescrevia o arquivo e a versao sem legenda so vivia na pasta temporaria, que e descartada.
+
+### Uma coisa que o plano errou e o subagente pegou
+
+O contrato que escrevi no plano nao documentava a velocidade por cena, que o motor le
+(`cenas.py`, `float(bruto.get("velocidade", velocidade))`). Campo que o motor le e a documentacao
+nao explica e campo que nenhum agente vai usar.
+
+---
+
 ## 2026-08-28 — laudo completo e folha de aprovacao
 
 O motor esta fechado: entra `cenas.json` e gravacao, sai o filme legendado, o laudo do que foi
