@@ -8,7 +8,7 @@ sao texto vetorial, nunca imagem de IA.
 ## Comandos
 - `PYTHONPATH=<esta pasta> python3 -m motor cenas.json saida.mp4`, de dentro da pasta do
   trabalho — monta e imprime o laudo. **Sem o PYTHONPATH o Python nao acha o motor.**
-- `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest` — 285 testes, ~5min
+- `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest` — 299 testes, ~5min
 
 ## Convencoes
 - **Quatro agentes**: Bluey (principal e QA), Bandit (roteiro), Chili (arte e som), Bingo (montagem).

@@ -7,7 +7,7 @@ Entrada nova no topo, com data.
 
 ## 2026-08-28 — a skill fechada
 
-O `SKILL.md`, os quatro agentes, o perfil, e o que veio embutido das outras skills. 279 testes.
+O `SKILL.md`, os quatro agentes, o perfil, e o que veio embutido das outras skills. 299 testes.
 
 ### Decisoes
 
