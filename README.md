@@ -39,11 +39,17 @@ Cada número dentro do motor custou uma rodada de erro num vídeo de verdade. O 
 [docs/DIARIO.md](docs/DIARIO.md), e as armadilhas que mais custaram estão no
 [CLAUDE.md](CLAUDE.md).
 
-Os testes montam vídeo de verdade, não conferem chamadas de função:
+Os testes montam vídeo de verdade, não conferem chamadas de função. Para rodá-los é preciso
+instalar o que só eles usam:
 
 ```bash
+pip install -r requirements-dev.txt
 PYTHONDONTWRITEBYTECODE=1 pytest
 ```
+
+O `PYTHONDONTWRITEBYTECODE=1` não é enfeite: em macOS o Python guarda o bytecode fora do projeto e
+invalida o cache por data **e tamanho** do arquivo, então trocar um número por outro do mesmo
+tamanho faz ele rodar o código velho sem avisar.
 
 ## Origem do que veio de fora
 

@@ -66,3 +66,23 @@ def test_o_requirements_lista_o_que_o_motor_importa():
     assert "pillow" in req, "falta Pillow, que desenha todo o texto"
     assert "mlx-whisper" in req, "falta mlx-whisper, que transcreve"
     assert "ffmpeg" in req, "o requirements tem de avisar que o ffmpeg e a parte"
+
+
+def test_o_readme_manda_instalar_as_dependencias_antes_de_testar():
+    """Um usuario frio seguindo o README esbarra em 'No module named pytest'
+    se ele nao disser para instalar o requirements-dev primeiro. Medido num
+    clone limpo: e exatamente o que acontece."""
+    r = (RAIZ / "README.md").read_text(encoding="utf-8")
+    i = r.index("pytest")
+    assert "requirements-dev.txt" in r[:i], (
+        "o README manda rodar pytest sem mandar instalar antes")
+
+
+def test_o_readme_instala_com_o_nome_que_o_skill_declara():
+    """Se a pasta da instalacao nao bater com o `name` do frontmatter, a skill
+    e invocada por um nome e mora em outro."""
+    skill = (RAIZ / "SKILL.md").read_text(encoding="utf-8")
+    nome = re.search(r"^name:\s*(\S+)", skill, re.M).group(1)
+    readme = (RAIZ / "README.md").read_text(encoding="utf-8")
+    assert f"skills/{nome}" in readme, (
+        f"o SKILL.md se chama '{nome}' mas o README instala em outro lugar")
