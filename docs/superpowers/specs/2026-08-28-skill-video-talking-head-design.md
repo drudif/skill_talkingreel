@@ -1,7 +1,9 @@
 # talking reel: done — desenho
 
 Data: 2026-08-28
-Mora em: `VIBECODING/conteudo/skill_talkingreel`
+Desenvolvida em: `VIBECODING/conteudo/skill_talkingreel`. **Instalada em:**
+`~/.claude/skills/talking-reel-done` — e de la que ela e invocada. As duas coisas sao o
+mesmo diretorio: o repositorio E o pacote da skill, com `SKILL.md` na raiz.
 Origem: o projeto `agentes-ginsu`, que produziu um vídeo vertical de 61s a partir de takes
 gravados pelo Drudi. Esta skill generaliza aquele trabalho.
 

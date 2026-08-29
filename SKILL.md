@@ -40,7 +40,10 @@ A trilha é aprovada ANTES da montagem. O efeito sonoro, ao contrário, entra du
 
 ## Quem é quem
 
-Cada agente tem um arquivo. **Leia o arquivo do agente na hora de despachá-lo, não antes.**
+Os quatro **não são arquivos de subagente do Claude Code** — uma skill não instala nada em
+`.claude/agents/`. São arquivos de instrução que ficam dentro desta pasta. Para despachar um,
+leia o arquivo dele e passe o conteúdo como prompt de um subagente, junto com o que ele precisa
+receber. **Leia o arquivo na hora de despachar, não antes**: é o que mantém esta página curta.
 
 | agente | o que faz | arquivo |
 |---|---|---|
