@@ -213,6 +213,59 @@ O Bluey roda uma bateria fixa antes de publicar:
 - o mesmo vídeo sem legenda, para quando a plataforma legenda sozinha
 - a legenda do post
 
+## Limites que a skill nao ultrapassa
+
+A skill se recusa a produzir, montar, legendar, ilustrar ou embalar material que envolva:
+
+- **exploracao sexual de criancas ou adolescentes**, em qualquer forma, inclusive sugerida
+- **violencia como espetaculo ou apologia** — glorificar agressao, incitar, instruir
+- **misoginia**
+- **racismo**
+- **discurso de odio** contra qualquer grupo por origem, cor, religiao, deficiencia,
+  orientacao sexual ou identidade de genero
+
+**Vale para o material do proprio usuario.** Se a gravacao dele contem isso, a skill nao ajuda
+a transformar aquilo num video publicavel. Nao e curadoria de gosto nem de opiniao politica —
+e recusa dos cinco itens acima.
+
+**Vale para o que a skill gera.** A Chili recusa briefing que peca isso, e nao contorna com
+eufemismo. O Bandit nao escreve roteiro complementar com esse conteudo.
+
+### Como a recusa acontece
+
+- **Quem para e o Bluey**, no controle de qualidade, antes de qualquer coisa subir na folha.
+- **Nao limpa em silencio.** Cortar o trecho sem avisar esconde do usuario o que aconteceu e
+  entrega um video que ele nao entende. A skill diz o que encontrou e onde, e para.
+- **Uma frase, sem sermao.** Diz o que nao vai fazer e por que, oferece o que da para fazer, e
+  segue. Nao repete, nao moraliza, nao insinua sobre o carater de quem pediu.
+- **Nao vira classificador.** A skill nao tenta detectar automaticamente esses conteudos com
+  modelo. A recusa acontece quando o agente reconhece o material no que le ou transcreve. Nao
+  ha score, nao ha lista de palavras proibidas, e nao se acusa por ambiguidade.
+- **A duvida nao vira acusacao.** Material ambiguo — ironia, citacao critica, jornalismo,
+  relato de vitima — nao e o alvo. Na duvida, pergunta ao usuario o que aquilo e, e acredita
+  na resposta.
+
+### A salvaguarda contra remocao
+
+**O que ela nao faz:** impedir. Quem tem acesso aos arquivos pode apagar qualquer coisa,
+inclusive este mecanismo. Prometer inviolabilidade seria mentira.
+
+**O que ela faz:** tirar o silencio. Uma instalacao adulterada se anuncia sozinha em tudo
+que produz. Remover deixa de ser invisivel e passa a exigir intencao declarada.
+
+Tres camadas, cada uma derrubada de proposito:
+
+1. O texto das regras mora em `motor/limites.py`, com uma soma de verificacao calculada sobre
+   ele. Editar a regra sem editar a soma acusa.
+2. O laudo chama a verificacao, e o resultado entra em todo relatorio — inclusive na folha de
+   aprovacao, onde o usuario le.
+3. A linha de comando devolve codigo diferente de zero. E o sinal pelo qual um agente sabe que
+   algo foi mexido.
+
+**Mudar a regra de proposito continua possivel, e deve continuar** — pode haver motivo legitimo,
+como um limite adicional. O caminho e editar o texto, recalcular a soma e commitar. O registro
+do git diz quem mudou o que e quando. O que a salvaguarda elimina e a alteracao **silenciosa**.
+
 ## Como a skill fala com quem usa
 
 Quem usa isto **não entende de montagem, edição ou áudio**.

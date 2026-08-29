@@ -5,7 +5,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from motor import config
+from motor import config, estilos
+
+# Onde a legenda pode ficar quando a tela esta dividida em duas. Em tela
+# cheia ela e sempre centralizada, entao "cheia" nao e escolha de ninguem.
+LEGENDA_NO_SPLIT = ("esquerda", "direita", "centro")
 
 TRATAMENTOS = ("cheia", "split")
 
@@ -21,6 +25,15 @@ class Topo:
 
 
 @dataclass
+class Letreiro:
+    texto: str
+    entra: float = 0.0
+    dura: Optional[float] = None
+    base: Optional[int] = None
+    box: bool = False
+
+
+@dataclass
 class Cena:
     n: int
     trat: str
@@ -28,6 +41,7 @@ class Cena:
     velocidade: float
     teto: Optional[float] = None
     topo: Optional["Topo"] = None
+    letreiro: Optional[Letreiro] = None
 
 
 @dataclass
@@ -36,6 +50,10 @@ class Producao:
     velocidade: float
     trilha: Optional[Path]
     cenas: list = field(default_factory=list)
+    estilo: str = estilos.PADRAO
+    legenda: bool = True
+    legenda_split: str = "esquerda"
+    proprios: list = field(default_factory=list)
 
 
 def _caminho(raiz, rel, onde):
@@ -64,6 +82,24 @@ def carregar(caminho):
 
     # Velocidade geral (padrao em config.VELOCIDADE)
     velocidade = float(dados.get("velocidade", config.VELOCIDADE))
+
+    # Estilo visual (uma das fichas de motor/estilos.py; padrao brutalista)
+    estilo = dados.get("estilo", estilos.PADRAO)
+    if estilo not in estilos.ESTILOS:
+        raise CenasInvalidas(
+            f"nao conheco o estilo '{estilo}'. Os que existem sao: "
+            + ", ".join(sorted(estilos.ESTILOS)))
+    legenda = bool(dados.get("legenda", True))
+    legenda_split = dados.get("legenda_split", "esquerda")
+    if legenda_split not in LEGENDA_NO_SPLIT:
+        raise CenasInvalidas(
+            f"nao sei por a legenda em '{legenda_split}' quando a tela esta "
+            "dividida. Use uma de: " + ", ".join(LEGENDA_NO_SPLIT))
+    proprios = list(dados.get("proprios", []))
+    if any(not isinstance(x, str) or not x.strip() for x in proprios):
+        raise CenasInvalidas(
+            "'proprios' e uma lista de nomes escritos do jeito certo, "
+            "por exemplo [\"Ginsu\", \"Anthropic\"]")
 
     # Trilha sonora (opcional)
     trilha = dados.get("trilha")
@@ -110,6 +146,24 @@ def carregar(caminho):
                 arquivo=_caminho(raiz, bruto_topo["arquivo"], n),
                 ancora=ancora)
 
+        # Letreiro (opcional)
+        letreiro = None
+        bruto_letreiro = bruto.get("letreiro")
+        if bruto_letreiro:
+            if not bruto_letreiro.get("texto"):
+                raise CenasInvalidas(
+                    f"cena {n}: o letreiro precisa do campo 'texto'")
+            entra = float(bruto_letreiro.get("entra", 0.0))
+            if entra < 0:
+                raise CenasInvalidas(
+                    f"cena {n}: 'entra' do letreiro nao pode ser negativo")
+            letreiro = Letreiro(
+                texto=bruto_letreiro["texto"],
+                entra=entra,
+                dura=bruto_letreiro.get("dura"),
+                base=bruto_letreiro.get("base"),
+                box=bool(bruto_letreiro.get("box", False)))
+
         # Montar cena validada
         montadas.append(Cena(
             n=n,
@@ -117,10 +171,15 @@ def carregar(caminho):
             arquivo=_caminho(raiz, arquivo, n),
             velocidade=float(bruto.get("velocidade", velocidade)),
             teto=bruto.get("teto"),
-            topo=topo))
+            topo=topo,
+            letreiro=letreiro))
 
     return Producao(
         raiz=raiz,
         velocidade=velocidade,
         trilha=_caminho(raiz, trilha, "trilha") if trilha else None,
-        cenas=montadas)
+        cenas=montadas,
+        estilo=estilo,
+        legenda_split=legenda_split,
+        proprios=proprios,
+        legenda=legenda)

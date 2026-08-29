@@ -93,3 +93,71 @@ def test_lista_vazia_de_cenas_e_erro(tmp_path):
     p = _grava(tmp_path, {"cenas": []})
     with pytest.raises(cenas.CenasInvalidas, match="nenhuma cena"):
         cenas.carregar(p)
+
+
+def test_estilo_padrao_quando_nao_dito(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    assert cenas.carregar(p).estilo == "brutalista"
+
+
+def test_estilo_escolhido(tmp_path):
+    p = _grava(tmp_path, {"estilo": "terminal", "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    assert cenas.carregar(p).estilo == "terminal"
+
+
+def test_estilo_inexistente_diz_quais_existem(tmp_path):
+    p = _grava(tmp_path, {"estilo": "roxo-neon", "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    with pytest.raises(cenas.CenasInvalidas, match="brutalista"):
+        cenas.carregar(p)
+
+
+def test_letreiro_e_lido(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "letreiro": {"texto": "OLA", "entra": 1.0, "dura": 2.0, "box": True}}]})
+    c = cenas.carregar(p).cenas[0]
+    assert c.letreiro.texto == "OLA"
+    assert c.letreiro.entra == 1.0
+    assert c.letreiro.dura == 2.0
+    assert c.letreiro.box is True
+
+
+def test_letreiro_tem_padroes(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "letreiro": {"texto": "OLA"}}]})
+    c = cenas.carregar(p).cenas[0]
+    assert c.letreiro.entra == 0.0
+    assert c.letreiro.dura is None
+    assert c.letreiro.box is False
+
+
+def test_letreiro_sem_texto_e_erro(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "letreiro": {"entra": 1.0}}]})
+    with pytest.raises(cenas.CenasInvalidas, match="texto"):
+        cenas.carregar(p)
+
+
+def test_letreiro_com_entra_negativo_e_erro(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "letreiro": {"texto": "OLA", "entra": -1.0}}]})
+    with pytest.raises(cenas.CenasInvalidas, match="entra"):
+        cenas.carregar(p)
+
+
+def test_legenda_ligada_por_padrao(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    assert cenas.carregar(p).legenda is True
+
+
+def test_legenda_pode_ser_desligada(tmp_path):
+    p = _grava(tmp_path, {"legenda": False, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    assert cenas.carregar(p).legenda is False

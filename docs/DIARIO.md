@@ -5,6 +5,146 @@ Entrada nova no topo, com data.
 
 ---
 
+## 2026-08-28 — a skill fechada
+
+O `SKILL.md`, os quatro agentes, o perfil, e o que veio embutido das outras skills. 299 testes.
+
+### Decisoes
+
+- **Os limites nao sao repetidos, sao apontados.** `referencias/limites.md` manda ler
+  `motor/limites.py`, que e onde as regras moram com soma de verificacao. Repetir o texto criaria
+  duas fontes de verdade, e a soma so vigia uma delas.
+- **O arquivo de estilos descreve, nao repete valor.** Cor e fonte moram em `motor/estilos.py`; o
+  arquivo que a Chili le so diz como cada ficha parece e quando serve. Um teste recusa codigo de
+  cor e nome de fonte no arquivo, para os dois nao sairem de sincronia no primeiro ajuste.
+- **A varredura de jargao virou teste.** "Sem termo tecnico" e a instrucao mais facil de escrever e
+  a mais facil de esquecer. O teste varre o `SKILL.md`, as referencias, o laudo, a folha e a
+  mensagem de erro do contrato. A excecao — o termo passa se a frase explicar ali mesmo — pula 5%
+  das frases, e nenhuma delas tem jargao, entao nao esta escondendo nada.
+- **A limpeza de dado pessoal foi menor do que o desenho previa.** Medido nas quatro skills
+  incorporadas: `audio-speed` e `audio-silence-cut` nao tem nenhum; no `deslopar` e no carrossel o
+  que aparece e credito de autoria, que fica. O perfil preenchido do autor mora em `~/.claude/`,
+  fora da pasta da skill, entao nunca seria copiado — o que entra e um modelo vazio.
+
+### Duas falhas que so apareceram tentando usar
+
+- **`python3 -m motor cenas.json saida.mp4` nao roda.** A skill mora em `~/.claude/skills/` e a
+  gravacao da pessoa mora em outro lugar; sem `PYTHONPATH` o Python nao acha o motor. O comando
+  estava escrito assim no `SKILL.md` e no arquivo do Bingo. Agora um teste roda o comando de uma
+  pasta estranha, e outro guarda o texto da documentacao para o comando errado nao voltar.
+- **O entregavel "o mesmo video sem legenda" nao existia.** O `SKILL.md` prometia, mas o motor
+  sobrescrevia o arquivo e a versao sem legenda so vivia na pasta temporaria, que e descartada.
+
+### Uma coisa que o plano errou e o subagente pegou
+
+O contrato que escrevi no plano nao documentava a velocidade por cena, que o motor le
+(`cenas.py`, `float(bruto.get("velocidade", velocidade))`). Campo que o motor le e a documentacao
+nao explica e campo que nenhum agente vai usar.
+
+---
+
+## 2026-08-28 — laudo completo e folha de aprovacao
+
+O motor esta fechado: entra `cenas.json` e gravacao, sai o filme legendado, o laudo do que foi
+medido, e a folha que a pessoa marca. 227 testes.
+
+### O laudo
+
+Tres medicoes novas, cada uma ligada a um erro que aconteceu e que ninguem viu no olho: emenda que
+decepa palavra, legenda sob a interface do aplicativo, e material de apoio repetindo em loop.
+
+- **Emenda medida por energia, nao por transcricao.** Transcrever cada corte custaria um modelo de
+  2,9GB por emenda e responderia de forma indireta.
+- **A referencia e a FALA, nao o silencio — e isso custou uma correcao.** A primeira versao usava o
+  percentil 10 do envelope como "nivel do silencio". Funciona em clipe de teste; falha no caso real.
+  Num talking head bem cortado quase nao sobra silencio, entao esse percentil E fala: medido, um
+  filme de duas cenas coladas devolveu "silencio" a -0,8 dB e nenhuma emenda suja era detectada. A
+  fala, ao contrario, sempre existe num video de alguem falando. Emenda limpa fica 41 dB abaixo da
+  fala; emenda que corta palavra, de 0 a 3 dB. Margem em 15.
+- **Repeticao avisa e nao reprova.** Repetir pode ser deliberado.
+
+### Duas medicoes que estavam calibradas contra numero que nao existe
+
+- **O clipe de teste mentia sobre nivel.** O silencio de `clipe_fala` era zero DIGITAL, o que poe o
+  piso em -120 dB e cria uma distancia de 120 dB entre fala e silencio — distancia que nao existe em
+  gravacao nenhuma. Qualquer limiar ate 120 "passava" no teste sem medir coisa alguma. O fixture
+  ganhou `ruido_dB`, e uma sala silenciosa fica por volta de -50 dB.
+- **O limite da faixa segura nao pegaria o erro que o motivou.** A legenda na base 1500 caiu sob a
+  interface do aplicativo, e por isso virou 1375. Mas 1500 termina em y=1501, e o limite escrito era
+  1560. Foi para 1400, logo acima do unico valor que sabemos bom.
+
+### A folha
+
+- **O template mora no Python.** O custo real do projeto de origem nao foi o tamanho do arquivo: foi
+  o modelo reescrever 50 KB de HTML a cada rodada. Agora ele produz so a lista de itens.
+- **O decidido sai da folha.** Medido: folha de 10 itens com 6.561 bytes; depois de decidir 7, a
+  folha seguinte tem 3.866. O que nao encolhe e a estrutura fixa (CSS e JS, ~2.700 bytes).
+- **A armadilha do estado foi eliminada, nao documentada.** Antes havia dois trechos parecidos com
+  `<script id="dados">` no mesmo arquivo — o bloco de verdade e a mesma string dentro do JavaScript
+  que regenera a pagina — e quem lesse o segundo apagava o feedback. Agora os marcadores sao
+  montados por concatenacao, aparecem uma vez so, e o leitor falha alto se achar mais de um.
+- **`</script>` dentro do texto quebrava a pagina**, nos dois lados: no Python que gera e no
+  JavaScript que republica. Os dois escapam `<` agora.
+- **Miniatura, nunca video.** Video embutido levou a folha do projeto de origem a 5 MB.
+
+### Uma armadilha da maquina, nao do codigo
+
+Este Mac guarda o bytecode do Python em `~/Library/Caches/com.apple.python`, fora do projeto, e
+invalida o cache comparando data **e tamanho** do arquivo. Trocar `1400` por `1560` — mesmo numero
+de caracteres, no mesmo segundo — nao invalida nada, e o Python roda o codigo velho sem avisar. Isso
+apareceu justamente numa verificacao do tipo "quebra o codigo e ve o teste falhar", que e onde mais
+machuca: o resultado da verificacao vira ficcao. Toda verificacao desse tipo passou a rodar com
+`PYTHONDONTWRITEBYTECODE=1`.
+
+---
+
+## 2026-08-28 — arte e legenda
+
+Sete fichas de estilo, letreiro por cena, e legenda queimada nas quatro posicoes medidas.
+176 testes. O motor esta completo: entra `cenas.json` e gravacao, sai o filme legendado.
+
+### Decisoes
+
+- **A fonte e um problema de distribuicao, nao de gosto.** A do projeto de origem e licenciada e
+  mora na maquina do autor. Cada ficha lista candidatas em ordem e cai numa fonte do sistema. Sem
+  isso a skill quebra na maquina de outra pessoa.
+- **Texto vetorial, nunca modelo de imagem.** Modelo de imagem erra acento em portugues.
+- **Base 1375 em tela cheia.** A 1500 caia sob a interface do aplicativo. A posicao centralizada do
+  split usa a mesma base, para a legenda nao saltar na virada de cena.
+- **A legenda some sob letreiro grande**, senao a mesma frase aparece duas vezes, uma grande e uma
+  miuda. O mapa de cenas registra a janela do letreiro em tempo de filme; a legenda consulta.
+- **`entra` e `dura` do letreiro contam na cena JA PRONTA**, depois do corte de silencio e da
+  velocidade. Nao ha como ser diferente — as duas etapas mudam a escala do tempo de forma nao
+  linear. Quem preenche o contrato tira o instante da transcricao do filme montado.
+- **Transcricao injetavel.** `montar(..., transcrever=...)` existe porque, sem isso, testar a
+  fiacao da legenda exigia baixar um modelo de 2,9GB e ter fala humana num clipe de bipe. Com a
+  costura, toda a fiacao e testada de forma deterministica, e `tests/conftest.py` faz qualquer
+  teste que caia na transcricao de verdade falhar alto em vez de travar a suite baixando modelo.
+
+### Defeitos que so apareceram medindo
+
+- **`-shortest` no overlay comia quadros.** Com letreiro, o video perdia de 2 a 5 quadros enquanto
+  o audio ficava inteiro. A folga ia de 0,057s a 0,157s, sem relacao com o tamanho da cena — a cena
+  mais LONGA era a pior, o que derruba a hipotese obvia de arredondamento. Num filme de dez cenas
+  com letreiro isso passa de um segundo de descompasso entre boca e som. Trocado por
+  `eof_action=pass`: quando a imagem acaba, os quadros da base seguem passando. Depois da troca a
+  diferenca video/audio ficou constante em -0,023s, identica a de um filme sem letreiro nenhum.
+- **A guarda contra correcao errada estava no lado errado.** O codigo recusava corrigir palavra
+  curta da FALA. Medindo, as tres trocas erradas do teste vinham todas do ALVO curto: "te" bate
+  0,80 contra "ter", "que" bate 0,857 contra "quem", "Nao" bate 0,80 contra "no". Filtrando o alvo,
+  nenhuma palavra da fala passa de 0,29. A guarda mudou de lado, o que preserva a correcao de nome
+  proprio de quatro letras (Nike, Ford, Java) que a outra solucao teria perdido em silencio.
+- **Palavra sem espaco maior que a largura era cortada sem aviso.** Um token de 40 caracteres monta
+  caixa de 1248px num quadro de 1080. O Pillow corta o que sai do canvas sem erro nenhum, e o bbox
+  do PNG nunca denuncia — nao pode ser maior que o proprio PNG. Por isso o teste olha a MARGEM, nao
+  o tamanho. A quebra caractere a caractere ja existia no letreiro; virou funcao comum aos dois.
+- **Um teste media no lugar errado.** O brilho medio de uma regiao cancela contorno preto contra
+  preenchimento amarelo (+82 contra -123 de luma), e o recorte chutado cobria 26% da tinta. Recorte
+  chutado dava 15; recorte tirado do bbox do proprio PNG deu 72. Todo teste de "apareceu na tela"
+  passou a derivar o recorte da peca e comparar pixel a pixel.
+
+---
+
 ## 2026-08-28 — motor do nucleo pronto
 
 Le um `cenas.json` e devolve o filme montado: corte de silencio pelas pontas, compressao de

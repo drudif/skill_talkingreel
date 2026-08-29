@@ -5,13 +5,15 @@ audio e o filme dessincronizava progressivamente. Juntar por FILTRO decodifica
 e re-sincroniza. E antes de juntar, todo segmento tem de ter exatamente o mesmo
 tamanho — alguma etapa devolve um pixel a menos."""
 import json
+import shutil
 import subprocess
 import tempfile
 from dataclasses import replace
 from pathlib import Path
 
+from motor import arte
 from motor import cenas as mod_cenas
-from motor import config, fala, probe, tratamentos, trilha
+from motor import config, fala, legenda as mod_legenda, probe, tratamentos, trilha
 
 
 def _bordas(cena):
@@ -37,7 +39,11 @@ def _segmento(cena, destino, ja_cortado=False, area=None):
     raise ValueError(f"tratamento sem implementacao: {cena.trat}")
 
 
-def montar(caminho_cenas, destino, tmp=None):
+def montar(caminho_cenas, destino, tmp=None, transcrever=None):
+    """Monta o filme. `transcrever` existe para o teste poder exercitar a
+    fiacao da legenda sem baixar o modelo de 3GB nem depender de fala real:
+    e uma funcao que recebe o caminho do filme e devolve
+    [{"p": palavra, "t": inicio, "f": fim}, ...]."""
     prod = mod_cenas.carregar(caminho_cenas)
     destino = Path(destino)
     tmp = Path(tmp or tempfile.mkdtemp(prefix="talkingreel-"))
@@ -56,9 +62,31 @@ def montar(caminho_cenas, destino, tmp=None):
         cena_apertada = replace(cena, arquivo=Path(apertado))
         seg = _segmento(cena_apertada, tmp / f"s{cena.n:03d}.mov",
                         ja_cortado=True, area=area)
+        if cena.letreiro:
+            peca = tmp / f"l{cena.n:03d}.png"
+            arte.letreiro(cena.letreiro.texto, prod.estilo, peca,
+                          base=cena.letreiro.base, box=cena.letreiro.box)
+            com_arte = tmp / f"la{cena.n:03d}.mov"
+            tratamentos.com_overlay(seg, peca, com_arte,
+                                    entra=cena.letreiro.entra,
+                                    dura=cena.letreiro.dura)
+            seg = com_arte
         d = probe.dur(seg)
-        mapa.append({"n": cena.n, "trat": cena.trat, "pausas": n_pausas,
-                     "ini": round(t, 3), "fim": round(t + d, 3)})
+        registro = {"n": cena.n, "trat": cena.trat, "pausas": n_pausas,
+                    "ini": round(t, 3), "fim": round(t + d, 3)}
+        if cena.topo:
+            # o laudo precisa saber que material entrou na metade de cima
+            # para medir quantas vezes ele repete dentro da cena.
+            registro["topo"] = str(cena.topo.arquivo)
+        if cena.letreiro:
+            # em tempo de FILME, para a legenda saber onde sumir. `entra` e
+            # `dura` sao contados na cena ja pronta -- depois do corte de
+            # silencio e da velocidade -- entao basta somar o inicio da cena.
+            fim_letreiro = (cena.letreiro.entra + cena.letreiro.dura
+                            if cena.letreiro.dura else d)
+            registro["letreiro"] = [round(t + cena.letreiro.entra, 3),
+                                    round(t + min(fim_letreiro, d), 3)]
+        mapa.append(registro)
         t += d
         segmentos.append(seg)
 
@@ -83,6 +111,25 @@ def montar(caminho_cenas, destino, tmp=None):
                         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
                         "-ar", str(config.SR), "-movflags", "+faststart",
                         str(destino)], check=True)
+
+    if prod.legenda:
+        # transcreve o filme JA MONTADO: os tempos ja saem na escala final,
+        # depois do corte de silencio e da velocidade. E antes da trilha nao
+        # adianta -- a musica entra depois, mas a duracao nao muda.
+        ler = transcrever or mod_legenda.transcrever
+        palavras = ler(destino)
+        mod_legenda.corrigir(palavras, prod.proprios)
+        # guarda o filme SEM legenda antes de queimar: e um dos
+        # entregaveis, para quando o aplicativo legenda sozinho. Sem isto ele
+        # so existiria na pasta temporaria, que e descartada.
+        sem_legenda = destino.with_name(destino.stem + "-sem-legenda"
+                                        + destino.suffix)
+        shutil.copyfile(destino, sem_legenda)
+        com_leg = tmp / "legendado.mp4"
+        mod_legenda.queimar(destino, mod_legenda.blocos(palavras), prod.estilo,
+                            com_leg, mapa=mapa,
+                            posicao_split=prod.legenda_split)
+        shutil.copyfile(com_leg, destino)
 
     (Path(caminho_cenas).parent / "cenas-mapa.json").write_text(
         json.dumps(mapa, indent=1, ensure_ascii=False), encoding="utf-8")

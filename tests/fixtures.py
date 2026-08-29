@@ -22,16 +22,33 @@ def dimensao(caminho):
     return nums[0], nums[1]
 
 
-def clipe_fala(destino, falas, total, w=W, h=H):
-    """falas: lista de (inicio, duracao) em segundos, onde ha tom audivel."""
+def clipe_fala(destino, falas, total, w=W, h=H, ruido_dB=None):
+    """falas: lista de (inicio, duracao) em segundos, onde ha tom audivel.
+
+    `ruido_dB` poe um piso de ruido debaixo de tudo, como numa gravacao de
+    verdade. SEM ele o silencio e zero DIGITAL, e isso mente para qualquer
+    teste que meca nivel: o piso vira -120 dB e a distancia entre fala e
+    silencio fica em 120 dB, distancia que nao existe em gravacao nenhuma.
+    Uma sala silenciosa fica por volta de -50 dB abaixo da fala."""
     destino = Path(destino)
     volume = "+".join(
         f"between(t,{ini},{ini + dur})" for ini, dur in falas) or "0"
+    if ruido_dB is None:
+        cadeia = f"[1:a]volume='{volume}':eval=frame[a]"
+        entradas = []
+    else:
+        ganho = 10 ** (ruido_dB / 20)
+        cadeia = (f"[1:a]volume='{volume}':eval=frame[s];"
+                  f"[2:a]volume={ganho:.6f}[r];"
+                  f"[s][r]amix=inputs=2:duration=first:normalize=0[a]")
+        entradas = ["-f", "lavfi", "-t", f"{total}",
+                    "-i", f"anoisesrc=color=pink:sample_rate={SR}:seed=7"]
     _roda([
         "ffmpeg", "-y", "-v", "error",
         "-f", "lavfi", "-t", f"{total}", "-i", f"color=c=gray:s={w}x{h}:r={FPS}",
         "-f", "lavfi", "-t", f"{total}", "-i", f"sine=frequency=220:sample_rate={SR}",
-        "-filter_complex", f"[1:a]volume='{volume}':eval=frame[a]",
+        *entradas,
+        "-filter_complex", cadeia,
         "-map", "0:v", "-map", "[a]",
         "-c:v", "libx264", "-crf", "28", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
         "-c:a", "pcm_s16le", "-ar", str(SR), "-ac", "2",

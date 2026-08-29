@@ -27,3 +27,23 @@ TETO_DB = -1.5                  # teto do limitador, para a voz nao estourar
 VOL_TRILHA = 0.34               # musica bem abaixo da voz
 SR = 48000                      # taxa de amostragem, igual em TODA etapa. Misturar
                                 # taxas foi uma das tres causas do dessync progressivo
+
+LEG_CORPO = 54                  # corpo da legenda
+LEG_ENTRELINHA = 1.16
+LEG_PAD_X, LEG_PAD_Y = 24, 12   # respiro dentro da caixa
+LEG_LARGURA_MAX = 840           # forca quebra antes de vazar
+LEG_BASE = 1375                 # base em tela cheia. A 1500 caia sob a
+                                 # interface do aplicativo
+LEG_SPLIT_X = 60                # margem, na posicao alinhada a esquerda
+LEG_SPLIT_TOPO = 827            # 20px abaixo da divisoria em 807
+LEG_TOPO_LETREIRO = 1300        # letreiro com tinta abaixo disto tapa a legenda
+
+SEGURO_TOPO = 180        # acima disto o aplicativo desenha a propria interface.
+                         # ESTIMATIVA, nao medicao: nunca houve incidente no
+                         # topo. Se aparecer um, e este numero que muda.
+SEGURO_BASE = 1400       # MEDIDO por dois pontos: legenda com base 1375
+                         # (tinta terminando em y=1376) funciona; base 1500
+                         # (y=1501) caiu sob a interface do aplicativo e por
+                         # isso virou 1375. O limite fica logo acima do unico
+                         # valor que sabemos bom. Um limite em 1560 nao pegaria
+                         # o proprio erro que motivou a mudanca.

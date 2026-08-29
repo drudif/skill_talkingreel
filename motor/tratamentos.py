@@ -163,3 +163,39 @@ def aperta(caminho, destino, ini, fim):
     for p in partes:
         Path(p).unlink(missing_ok=True)
     return destino, len(pausas)
+
+
+def com_overlay(base, peca, destino, entra=0.0, dura=None):
+    """Poe um PNG por cima do video, entrando em `entra` e saindo depois de
+    `dura` segundos. `dura=None` deixa ate o fim.
+
+    Este ffmpeg nao tem drawtext nem subtitles -- todo texto sobre imagem
+    entra por aqui, como PNG desenhado pelo Pillow.
+
+    NADA DE `-shortest` AQUI. Medido: com `-shortest` a saida perdia quadros de
+    video enquanto o audio ficava inteiro -- 135 quadros viravam 133, e o filme
+    dessincronizava 0,06s a 0,16s por cena, sem relacao com o tamanho da cena.
+    Quem segura a duracao e `eof_action=pass` no overlay: quando a imagem acaba,
+    os quadros da base seguem passando sem alteracao. Com isso a saida bate
+    quadro a quadro com a base, mesmo se a imagem acabar antes.
+
+    A imagem parada (segunda entrada) roda em loop, entra na mesma taxa de
+    quadros do video e e cortada com `-t d_png` -- a duracao da base MAIS uma
+    folga de 50ms, para o letreiro nao sumir um quadro antes do fim por erro de
+    arredondamento (fps, decimais de ffprobe)."""
+    d = probe.dur(base)
+    d_png = d + 0.05
+    saida_fade = (f",fade=t=out:st={entra + dura:.2f}:d=0.3:alpha=1"
+                  if dura else "")
+    _roda([
+        "ffmpeg", "-y", "-v", "error",
+        "-i", str(base),
+        "-loop", "1", "-framerate", str(config.FPS),
+        "-t", f"{d_png:.3f}", "-i", str(peca),
+        "-filter_complex",
+        f"[1:v]format=rgba,fade=t=in:st={entra:.2f}:d=0.25:alpha=1{saida_fade}[p];"
+        f"[0:v][p]overlay=0:0:eof_action=pass,format=yuv420p[v]",
+        "-map", "[v]", "-map", "0:a?",
+        "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+        "-c:a", "copy", str(destino)])
+    return destino
