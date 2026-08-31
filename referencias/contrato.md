@@ -61,6 +61,8 @@ take longo vira um filme.
 | `proprios` | não | nomes que a transcrição costuma errar, escritos do jeito certo. **Só nome próprio, e só com 4 letras ou mais**. Conserta erro de escrita parecido com o nome, não erro de som |
 | `trocas` | não | trocas ditadas palavra por palavra: `{"sidense": "Seedance"}`. É o único jeito de consertar quando a transcrição ouviu errado |
 | `trilha` | não | a música de fundo. Ela abaixa sozinha quando a pessoa fala. Sem este campo, o filme sai sem música |
+| `abertura` | não | o estalo dos primeiros meio segundo: um clarão, as cores se separando e a imagem fechando de um zoom. `true`, `false`, ou um número de 0 a 1 para regular |
+| `glitch` | não | o mesmo estalo, curto e fraco, numa emenda a cada quatro. `true`, `false`, ou um número de 0 a 1 |
 | `contraste` | não | `true` mede cada gravação e corrige a que estiver lavada; `false` deixa a imagem como veio; um número força o mesmo ajuste em todas. Padrão `true` |
 | `cenas` | sim | a lista de cenas, em ordem |
 
@@ -168,6 +170,32 @@ e imagem colorida qualquer ficam todas por volta de 13%.
 A cor do corte sai da própria gravação, não de um verde fixo: panos verdes não
 são todos iguais e a luz muda o tom, e cortar pela cor errada deixa uma borda
 esverdeada no contorno da pessoa.
+
+## O estalo de abertura: `abertura`
+
+Nos primeiros meio segundo do vídeo acontecem três coisas ao mesmo tempo: um
+clarão que some, as cores se separando um pouco e voltando ao lugar, e a imagem
+fechando de um zoom.
+
+**Por que só no começo.** É ali que o dedo de quem rola a tela ainda está
+decidindo, e movimento forte segura. Depois de meio segundo o mesmo efeito
+atrapalha a leitura, e por isso ele acaba.
+
+Um número de 0 a 1 regula a força: `0.5` deixa o efeito mais discreto, `0`
+desliga — o mesmo que `false`.
+
+## O glitch das emendas: `glitch`
+
+O mesmo estalo, curto e fraco, entrando **numa emenda a cada quatro** para marcar
+uma virada de assunto.
+
+É outra coisa do que a abertura, e por isso é mais fraco: ali o efeito abre o
+vídeo e pode ser violento; aqui ele acontece no meio da fala e não pode roubar a
+atenção dela. Dura um terço do tempo, e o zoom é um tranco em vez de um mergulho.
+
+**Em uma a cada quatro, e nunca na primeira.** Em todas as emendas vira tique, e
+a pessoa para de ver o vídeo para ver o efeito. Na primeira ele se somaria ao
+estalo de abertura, e os dois juntos viram uma borra só.
 
 ## Corrigir a imagem lavada: `contraste`
 

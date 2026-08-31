@@ -58,6 +58,60 @@ VERDE_TOLERANCIA = 0.11  # quanto o corte do pano verde aceita de variacao de
                          # janela.
 VERDE_BORDA = 0.08       # suavizacao do contorno recortado
 
+# --- o estalo de abertura ---
+#
+# CRASH ZOOM OUT, e nao um zoom que passeia: a imagem entra 2,4 vezes maior e
+# desaba para o tamanho normal em pouco mais de um quarto de segundo. A curva e
+# ao CUBO -- quase toda a viagem acontece nos tres primeiros quadros, e e isso
+# que da o soco. Curva suave viraria movimento de camera, que e outra coisa.
+#
+# SEM CLARAO BRANCO. O que sustenta o efeito e a imagem se desmontando: canais
+# fora de registro, croma deslocado e grao. Somar luz por cima disso lava tudo
+# e some com o pouco que ha para ver.
+ABERTURA_DUR = 0.30      # o crash inteiro. ESTIMATIVA: e o tempo em que o dedo
+                         # de quem rola a tela ainda esta decidindo. Passou
+                         # disso, o mesmo efeito atrapalha em vez de segurar.
+ABERTURA_FORCA = 1.0     # multiplica tudo. 0 desliga.
+ABERTURA_ZOOM = 1.40     # quanto a imagem entra maior: 1,40 = 2,4 vezes
+
+# Os tres em DEGRAUS porque nenhum dos filtros aceita expressao de tempo -- so
+# numero fixo mais `enable`. A 30 quadros por segundo cada faixa dura de 2 a 3
+# quadros, e o olho le a sequencia como decaimento.
+#
+# (deslocamento horizontal, vertical, inicio, fim) -- o vertical so na primeira
+# faixa, que e onde a imagem tem de parecer que rasgou.
+ABERTURA_CANAIS = ((26, 8, 0.00, 0.06), (16, 4, 0.06, 0.12),
+                   (8, 0, 0.12, 0.20), (3, 0, 0.20, 0.30))
+# o croma anda por conta propria, e e o que da o borrao colorido por cima do
+# deslocamento seco dos canais
+ABERTURA_CROMA = ((14, 0.00, 0.08), (6, 0.08, 0.18))
+# grao alto, temporal: muda a cada quadro, como chuvisco
+ABERTURA_GRAO = ((48, 0.00, 0.08), (30, 0.08, 0.16),
+                 (16, 0.16, 0.26), (7, 0.26, 0.36))
+
+
+# --- o glitch das emendas ---
+#
+# A versao curta do estalo, para entrar de vez em quando no meio do filme. E
+# outra coisa do que a abertura: ali o efeito ABRE o video; aqui ele marca uma
+# virada de assunto. Mas nao e para ser discreto -- a primeira versao era, e
+# passava despercebida. O que muda em relacao a abertura e a DURACAO e o
+# tamanho do zoom, nao a violencia do glitch em si.
+GLITCH_DUR = 0.22
+GLITCH_FORCA = 1.0
+GLITCH_ZOOM = 0.16       # contra 1,40 da abertura: um tranco, nao um mergulho
+GLITCH_CANAIS = ((20, 6, 0.00, 0.06), (12, 3, 0.06, 0.12), (5, 0, 0.12, 0.18))
+GLITCH_CROMA = ((12, 0.00, 0.06), (5, 0.06, 0.13))
+GLITCH_GRAO = ((42, 0.00, 0.06), (26, 0.06, 0.13), (11, 0.13, 0.20))
+
+# A CADENCIA E POR TEMPO, e nao por contagem de emendas: a cada 6 a 8 segundos,
+# na emenda que cair mais perto. Contar emendas dava resultado irregular --
+# quatro cenas curtas seguidas juntavam dois estalos, e uma cena longa deixava
+# meio minuto sem nenhum.
+GLITCH_MIN = 6.0         # nao repete antes disso
+GLITCH_MAX = 8.0         # passando disso, pega a proxima emenda que houver
+
+LUFS = -14 
 LUFS = -14                      # normalizacao. As gravacoes chegam por volta de -36 dB
 TETO_DB = -1.5           # teto do limitador, para a voz nao estourar. A margem
                          # ate 0 dB NAO e folga arbitraria: MEDIDO com gravacao

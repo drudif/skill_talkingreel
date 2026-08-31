@@ -66,6 +66,8 @@ class Producao:
     legenda_split: str = "esquerda"
     proprios: list = field(default_factory=list)
     trocas: dict = field(default_factory=dict)
+    abertura: object = True     # o estalo dos primeiros meio segundo
+    glitch: object = True       # o estalo curto, numa emenda a cada quatro
     contraste: object = True    # True mede e corrige; False deixa como veio;
                                 # um numero forca aquele esticamento
 
@@ -147,6 +149,34 @@ def carregar(caminho):
             raise CenasInvalidas(
                 f"a troca {errado!r} -> {certo!r} nao serve: os dois lados "
                 "precisam ser texto")
+
+    # O estalo de abertura: True liga com a forca padrao, False desliga, e um
+    # numero de 0 a 1 regula.
+    abertura = dados.get("abertura", True)
+    if not isinstance(abertura, bool):
+        try:
+            abertura = float(abertura)
+        except (TypeError, ValueError):
+            raise CenasInvalidas(
+                "'abertura' aceita true, false, ou um numero de 0 a 1 para "
+                "regular a forca")
+        if not 0.0 <= abertura <= 1.0:
+            raise CenasInvalidas(
+                f"'abertura' com numero vai de 0 a 1, veio {abertura}")
+
+    # O glitch das emendas: True liga com a forca padrao, False desliga, e um
+    # numero de 0 a 1 regula.
+    glitch = dados.get("glitch", True)
+    if not isinstance(glitch, bool):
+        try:
+            glitch = float(glitch)
+        except (TypeError, ValueError):
+            raise CenasInvalidas(
+                "'glitch' aceita true, false, ou um numero de 0 a 1 para "
+                "regular a forca")
+        if not 0.0 <= glitch <= 1.0:
+            raise CenasInvalidas(
+                f"'glitch' com numero vai de 0 a 1, veio {glitch}")
 
     # Correcao de contraste: True mede cada gravacao e corrige a que estiver
     # lavada; False nao mexe; um numero forca o mesmo esticamento em todas.
@@ -309,4 +339,6 @@ def carregar(caminho):
         proprios=proprios,
         trocas={k.lower(): v for k, v in trocas.items()},
         legenda=legenda,
+        abertura=abertura,
+        glitch=glitch,
         contraste=contraste)

@@ -85,7 +85,7 @@ def test_o_contrato_descreve_todo_campo_que_o_motor_le():
                   "legenda_split", "proprios",
                   "velocidade", "trilha", "cenas", "trat", "arquivo",
                   "topo", "teto", "letreiro", "de", "ate",
-                  "fundo", "contraste", "trocas"):
+                  "fundo", "contraste", "trocas", "abertura", "glitch"):
         assert f"`{campo}`" in t, f"o contrato nao explica o campo '{campo}'"
 
 
@@ -114,3 +114,24 @@ def test_o_skill_diz_o_que_acontece_quem_nao_responde():
     video pronto."""
     t = SKILL.read_text(encoding="utf-8").lower()
     assert "quem pular todas recebe o padrão" in t
+
+
+def test_o_skill_apresenta_o_caminho_inteiro_antes_de_comecar():
+    """Quem chega nao sabe o que vai ser perguntado, quantas vezes vai precisar
+    responder, nem quanto tempo leva. Descobrir isso no meio, a conta-gotas, e
+    o que faz desistir na metade."""
+    t = SKILL.read_text(encoding="utf-8").lower()
+    assert "como vai funcionar" in t, (
+        "o SKILL.md nao manda apresentar o fluxo na primeira mensagem")
+    assert "duas vezes" in t, "nao diz quantas vezes a pessoa vai ser chamada"
+    for etapa in ("manda a gravação", "quatro perguntas", "folha de aprovação",
+                  "para assistir"):
+        assert etapa in t, f"a apresentacao nao cita '{etapa}'"
+
+
+def test_a_apresentacao_diz_o_que_e_obrigatorio_logo_no_comeco():
+    """Pedir tudo de uma vez e melhor que pedir uma coisa de cada vez, e a
+    pessoa precisa saber que so a gravacao e indispensavel."""
+    t = SKILL.read_text(encoding="utf-8").lower()
+    assert "só ela é obrigatória" in t or "so ela e obrigatoria" in t
+    assert "dá certo sem nada disso" in t or "da certo sem nada disso" in t

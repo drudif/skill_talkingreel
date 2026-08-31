@@ -117,14 +117,40 @@ medidas com o arquivo de verdade, e as tres primeiras deixavam a skill inutiliza
   trocada. Para criar arquivo de teste com a marca: `-display_rotation` ANTES do `-i`
   (`-metadata:s:v:0 rotate=` e ignorado em silencio por este ffmpeg).
 
+- **O Bandit confere a propria decupagem** com `motor/decupagem.py`, antes de entregar. Ele acha na
+  TRANSCRICAO o que so se notaria assistindo: corte no meio de palavra, trecho abrindo ou fechando
+  em conjuncao, muleta repetida entre trechos, duas tomadas da mesma frase, trechos sobrepostos.
+  Numa rodada real esses quatro tipos passaram e so apareceram no video pronto.
+
+- **Dois efeitos de estalo, e a diferenca entre eles e o ponto.** `abertura` abre o video e pode
+  ser violenta: crash zoom de 2,4x desabando em 0,30s, canais fora de registro, croma deslocado e
+  grao alto. `glitch` marca virada de assunto no MEIO da fala, entao dura um terco disso e o zoom
+  e um tranco de 1,06x. Em uma emenda a cada quatro, nunca na primeira — em todas vira tique, e na
+  primeira se soma a abertura e vira borra.
+- **Nenhum dos filtros de estalo aceita expressao de tempo** (`rgbashift`, `chromashift`, `noise`):
+  so numero fixo mais `enable`. Por isso o decaimento vai em degraus de 2 a 3 quadros. So `scale`
+  aceita, e por isso o zoom e continuo.
+- **Nao ha clarao branco no estalo.** Existiu numa versao e saiu: somar luz sobre uma imagem que ja
+  esta se desmontando lava tudo, e o pouco que ha para ver some.
+
 ## Armadilhas de medicao
 - **Nivel de audio se mede contra a FALA do proprio filme, nunca contra o silencio**: num talking
   head bem cortado o percentil de baixo do envelope JA E fala — medido, deu -0,8 dB.
 - **Clipe sintetico sem ruido mente sobre nivel**: usar `clipe_fala(..., ruido_dB=-50)`.
+- **Medir efeito de imagem exige material feito para a medida.** As primeiras versoes dos testes
+  do estalo mediam sobre `testsrc2` e sobre clipe cinza, e nao serviam: num padrao cheio de bordas
+  o grao proprio da imagem e maior que o do efeito; reduzir o quadro para 64x64 antes de medir grao
+  o apaga na media; e num clipe todo cinza o deslocamento de canais nao produz cor nenhuma. O que
+  serve e um clipe de REFERENCIA — fundo liso escuro com um quadrado branco no meio — onde o zoom
+  vira a largura do quadrado e o grao vira a variacao do fundo.
 - **Brilho medio cancela sinal.** Vale para comparar pecas E para medir contraste: uma imagem meio
   preta e meio branca tem a mesma media que uma toda cinza. Comparar pixel a pixel, num recorte
   tirado do bbox da propria peca — recorte chutado, quatro vezes maior que a tinta, baixou a
   diferenca de 72 para 15.
+- **Lista de palavra proibida cresce e vira ruido.** A conferencia de decupagem comecou com trinta
+  palavras "soltas" e acusava frase inteira: "Uma coisa que aprendi", "Já falei disso", "Como você
+  pode ver". Ficaram so conjuncao e preposicao. E o acento FICA na comparacao: sem ele, "é" vira
+  "e" e "dá" vira "da", e dois verbos viravam conjuncao.
 - **Limiar so vale se foi provado dos dois lados.** Cada um tem um teste que falha quando ele sobe
   demais e outro quando desce demais.
 - **Contraste: o alvo sai do material bem gravado, nao de um numero bonito.** Seis gravacoes reais
@@ -185,6 +211,9 @@ medidas com o arquivo de verdade, e as tres primeiras deixavam a skill inutiliza
   invalida por data + TAMANHO. Trocar um numero por outro do mesmo tamanho no mesmo segundo faz o
   Python rodar codigo velho calado. Verificacao do tipo "quebra e ve falhar" exige
   `PYTHONDONTWRITEBYTECODE=1`, senao o resultado da verificacao e ficcao.
+- **Este disco nao distingue maiuscula de minuscula.** `f.mp4` e `F.mp4` sao o MESMO arquivo: num
+  teste, o segundo sobrescreveu o primeiro e a comparacao virou o arquivo contra ele mesmo, dando
+  igual com o efeito funcionando. Nome de arquivo de teste precisa diferir por mais que a caixa.
 - Este ffmpeg **nao tem `drawtext`, `subtitles` nem `ass`** — so `overlay`. Todo texto sobre imagem
   sai do Pillow. `timeout` nao existe neste zsh, e nao ha ImageMagick.
 

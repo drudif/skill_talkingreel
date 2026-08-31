@@ -173,6 +173,144 @@ def trocar_fundo(caminho, destino, fundo, cor=None, tolerancia=None):
     return destino
 
 
+def abertura(filme, destino, forca=None):
+    """O estalo do comeco: a imagem desaba de um zoom violento enquanto se
+    desmonta em canais fora de registro, croma deslocado e grao.
+
+    Nos primeiros instantes o dedo de quem rola a tela ainda esta decidindo, e
+    movimento forte segura. Passado um terco de segundo o mesmo efeito
+    atrapalha a leitura, e por isso ele acaba ali.
+
+    COMO CADA PARTE E FEITA, e por que assim:
+
+    - O CRASH ZOOM e continuo: `scale` com `eval=frame` aceita expressao de
+      tempo. A curva ao cubo poe quase toda a viagem nos tres primeiros
+      quadros -- e o que separa um crash de um movimento de camera.
+    - OS CANAIS, O CROMA E O GRAO vao em DEGRAUS, e nao por escolha: nenhum
+      dos tres filtros aceita expressao de tempo, so numero fixo. O que eles
+      aceitam e `enable`, entao sao varias copias de cada um, cada uma valendo
+      numa faixa, com o valor caindo. Cada faixa dura de dois a tres quadros.
+
+    NAO HA CLARAO BRANCO. Ele existiu numa versao e foi tirado: somar luz por
+    cima de uma imagem que ja esta se desmontando lava tudo, e o pouco que ha
+    para ver some.
+
+    `forca` de 0 a 1 multiplica tudo. Em 0 nao ha efeito nenhum."""
+    f = config.ABERTURA_FORCA if forca is None else forca
+    if f <= 0:
+        _roda(["ffmpeg", "-y", "-v", "error", "-i", str(filme),
+               "-c", "copy", str(destino)])
+        return destino
+    d = config.ABERTURA_DUR
+    zoom = config.ABERTURA_ZOOM * f
+
+    canais = ",".join(
+        f"rgbashift=rh={int(round(h * f))}:bh={-int(round(h * f))}"
+        + (f":rv={-int(round(v * f))}:bv={int(round(v * f))}" if v else "")
+        + f":enable='between(t,{a:.3f},{b:.3f})'"
+        for h, v, a, b in config.ABERTURA_CANAIS)
+    croma = ",".join(
+        f"chromashift=cbh={int(round(px * f))}:crh={-int(round(px * f))}"
+        f":enable='between(t,{a:.3f},{b:.3f})'"
+        for px, a, b in config.ABERTURA_CROMA)
+    grao = ",".join(
+        f"noise=alls={int(round(px * f))}:allf=t+u"
+        f":enable='between(t,{a:.3f},{b:.3f})'"
+        for px, a, b in config.ABERTURA_GRAO)
+
+    _roda([
+        "ffmpeg", "-y", "-v", "error", "-i", str(filme),
+        "-vf",
+        f"scale=w='iw*(1+{zoom:.3f}*max(0,1-t/{d})^3)'"
+        f":h='ih*(1+{zoom:.3f}*max(0,1-t/{d})^3)':eval=frame,"
+        f"crop={config.W}:{config.H},{canais},{croma},{grao},format=yuv420p",
+        "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+        "-c:a", "copy", "-movflags", "+faststart", str(destino)])
+    return destino
+
+
+def emendas_do_glitch(emendas, minimo=None, maximo=None):
+    """Quais emendas recebem o estalo: uma a cada 6 a 8 segundos, na que cair
+    mais perto.
+
+    A primeira NUNCA entra -- ali ja esta o estalo de abertura, e os dois juntos
+    viram uma borra so. Por isso quem chama passa `mapa[1:]`.
+
+    Por tempo, e nao por contagem: contando emendas o resultado fica irregular,
+    porque as cenas nao tem o mesmo tamanho. Quatro cenas curtas seguidas
+    juntavam dois estalos quase colados, e uma cena longa deixava meio minuto
+    sem nenhum."""
+    minimo = config.GLITCH_MIN if minimo is None else minimo
+    maximo = config.GLITCH_MAX if maximo is None else maximo
+    escolhidas, ultima = [], None
+    for t in sorted(emendas):
+        if ultima is None:
+            # a primeira so entra depois do intervalo minimo desde o comeco do
+            # filme: colada na abertura ela desaparece dentro dela
+            if t >= minimo:
+                escolhidas.append(t)
+                ultima = t
+            continue
+        if t - ultima >= minimo:
+            escolhidas.append(t)
+            ultima = t
+    return escolhidas
+
+
+def glitch(filme, destino, instantes, forca=None):
+    """Um estalo curto e fraco em cada instante da lista.
+
+    E a versao de emenda do efeito de abertura, e existe para marcar uma virada
+    de assunto. Ali o efeito abre o video e pode ser violento; aqui ele acontece
+    no meio da fala e nao pode roubar a atencao dela -- dura um terco do tempo e
+    o zoom e um tranco, nao um crash.
+
+    `instantes` sao os segundos do filme em que cada estalo comeca; quem escolhe
+    quais e `emendas_do_glitch`.
+
+    Como na abertura, os filtros de canal, croma e grao NAO aceitam expressao de
+    tempo -- entao cada instante vira mais um punhado de copias com `enable`. O
+    zoom, esse aceita, e a expressao soma os trancos de todos os instantes."""
+    instantes = [t for t in (instantes or []) if t is not None and t >= 0]
+    if not instantes or (forca if forca is not None else config.GLITCH_FORCA) <= 0:
+        _roda(["ffmpeg", "-y", "-v", "error", "-i", str(filme),
+               "-c", "copy", str(destino)])
+        return destino
+    f = config.GLITCH_FORCA if forca is None else forca
+    d = config.GLITCH_DUR
+
+    # o tranco de escala de todos os instantes somados numa expressao so
+    trancos = "+".join(
+        f"max(0,1-max(0,t-{t:.3f})/{d})^2*between(t,{t:.3f},{t + d:.3f})"
+        for t in instantes)
+    escala = f"1+{config.GLITCH_ZOOM * f:.3f}*({trancos})"
+
+    partes = []
+    for t in instantes:
+        for h, v, a, b in config.GLITCH_CANAIS:
+            partes.append(
+                f"rgbashift=rh={int(round(h * f))}:bh={-int(round(h * f))}"
+                + (f":rv={-int(round(v * f))}:bv={int(round(v * f))}" if v else "")
+                + f":enable='between(t,{t + a:.3f},{t + b:.3f})'")
+        for px, a, b in config.GLITCH_CROMA:
+            partes.append(
+                f"chromashift=cbh={int(round(px * f))}:crh={-int(round(px * f))}"
+                f":enable='between(t,{t + a:.3f},{t + b:.3f})'")
+        for px, a, b in config.GLITCH_GRAO:
+            partes.append(
+                f"noise=alls={int(round(px * f))}:allf=t+u"
+                f":enable='between(t,{t + a:.3f},{t + b:.3f})'")
+
+    _roda([
+        "ffmpeg", "-y", "-v", "error", "-i", str(filme),
+        "-vf",
+        f"scale=w='iw*({escala})':h='ih*({escala})':eval=frame,"
+        f"crop={config.W}:{config.H}," + ",".join(partes) + ",format=yuv420p",
+        "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+        "-c:a", "copy", "-movflags", "+faststart", str(destino)])
+    return destino
+
+
 def com_peca_animada(base, peca, destino, entra=0.0):
     """Poe uma peca de video com fundo transparente por cima do video, a partir
     de `entra` segundos.

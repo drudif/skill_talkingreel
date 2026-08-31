@@ -780,3 +780,345 @@ def test_sem_a_area_o_corte_preserva_a_resolucao(tmp_path):
     ini, fim = fala.bordas(grande)
     igual = tratamentos.aperta(grande, tmp_path / "i.mov", ini, fim)[0]
     assert probe.dimensao(igual) == (720, 1280)
+
+
+# ---------------------------------------------------------------------------
+# O estalo de abertura
+# ---------------------------------------------------------------------------
+
+def _clipe_colorido(destino, total=2.5, escuro=True):
+    """Um clipe com COR e DETALHE, e escuro.
+
+    O clipe cinza uniforme de `fixtures` nao serve aqui por duas razoes
+    medidas: deslocar os canais de cor numa imagem onde R=G=B nao muda nada
+    visivel, e sobre um cinza claro o clarao satura em 243 e a forca deixa de
+    ser medivel."""
+    import subprocess
+    escala = "0.25" if escuro else "1.0"
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error",
+         "-f", "lavfi", "-t", str(total), "-i", "testsrc2=s=1080x1920:r=30",
+         "-f", "lavfi", "-t", str(total),
+         "-i", "sine=frequency=220:sample_rate=48000",
+         "-vf", f"eq=brightness=-{escala}",
+         "-c:v", "libx264", "-crf", "20", "-preset", "ultrafast",
+         "-pix_fmt", "yuv420p", "-c:a", "pcm_s16le", "-ar", "48000",
+         str(destino)], check=True)
+    return destino
+
+
+def _brilhos(caminho, quantos=8):
+    """O brilho medio dos primeiros quadros, LIDOS EM SEQUENCIA.
+
+    Sem `-ss`, de proposito: buscar um instante perto de zero devolve o quadro
+    que o ffmpeg achar, e nao o primeiro. Medindo assim, dois videos com
+    claroes bem diferentes davam exatamente o mesmo numero -- o efeito
+    funcionava e o teste dizia que nao."""
+    import subprocess
+    lado = 32
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(caminho),
+         "-frames:v", str(quantos), "-vf", f"scale={lado}:{lado},format=gray",
+         "-f", "rawvideo", "-"], capture_output=True)
+    n = lado * lado
+    d = r.stdout
+    return [sum(d[i * n:(i + 1) * n]) / n for i in range(len(d) // n)]
+
+
+def _clipe_cinza_com_bordas(destino, total=2.0):
+    """Padrao NITIDO e SEM COR: R=G=B em todo pixel.
+
+    Assim qualquer diferenca entre os canais so pode ter vindo do efeito. Num
+    clipe colorido a medida nao serve: a diferenca natural entre vermelho e azul
+    da propria imagem e maior que a do deslocamento, e muda sozinha ao longo do
+    video -- medido, deu 61 no comeco e 120 no fim, sem efeito nenhum ali."""
+    import subprocess
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-t", str(total),
+         "-i", "testsrc2=s=1080x1920:r=30",
+         "-f", "lavfi", "-t", str(total),
+         "-i", "sine=frequency=220:sample_rate=48000",
+         "-vf", "format=gray,format=yuv420p,eq=brightness=-0.25",
+         "-c:v", "libx264", "-crf", "20", "-preset", "ultrafast",
+         "-c:a", "pcm_s16le", "-ar", "48000", str(destino)], check=True)
+    return destino
+
+
+def _quadros_cinza(caminho, quantos=8, lado=64):
+    import subprocess
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(caminho),
+         "-frames:v", str(quantos), "-vf", f"scale={lado}:{lado},format=gray",
+         "-f", "rawvideo", "-"], capture_output=True)
+    n = lado * lado
+    return [r.stdout[i * n:(i + 1) * n] for i in range(len(r.stdout) // n)], lado
+
+
+def _grao(caminho, quadro=0):
+    """Quanto a imagem chia: a diferenca media entre pixels VIZINHOS.
+
+    Grao e alta frequencia -- muda de um pixel para o outro. Brilho e contraste
+    nao mexem nisso, entao a medida isola o chuvisco."""
+    quadros, lado = _quadros_cinza(caminho, quantos=quadro + 1)
+    if len(quadros) <= quadro:
+        return 0.0
+    q = quadros[quadro]
+    difs = [abs(q[i] - q[i + 1]) for i in range(len(q) - 1) if (i + 1) % lado]
+    return sum(difs) / max(1, len(difs))
+
+
+def _cor_fora_de_registro(caminho, t):
+    """Quanto os canais vermelho e azul estao deslocados um do outro.
+
+    A separacao de cor aparece como diferenca entre os canais na MESMA posicao:
+    onde a imagem e cinza, ela deixa de ser."""
+    import subprocess
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-ss", f"{t:.3f}", "-i", str(caminho),
+         "-frames:v", "1", "-vf", "scale=64:114,format=rgb24",
+         "-f", "rawvideo", "-"], capture_output=True)
+    b = r.stdout
+    if len(b) < 300:
+        return 0.0
+    return sum(abs(b[i] - b[i + 2]) for i in range(0, len(b) - 2, 3)) \
+        / max(1, len(b) // 3)
+
+
+
+
+
+
+def test_a_abertura_nao_muda_duracao_nem_tamanho(tmp_path):
+    """O estalo entra no filme pronto. Se mexesse na duracao, o mapa de tempo e
+    a legenda passariam a apontar para o lugar errado."""
+    base = fixtures.clipe_fala(tmp_path / "b3.mov", falas=[(0.2, 2.0)],
+                               total=2.5)
+    com = tratamentos.abertura(base, tmp_path / "a3.mp4")
+    assert abs(probe.dur(com) - probe.dur(base)) < 0.10
+    assert probe.dimensao(com) == probe.dimensao(base)
+
+
+def test_a_abertura_desligada_nao_mexe_na_imagem(tmp_path):
+    base = _clipe_colorido(tmp_path / "b4.mov", total=2.0)
+    com = tratamentos.abertura(base, tmp_path / "a4.mp4", forca=0)
+    assert abs(_brilhos(com)[0] - _brilhos(base)[0]) < 3
+
+
+
+def test_a_abertura_guarda_o_som(tmp_path):
+    base = fixtures.clipe_fala(tmp_path / "b6.mov", falas=[(0.2, 1.5)],
+                               total=2.0)
+    com = tratamentos.abertura(base, tmp_path / "a6.mp4")
+    assert probe.tem_audio(com) is True
+
+
+# ---------------------------------------------------------------------------
+# O estalo de abertura
+#
+# As medidas aqui usam um clipe de REFERENCIA: fundo escuro liso com um
+# quadrado branco de 200px no centro. Assim o zoom vira um numero (a largura do
+# quadrado) e o grao vira outro (a variacao no fundo, que deveria ser lisa).
+#
+# As primeiras versoes destes testes mediam sobre `testsrc2` e sobre o clipe
+# cinza das fixtures, e nao serviam: num padrao cheio de bordas o grao proprio
+# da imagem e maior que o do efeito, e reduzindo o quadro para 64x64 antes de
+# medir o grao ele desaparece na media.
+# ---------------------------------------------------------------------------
+
+def _clipe_de_referencia(destino, total=2.0):
+    import subprocess
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error",
+         "-f", "lavfi", "-t", str(total),
+         "-i", "color=c=0x202020:s=1080x1920:r=30",
+         "-f", "lavfi", "-t", str(total),
+         "-i", "sine=frequency=220:sample_rate=48000",
+         "-vf", "drawbox=x=440:y=860:w=200:h=200:c=white@1:t=fill",
+         "-c:v", "libx264", "-crf", "18", "-preset", "ultrafast",
+         "-pix_fmt", "yuv420p", "-c:a", "pcm_s16le", "-ar", "48000",
+         str(destino)], check=True)
+    return destino
+
+
+def _largura_do_alvo(caminho, quadro):
+    """Quantas colunas do meio da tela estao claras. Com o zoom, o quadrado de
+    200px aparece maior."""
+    import subprocess
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(caminho),
+         "-frames:v", str(quadro + 1), "-vf", "crop=1080:2:0:960,format=gray",
+         "-f", "rawvideo", "-"], capture_output=True)
+    n = 1080 * 2
+    q = r.stdout[quadro * n:(quadro + 1) * n][:1080]
+    return sum(1 for p in q if p > 140)
+
+
+def _grao_no_fundo(caminho, quadro):
+    """A variacao entre pixels vizinhos num pedaco do fundo, na RESOLUCAO
+    ORIGINAL. O fundo e liso, entao tudo o que variar ali e chuvisco."""
+    import subprocess
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(caminho),
+         "-frames:v", str(quadro + 1), "-vf", "crop=120:120:60:200,format=gray",
+         "-f", "rawvideo", "-"], capture_output=True)
+    n = 120 * 120
+    q = r.stdout[quadro * n:(quadro + 1) * n]
+    if len(q) < n:
+        return 0.0
+    difs = [abs(q[i] - q[i + 1]) for i in range(len(q) - 1) if (i + 1) % 120]
+    return sum(difs) / max(1, len(difs))
+
+
+def test_o_crash_zoom_entra_muito_ampliado_e_desaba(tmp_path):
+    """Crash zoom OUT: a imagem entra mais que o dobro do tamanho e desaba para
+    o normal em menos de meio segundo. MEDIDO no clipe de referencia: o
+    quadrado de 200px aparece com 480 no primeiro quadro e volta a 200 no
+    nono."""
+    base = _clipe_de_referencia(tmp_path / "ref.mov")
+    com = tratamentos.abertura(base, tmp_path / "ref-com.mp4")
+    assert _largura_do_alvo(base, 0) == 200, "a fixture nao esta como esperado"
+    assert _largura_do_alvo(com, 0) > 380, (
+        f"o primeiro quadro entrou com {_largura_do_alvo(com, 0)}px de alvo, e "
+        f"deveria passar de 380 — nao houve crash")
+    assert abs(_largura_do_alvo(com, 14) - 200) <= 8, (
+        f"meio segundo depois o alvo esta em {_largura_do_alvo(com, 14)}px: o "
+        f"zoom nao desabou")
+
+
+def test_a_abertura_poe_grao_e_ele_some(tmp_path):
+    base = _clipe_de_referencia(tmp_path / "g.mov")
+    com = tratamentos.abertura(base, tmp_path / "g-com.mp4")
+    assert _grao_no_fundo(base, 0) < 1.0, "a fixture deveria ter fundo liso"
+    assert _grao_no_fundo(com, 0) > 8, (
+        f"quase nao ha grao no comeco: {_grao_no_fundo(com, 0):.1f}")
+    assert _grao_no_fundo(com, 14) < 2, (
+        f"o grao nao sumiu: {_grao_no_fundo(com, 14):.1f} no quadro 14")
+
+
+def test_a_abertura_nao_da_clarao_branco(tmp_path):
+    """Existiu numa versao e foi tirado: somar luz por cima de uma imagem que
+    ja esta se desmontando lava tudo, e o pouco que ha para ver some. O grao
+    ainda mexe um pouco no brilho medio, e a folga aqui e para ele."""
+    base = _clipe_de_referencia(tmp_path / "c.mov")
+    com = tratamentos.abertura(base, tmp_path / "c-com.mp4")
+    antes, depois = _brilhos(base)[0], _brilhos(com)[0]
+    assert depois < antes + 45, (
+        f"o primeiro quadro clareou de {antes:.0f} para {depois:.0f}: voltou o "
+        f"clarao")
+
+
+def test_a_abertura_separa_as_cores_e_depois_junta(tmp_path):
+    base = _clipe_cinza_com_bordas(tmp_path / "b2.mov")
+    com = tratamentos.abertura(base, tmp_path / "a2.mp4")
+    assert _cor_fora_de_registro(base, 0.0) < 3, (
+        "a fixture nao esta em cinza: a medida nao vale")
+    cedo = _cor_fora_de_registro(com, 0.0)
+    tarde = _cor_fora_de_registro(com, 1.5)
+    assert cedo > tarde + 3, (
+        f"as cores nao se separaram no comeco (cedo={cedo:.1f}, "
+        f"tarde={tarde:.1f})")
+
+
+def test_a_forca_regula_o_estalo(tmp_path):
+    """Medida pelo GRAO e pelo ZOOM, e nao pelo brilho: sem clarao, o brilho do
+    primeiro quadro nao diz mais nada sobre a forca."""
+    base = _clipe_de_referencia(tmp_path / "f.mov")
+    # nomes que diferem SO por maiuscula sao o mesmo arquivo neste Mac
+    fraco = tratamentos.abertura(base, tmp_path / "fraco.mp4", forca=0.3)
+    forte = tratamentos.abertura(base, tmp_path / "forte.mp4", forca=1.0)
+    assert _grao_no_fundo(forte, 0) > _grao_no_fundo(fraco, 0) + 3, (
+        f"a forca nao mudou o grao: fraco {_grao_no_fundo(fraco, 0):.1f}, "
+        f"forte {_grao_no_fundo(forte, 0):.1f}")
+    assert _largura_do_alvo(forte, 0) > _largura_do_alvo(fraco, 0) + 40, (
+        "a forca nao mudou o tamanho do crash")
+
+
+# ---------------------------------------------------------------------------
+# O glitch das emendas: a versao curta e fraca, no meio do filme
+# ---------------------------------------------------------------------------
+
+def test_o_glitch_acontece_so_nos_instantes_pedidos(tmp_path):
+    """No meio do filme o efeito marca uma virada de assunto. Fora dos
+    instantes escolhidos a imagem tem de estar limpa -- senao ele deixa de ser
+    marcacao e vira ruido no video inteiro."""
+    base = _clipe_de_referencia(tmp_path / "gl.mov", total=3.0)
+    com = tratamentos.glitch(base, tmp_path / "gl-com.mp4", [1.0])
+    limpo_antes = _grao_no_fundo(com, 20)     # ~0,67s
+    no_estalo = _grao_no_fundo(com, 31)       # ~1,03s
+    limpo_depois = _grao_no_fundo(com, 45)    # ~1,50s
+    assert no_estalo > 6, f"nao ha estalo em 1,0s: {no_estalo:.1f}"
+    assert limpo_antes < 2, f"ha ruido antes da hora: {limpo_antes:.1f}"
+    assert limpo_depois < 2, f"o estalo nao acabou: {limpo_depois:.1f}"
+
+
+def test_o_glitch_e_mais_fraco_que_a_abertura(tmp_path):
+    """Ali o efeito abre o video e pode ser violento; aqui ele acontece no meio
+    da fala e nao pode roubar a atencao dela."""
+    base = _clipe_de_referencia(tmp_path / "cmp.mov")
+    forte = tratamentos.abertura(base, tmp_path / "cmp-abre.mp4")
+    fraco = tratamentos.glitch(base, tmp_path / "cmp-gl.mp4", [0.0])
+    assert _largura_do_alvo(fraco, 0) < _largura_do_alvo(forte, 0) - 100, (
+        "o tranco de escala do glitch ficou tao grande quanto o crash da "
+        "abertura")
+    assert _grao_no_fundo(fraco, 0) < _grao_no_fundo(forte, 0), (
+        "o grao do glitch nao e mais fraco que o da abertura")
+
+
+def test_o_glitch_em_varios_instantes(tmp_path):
+    base = _clipe_de_referencia(tmp_path / "v.mov", total=3.0)
+    com = tratamentos.glitch(base, tmp_path / "v-com.mp4", [0.5, 1.5])
+    assert _grao_no_fundo(com, 16) > 6, "faltou o estalo de 0,5s"
+    assert _grao_no_fundo(com, 46) > 6, "faltou o estalo de 1,5s"
+    assert _grao_no_fundo(com, 31) < 2, "ha ruido entre os dois estalos"
+
+
+def test_sem_instante_nenhum_a_imagem_nao_muda(tmp_path):
+    base = _clipe_de_referencia(tmp_path / "n.mov")
+    com = tratamentos.glitch(base, tmp_path / "n-com.mp4", [])
+    assert _grao_no_fundo(com, 0) < 1.0
+    assert _largura_do_alvo(com, 0) == _largura_do_alvo(base, 0)
+
+
+def test_o_glitch_nao_muda_duracao_nem_som(tmp_path):
+    base = _clipe_de_referencia(tmp_path / "d.mov")
+    com = tratamentos.glitch(base, tmp_path / "d-com.mp4", [0.5])
+    assert abs(probe.dur(com) - probe.dur(base)) < 0.10
+    assert probe.tem_audio(com) is True
+    assert probe.dimensao(com) == probe.dimensao(base)
+
+
+def test_a_cadencia_do_glitch_e_por_tempo(tmp_path):
+    """Uma a cada 6 a 8 segundos, na emenda que cair mais perto.
+
+    Contando emendas o resultado ficava irregular, porque as cenas nao tem o
+    mesmo tamanho: quatro curtas seguidas juntavam dois estalos quase colados,
+    e uma longa deixava meio minuto sem nenhum."""
+    emendas = [2.5, 8.0, 10.7, 12.8, 16.4, 23.2, 25.8, 28.8, 30.9, 34.6]
+    escolhidas = tratamentos.emendas_do_glitch(emendas)
+    assert escolhidas, "nenhuma emenda escolhida"
+    assert all(t in emendas for t in escolhidas), (
+        "escolheu um instante que nao e emenda: o estalo tem de bater no corte")
+    for a, b in zip(escolhidas, escolhidas[1:]):
+        assert b - a >= config.GLITCH_MIN, (
+            f"dois estalos a {b - a:.1f}s um do outro, e o minimo e "
+            f"{config.GLITCH_MIN}")
+
+
+def test_o_glitch_nunca_pega_a_primeira_emenda(tmp_path):
+    """Ali ja esta o estalo de abertura, e os dois juntos viram uma borra so."""
+    escolhidas = tratamentos.emendas_do_glitch([1.2, 2.0, 9.0, 17.0])
+    assert 1.2 not in escolhidas and 2.0 not in escolhidas, (
+        "escolheu uma emenda dentro dos primeiros segundos")
+
+
+def test_sem_emenda_longe_o_bastante_nao_ha_glitch(tmp_path):
+    """Video curto, todo cortado no comeco: melhor nenhum estalo que um colado
+    na abertura."""
+    assert tratamentos.emendas_do_glitch([1.0, 2.0, 3.0]) == []
+
+
+def test_uma_cena_longa_nao_deixa_o_filme_sem_estalo(tmp_path):
+    """O contrario do caso acima: se ha emenda depois do intervalo, ela entra,
+    mesmo que tenha demorado."""
+    escolhidas = tratamentos.emendas_do_glitch([20.0, 21.0, 40.0])
+    assert 20.0 in escolhidas and 40.0 in escolhidas

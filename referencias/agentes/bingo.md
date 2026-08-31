@@ -46,8 +46,8 @@ Entregue o dossiê ao Bluey e ao Bandit assim que ficar pronto.
 
 ## O que o motor faz sozinho, e você não precisa pedir
 
-Corta o silêncio das pontas e aperta as pausas de dentro da fala; acelera 1,15 vez; iguala o
-volume; corta a barra preta dos lados quando a gravação chegou deitada; corrige a imagem lavada;
+Põe o estalo nos primeiros meio segundo; corta o silêncio das pontas e aperta as pausas de dentro
+da fala; acelera 1,15 vez; iguala o volume; corta a barra preta dos lados quando a gravação chegou deitada; corrige a imagem lavada;
 abaixa a música quando a pessoa fala. Nada disso vai no `cenas.json`.
 
 ## O que você NÃO faz

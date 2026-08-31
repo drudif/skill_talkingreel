@@ -138,3 +138,14 @@ def test_o_bluey_diz_o_que_a_previa_ainda_nao_tem():
     assert "sem legenda, sem música e sem o material extra" in t or \
            "sem legenda, sem musica e sem o material extra" in t, (
         "o bluey nao avisa o que falta no video que mostra na primeira folha")
+
+
+def test_o_bandit_confere_a_propria_decupagem():
+    """Sem isso ele entrega e alguem descobre o erro assistindo. Os quatro
+    defeitos da rodada real estavam todos na transcricao."""
+    t = _texto("bandit").lower()
+    assert "motor import decupagem" in t or "decupagem" in t, (
+        "o bandit nao tem como conferir o que escolheu")
+    assert "rode de novo até passar" in t or "rode de novo ate passar" in t
+    assert "nem todo achado é erro" in t or "nem todo achado e erro" in t, (
+        "sem isso ele obedece a ferramenta em vez de decidir")

@@ -161,6 +161,30 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
                         "-ar", str(config.SR), "-movflags", "+faststart",
                         str(destino)], check=True)
 
+    if prod.glitch is not False and len(mapa) > 1:
+        # uma a cada 6 a 8 segundos, na emenda que cair mais perto, e nunca a
+        # primeira: ali ja esta o estalo de abertura, e os dois juntos viram
+        # uma borra so.
+        escolhidas = tratamentos.emendas_do_glitch(
+            [c["ini"] for c in mapa[1:]])
+        if escolhidas:
+            com_glitch = tmp / "glitch.mp4"
+            tratamentos.glitch(
+                destino, com_glitch, escolhidas,
+                forca=None if prod.glitch is True else prod.glitch)
+            shutil.copyfile(com_glitch, destino)
+
+    if prod.abertura is not False:
+        # DEPOIS da trilha e ANTES da legenda. Depois da trilha porque o zoom
+        # nao mexe no som; antes da legenda porque a legenda nao pode entrar no
+        # zoom -- ela ficaria maior que o quadro e cortada nos primeiros
+        # quadros, justamente onde o olho esta.
+        com_estalo = tmp / "abertura.mp4"
+        tratamentos.abertura(
+            destino, com_estalo,
+            forca=None if prod.abertura is True else prod.abertura)
+        shutil.copyfile(com_estalo, destino)
+
     if prod.legenda:
         # transcreve o filme JA MONTADO: os tempos ja saem na escala final,
         # depois do corte de silencio e da velocidade. E antes da trilha nao
