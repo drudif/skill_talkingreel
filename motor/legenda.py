@@ -21,7 +21,28 @@ from motor import arte, config, estilos
 
 MAX_PALAVRAS = 4
 RESPIRO = 0.35            # silencio que separa dois blocos
-LIMIAR_PROPRIO = 0.50     # sobre a forma sem acento
+LIMIAR_PROPRIO = 0.73     # semelhanca minima, sobre a forma sem acento, para
+                          # trocar uma palavra da fala pelo nome proprio certo.
+                          # MEDIDO dos dois lados com material real. Abaixo de
+                          # 0,59 a troca pega palavra comum: "bastante" bate
+                          # 0,588 contra "ByteDance", e a 0,50 -- o valor que
+                          # este numero tinha -- "sabe" (0,500), "semanas"
+                          # (0,533) e "verdade" (0,533) viravam "Seedance" na
+                          # legenda queimada. Acima de 0,88 a correcao para de
+                          # servir: "Seedence" bate 0,875 contra "Seedance" e
+                          # deixaria de ser corrigido. 0,73 e o meio da janela.
+                          #
+                          # O QUE ISTO NAO PEGA, e NAO HA LIMIAR QUE PEGUE:
+                          # erro de SOM. A transcricao ouviu "Sidense" onde a
+                          # pessoa disse "Seedance" -- as duas grafias batem
+                          # 0,267. E os casos mais faceis tambem nao dao: pegar
+                          # "guinco" para "Ginsu" (0,545) exigiria um limiar que
+                          # tambem troca "verdade" por "Seedance" (0,533), e
+                          # pegar "naique" para "Nike" (0,600) fica a 0,012 de
+                          # trocar "bastante" por "ByteDance" (0,588). As duas
+                          # faixas se sobrepoem: nao e questao de achar o numero
+                          # certo, e de a comparacao de LETRAS nao saber nada
+                          # sobre SOM. Erro de som se conserta com `pedidas`.
 MIN_LETRAS = 4            # vale para os DOIS lados: palavra menor que isto
                           # nunca e corrigida, e nome proprio menor que isto
                           # nunca serve de alvo. Medido: toda troca errada do

@@ -46,6 +46,18 @@ duas divergirem, o letreiro entra fora de hora e nada acusa.
   Bluey, antes da folha.
 - **A folha e gerada em Python, nunca escrita pelo modelo.** O custo do projeto de origem foi
   reescrever 50 KB de HTML por rodada; agora o modelo produz so a lista de itens.
+- **A folha tem SECOES, e duas naturezas de item.** `tipo: "escolha"` e cartao grande com radio,
+  sem campo de observacao — escolher entre sete estilos nao e aprovar sete coisas, e oferecer
+  aprovar/reprovar em cada um convida a aprovar tres. `tipo: "decisao"` e APROVADO/REPROVADO com
+  espaco para o porque. **As palavras sao essas**, e as mesmas que o `registro.py` guarda: a folha
+  e o registro do que foi combinado, e sinonimo deixa cada lado lembrando de um jeito.
+- **A folha so publica no botao de ENVIAR.** Publicar a cada clique gasta uma versao por marcacao,
+  enche quem espera de aviso — chegaram 13 de uma vez — e deixa duas publicacoes se atropelarem
+  enquanto a pessoa ainda decide. O que ela marca fica no navegador ate ela mandar.
+- **Escolher um resolve o bloco de escolha inteiro.** Os outros nao ficaram pendentes, ficaram
+  para tras; traze-los de volta na folha seguinte faz a pessoa procurar o que nao existe.
+- **Item reprovado volta com id NOVO.** A proposta nova e outra coisa a decidir; reusar o id faz
+  o registro achar que ja foi respondida.
 
 ## Armadilhas de ffmpeg
 - `-ss` vai ANTES do `-i`. Depois vira opcao de saida e o corte escorrega pro arquivo seguinte.
@@ -118,8 +130,14 @@ medidas com o arquivo de verdade, e as tres primeiras deixavam a skill inutiliza
 ## Armadilhas do dominio
 - A transcricao diz QUAL e a palavra; a energia do audio diz ONDE cortar. Oclusiva (p t k b d g)
   tem silencio DENTRO da palavra — cortar no primeiro silencio depois de "tudo" decepa o "do".
-- **O roteiro so conserta nome proprio, e o alvo precisa de 4+ letras.** Alvo curto bate 0,80
-  contra qualquer palavra da fala: numa rodada sairam 19 correcoes, todas erradas.
+- **A correcao de nome proprio erra para os DOIS lados, e o limiar tem janela estreita.** Alvo
+  precisa de 4+ letras: alvo curto bate contra qualquer palavra. E o LIMIAR tem de ficar entre
+  0,59 e 0,88, medido: a 0,50 -- o valor que ele tinha -- "sabe" (0,500), "semanas" e "verdade"
+  (0,533) viravam "Seedance" na legenda queimada; acima de 0,88, "Seedence" deixa de ser
+  corrigido. Fixado em 0,73.
+- **Erro FONETICO nao tem limiar que pegue.** A transcricao ouviu "Sidense" onde a pessoa disse
+  "Seedance": as duas grafias batem **0,267**. Comparacao de letras nao serve para som. Para esses
+  casos existe `pedidas`, a troca dita palavra por palavra — e e o unico jeito.
 - **Palavra sem espaco maior que a largura** (link, hashtag colada) monta caixa maior que o quadro
   e o Pillow corta a tinta em silencio — usar `arte.quebra_forcando_largura`.
 - **Transcrever e a etapa cara** (modelo de 2,9GB). `legenda: false` pula ela inteira;

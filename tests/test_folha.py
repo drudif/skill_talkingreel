@@ -12,14 +12,14 @@ def _itens(n=2):
 
 
 def test_gera_um_documento_completo(tmp_path):
-    p = folha.escrever(_itens(), "estrutura", tmp_path / "f.html")
+    p = folha.escrever(_itens(), "primeira", tmp_path / "f.html")
     html = p.read_text(encoding="utf-8")
     assert html.lstrip().lower().startswith("<!doctype html>")
     assert "</html>" in html
 
 
 def test_cada_item_aparece_uma_vez(tmp_path):
-    p = folha.escrever(_itens(3), "estrutura", tmp_path / "f.html")
+    p = folha.escrever(_itens(3), "primeira", tmp_path / "f.html")
     html = p.read_text(encoding="utf-8")
     for k in range(3):
         assert html.count(f"Fato medido numero {k}.") == 1
@@ -28,26 +28,26 @@ def test_cada_item_aparece_uma_vez(tmp_path):
 def test_o_estado_esta_entre_os_marcadores_uma_vez_so(tmp_path):
     """A armadilha do projeto de origem: dois blocos parecidos no mesmo
     arquivo, e quem lesse o segundo apagava o feedback da pessoa."""
-    p = folha.escrever(_itens(), "estrutura", tmp_path / "f.html")
+    p = folha.escrever(_itens(), "primeira", tmp_path / "f.html")
     html = p.read_text(encoding="utf-8")
     assert html.count(folha.INI) == 1, "o marcador de inicio aparece mais de uma vez"
     assert html.count(folha.FIM) == 1, "o marcador de fim aparece mais de uma vez"
 
 
 def test_o_estado_e_json_valido_e_traz_os_itens(tmp_path):
-    p = folha.escrever(_itens(2), "arte", tmp_path / "f.html")
+    p = folha.escrever(_itens(2), "segunda", tmp_path / "f.html")
     estado = folha.ler(p)
-    assert estado["fase"] == "arte"
+    assert estado["fase"] == "segunda"
     assert [i["id"] for i in estado["itens"]] == ["i0", "i1"]
     assert all(i["decisao"] is None for i in estado["itens"])
 
 
 def test_ler_devolve_as_decisoes_que_a_pessoa_tomou(tmp_path):
-    p = folha.escrever(_itens(2), "estrutura", tmp_path / "f.html")
+    p = folha.escrever(_itens(2), "primeira", tmp_path / "f.html")
     html = p.read_text(encoding="utf-8")
     estado = folha.ler(p)
     estado["itens"][0]["decisao"] = "aprovado"
-    estado["itens"][1]["decisao"] = "descartado"
+    estado["itens"][1]["decisao"] = "reprovado"
     estado["itens"][1]["nota"] = "esse trecho nao"
     novo = html.replace(
         html[html.index(folha.INI):html.index(folha.FIM) + len(folha.FIM)],
@@ -61,14 +61,14 @@ def test_ler_devolve_as_decisoes_que_a_pessoa_tomou(tmp_path):
 def test_texto_com_html_dentro_nao_quebra_a_pagina(tmp_path):
     itens = [{"id": "x", "titulo": "<script>alert(1)</script>",
               "fato": 'aspas " e < e &'}]
-    p = folha.escrever(itens, "estrutura", tmp_path / "f.html")
+    p = folha.escrever(itens, "primeira", tmp_path / "f.html")
     html = p.read_text(encoding="utf-8")
     assert "<script>alert(1)</script>" not in html
     assert folha.ler(p)["itens"][0]["titulo"] == "<script>alert(1)</script>"
 
 
 def test_folha_sem_item_nenhum_diz_isso(tmp_path):
-    p = folha.escrever([], "corte", tmp_path / "f.html")
+    p = folha.escrever([], "segunda", tmp_path / "f.html")
     assert "nada" in p.read_text(encoding="utf-8").lower()
 
 
@@ -76,19 +76,19 @@ def test_id_repetido_e_recusado(tmp_path):
     itens = [{"id": "a", "titulo": "A", "fato": "."},
              {"id": "a", "titulo": "B", "fato": "."}]
     with pytest.raises(ValueError, match="repetid"):
-        folha.escrever(itens, "estrutura", tmp_path / "f.html")
+        folha.escrever(itens, "primeira", tmp_path / "f.html")
 
 
 def test_item_sem_id_e_recusado(tmp_path):
     with pytest.raises(ValueError, match="id"):
-        folha.escrever([{"titulo": "A", "fato": "."}], "estrutura",
+        folha.escrever([{"titulo": "A", "fato": "."}], "primeira",
                        tmp_path / "f.html")
 
 
 def test_a_pagina_e_pequena(tmp_path):
     """O custo de token de uma pagina grande e real: no projeto de origem o
     modelo reescrevia 50 KB de HTML a cada rodada."""
-    p = folha.escrever(_itens(5), "estrutura", tmp_path / "f.html")
+    p = folha.escrever(_itens(5), "primeira", tmp_path / "f.html")
     assert len(p.read_bytes()) < 12_000, (
         f"a folha de 5 itens saiu com {len(p.read_bytes())} bytes")
 
@@ -99,31 +99,31 @@ def test_a_folha_seguinte_carrega_so_o_pendente(tmp_path):
              for k in range(5)]
     reg = tmp_path / "registro.json"
 
-    p1 = folha.publicar(itens, "estrutura", tmp_path / "f1.html", reg)
+    p1 = folha.publicar(itens, "primeira", tmp_path / "f1.html", reg)
     assert len(folha.ler(p1)["itens"]) == 5
 
     # a pessoa decide tres e a pagina se republica
     estado = folha.ler(p1)
-    for k, d in ((0, "aprovado"), (1, "descartado"), (2, "aprovado")):
+    for k, d in ((0, "aprovado"), (1, "reprovado"), (2, "aprovado")):
         estado["itens"][k]["decisao"] = d
     folha.recolher(estado, reg)
 
-    p2 = folha.publicar(itens, "estrutura", tmp_path / "f2.html", reg)
+    p2 = folha.publicar(itens, "primeira", tmp_path / "f2.html", reg)
     assert [i["id"] for i in folha.ler(p2)["itens"]] == ["i3", "i4"]
 
 
 def test_recolher_guarda_a_nota_junto(tmp_path):
     from motor import registro
     reg = tmp_path / "r.json"
-    folha.recolher({"fase": "arte", "itens": [
-        {"id": "a", "decisao": "descartado", "nota": "muito rapido"}]}, reg)
+    folha.recolher({"fase": "segunda", "itens": [
+        {"id": "a", "decisao": "reprovado", "nota": "muito rapido"}]}, reg)
     assert registro.carregar(reg)["a"]["nota"] == "muito rapido"
 
 
 def test_recolher_ignora_quem_nao_decidiu(tmp_path):
     from motor import registro
     reg = tmp_path / "r.json"
-    folha.recolher({"fase": "arte", "itens": [
+    folha.recolher({"fase": "segunda", "itens": [
         {"id": "a", "decisao": None, "nota": ""}]}, reg)
     assert registro.carregar(reg) == {}
 
@@ -131,9 +131,9 @@ def test_recolher_ignora_quem_nao_decidiu(tmp_path):
 def test_tudo_decidido_da_uma_folha_vazia(tmp_path):
     reg = tmp_path / "r.json"
     itens = [{"id": "a", "titulo": "A", "fato": "."}]
-    folha.recolher({"fase": "corte", "itens": [
+    folha.recolher({"fase": "segunda", "itens": [
         {"id": "a", "decisao": "aprovado", "nota": ""}]}, reg)
-    p = folha.publicar(itens, "corte", tmp_path / "f.html", reg)
+    p = folha.publicar(itens, "segunda", tmp_path / "f.html", reg)
     assert folha.ler(p)["itens"] == []
     assert "nada" in p.read_text(encoding="utf-8").lower()
 
@@ -150,12 +150,12 @@ def test_nota_com_fecha_script_nao_quebra_a_pagina_republicada(tmp_path):
     import subprocess
 
     p = folha.escrever([{"id": "a", "titulo": "A", "fato": "."}],
-                       "estrutura", tmp_path / "f.html")
+                       "primeira", tmp_path / "f.html")
     html = p.read_text(encoding="utf-8")
     js = re.findall(r"<script>([\s\S]*?)</script>", html)[-1]
 
     programa = f"""
-const E = {{"fase":"estrutura","itens":[
+const E = {{"fase":"primeira","itens":[
   {{"id":"a","titulo":"A","decisao":"aprovado","nota":"olha o </script> aqui"}}]}};
 const saida = {json.dumps(html)}.replace(
   new RegExp('(/\\\\*E-'+'INI\\\\*/)[\\\\s\\\\S]*?(/\\\\*E-'+'FIM\\\\*/)'),
@@ -176,3 +176,176 @@ process.stdout.write(saida);
         "o texto nao sobreviveu a ida e volta")
     assert js.count("JSON.stringify(E).replace") == 1, (
         "o JavaScript da pagina voltou a serializar sem escapar")
+
+
+# ---------------------------------------------------------------------------
+# Secoes, escolha unica, e as palavras dos botoes
+#
+# A folha antiga era uma lista corrida de coisas de natureza diferente --
+# estilo, musica, corte -- todas com os mesmos dois botoes. Quem lia nao sabia
+# se estava escolhendo entre opcoes ou aprovando uma a uma.
+# ---------------------------------------------------------------------------
+
+def _secoes():
+    return [
+        {"id": "estilo", "titulo": "ESTILO DE LETTERING E LEGENDAS",
+         "instrucao": "Veja os estilos disponiveis e escolha um.",
+         "tipo": "escolha",
+         "itens": [{"id": "e1", "titulo": "terminal", "fato": "escuro"},
+                   {"id": "e2", "titulo": "brutalista", "fato": "amarelo"}]},
+        {"id": "trechos", "titulo": "TRECHOS ESCOLHIDOS",
+         "instrucao": "Marque cada um.", "tipo": "decisao",
+         "itens": [{"id": "t1", "titulo": "Trecho 1", "fato": "."}]},
+    ]
+
+
+def test_os_botoes_dizem_aprovado_e_reprovado(tmp_path):
+    """'Pode ir' e 'tira' deixam margem: a folha e o registro do que foi
+    combinado, e cada lado lembra de um jeito."""
+    t = folha.escrever(_secoes(), "primeira",
+                       tmp_path / "f.html").read_text(encoding="utf-8")
+    assert ">APROVADO<" in t and ">REPROVADO<" in t
+    for informal in ("Pode ir", "Tira<", "descartado"):
+        assert informal not in t, f"a folha ainda diz '{informal}'"
+
+
+def test_a_secao_traz_titulo_e_instrucao(tmp_path):
+    t = folha.escrever(_secoes(), "primeira",
+                       tmp_path / "f.html").read_text(encoding="utf-8")
+    assert "ESTILO DE LETTERING E LEGENDAS" in t
+    assert "Veja os estilos disponiveis e escolha um." in t
+    assert t.count("<section>") == 2
+
+
+def test_escolha_unica_usa_radio_e_nao_tem_observacao(tmp_path):
+    """Oferecer aprovar/reprovar em cada um dos sete estilos convida a aprovar
+    tres, e nao ha o que fazer com isso."""
+    t = folha.escrever(_secoes(), "primeira",
+                       tmp_path / "f.html").read_text(encoding="utf-8")
+    assert 'type="radio"' in t
+    assert t.count('name="estilo"') == 2, (
+        "os dois estilos precisam do mesmo nome de grupo para um desmarcar o "
+        "outro")
+    # o campo de observacao existe na secao de decisao, e so nela
+    assert t.count('class="nota"') == 1
+
+
+def test_o_grupo_da_escolha_vai_para_o_estado(tmp_path):
+    """E o que o JavaScript usa para desmarcar os irmaos, e o que diz depois,
+    na leitura, que aquele item era de escolha."""
+    p = folha.escrever(_secoes(), "primeira", tmp_path / "f.html")
+    estado = folha.ler(p)
+    por_id = {i["id"]: i for i in estado["itens"]}
+    assert por_id["e1"]["grupo"] == "estilo"
+    assert por_id["t1"]["grupo"] is None
+
+
+def test_a_escolha_e_recolhida_como_decisao(tmp_path):
+    from motor import registro
+    reg = tmp_path / "r.json"
+    estado = {"fase": "primeira", "itens": [
+        {"id": "e2", "decisao": "escolhido", "nota": ""},
+        {"id": "t1", "decisao": "reprovado", "nota": "ficou longo"}]}
+    folha.recolher(estado, reg)
+    guardado = registro.carregar(reg)
+    assert guardado["e2"]["decisao"] == "escolhido"
+    assert guardado["t1"]["nota"] == "ficou longo"
+
+
+def test_secao_que_ficou_vazia_nao_aparece(tmp_path):
+    """Titulo sozinho, sem nada embaixo, faz a pessoa procurar o que nao
+    existe."""
+    reg = tmp_path / "r.json"
+    folha.recolher({"fase": "primeira", "itens": [
+        {"id": "e1", "decisao": "escolhido"},
+        {"id": "e2", "decisao": "reprovado"}]}, reg)
+    t = folha.publicar(_secoes(), "primeira", tmp_path / "f.html",
+                       reg).read_text(encoding="utf-8")
+    assert "ESTILO DE LETTERING E LEGENDAS" not in t
+    assert "TRECHOS ESCOLHIDOS" in t
+
+
+def test_lista_simples_de_itens_ainda_funciona(tmp_path):
+    """Quem chama do jeito antigo recebe um bloco de decisao, e nao um erro."""
+    t = folha.escrever(_itens(2), "primeira",
+                       tmp_path / "f.html").read_text(encoding="utf-8")
+    assert ">APROVADO<" in t and "<section>" in t
+
+
+def test_tipo_de_secao_desconhecido_e_erro(tmp_path):
+    with pytest.raises(ValueError, match="escolha"):
+        folha.escrever([{"id": "x", "titulo": "X", "tipo": "votacao",
+                         "itens": _itens(1)}], "primeira", tmp_path / "f.html")
+
+
+# ---------------------------------------------------------------------------
+# A folha so envia quando a pessoa manda
+# ---------------------------------------------------------------------------
+
+def test_a_folha_so_publica_no_botao_de_enviar(tmp_path):
+    """Antes a folha se republicava a cada clique. Isso enche quem espera de
+    aviso a cada marcacao, gasta uma versao por clique, e abre a porta para
+    duas publicacoes se atropelarem enquanto a pessoa ainda esta decidindo."""
+    t = folha.escrever(_secoes(), "primeira",
+                       tmp_path / "f.html").read_text(encoding="utf-8")
+    assert 'id="enviar"' in t
+    # a publicacao mora dentro da funcao enviar(), e nao no tratador de clique
+    assert "function enviar()" in t
+    corpo_do_clique = t[t.index("addEventListener('click'"):]
+    assert "publish(" not in corpo_do_clique, (
+        "o clique ainda publica direto; deveria so guardar e esperar o envio")
+
+
+def test_o_botao_comeca_desligado_e_a_folha_conta_o_que_falta(tmp_path):
+    t = folha.escrever(_secoes(), "primeira",
+                       tmp_path / "f.html").read_text(encoding="utf-8")
+    assert '<button id="enviar" disabled>' in t
+    assert 'id="placar"' in t
+    assert "respondidos" in t
+
+
+def test_a_folha_guarda_o_que_foi_marcado_antes_de_enviar(tmp_path):
+    """Se a pessoa fechar a aba sem querer no meio, ou o navegador recarregar,
+    o que ela ja marcou nao pode sumir."""
+    t = folha.escrever(_secoes(), "primeira",
+                       tmp_path / "f.html").read_text(encoding="utf-8")
+    assert "localStorage.setItem" in t and "localStorage.getItem" in t
+    assert "beforeunload" in t, (
+        "sair com resposta nao enviada deveria avisar")
+
+
+def test_o_estado_gravado_na_pagina_comeca_vazio(tmp_path):
+    """O que a pessoa marca so entra no arquivo quando ela envia. Antes disso a
+    folha publicada continua sendo a que foi mandada para ela."""
+    p = folha.escrever(_secoes(), "primeira", tmp_path / "f.html")
+    estado = folha.ler(p)
+    assert all(i["decisao"] is None for i in estado["itens"])
+    assert all(i["nota"] == "" for i in estado["itens"])
+
+
+def test_escolher_um_resolve_o_bloco_inteiro(tmp_path):
+    """Achado com material real: a pessoa escolheu um dos sete estilos, e a
+    folha seguinte trouxe os outros seis de volta. Eles nao ficaram pendentes
+    -- ficaram para tras -- e ve-los de novo faz ela achar que falta marcar
+    mais alguma coisa ali."""
+    reg = tmp_path / "r.json"
+    folha.recolher({"fase": "primeira",
+                    "itens": [{"id": "e2", "decisao": "escolhido"}]}, reg)
+    t = folha.publicar(_secoes(), "primeira", tmp_path / "f.html",
+                       reg).read_text(encoding="utf-8")
+    assert "ESTILO DE LETTERING E LEGENDAS" not in t, (
+        "o bloco de escolha voltou depois de a pessoa ja ter escolhido")
+    assert "TRECHOS ESCOLHIDOS" in t, "o resto da folha sumiu junto"
+
+
+def test_bloco_de_escolha_sem_escolha_continua_inteiro(tmp_path):
+    """O contrario do teste acima: enquanto ninguem escolheu, os sete ficam --
+    inclusive os que foram reprovados um a um, que numa escolha nao querem
+    dizer nada."""
+    reg = tmp_path / "r.json"
+    folha.recolher({"fase": "primeira",
+                    "itens": [{"id": "t1", "decisao": "aprovado"}]}, reg)
+    t = folha.publicar(_secoes(), "primeira", tmp_path / "f.html",
+                       reg).read_text(encoding="utf-8")
+    assert "ESTILO DE LETTERING E LEGENDAS" in t
+    assert "TRECHOS ESCOLHIDOS" not in t

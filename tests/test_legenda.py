@@ -36,11 +36,45 @@ def test_bloco_orfao_junta_com_o_vizinho():
     assert all(len(b) > 1 for b in blocos), "sobrou bloco de uma palavra so"
 
 
-def test_nome_proprio_e_corrigido():
-    palavras = [_p("as", 0.0, 0.2), _p("facas", 0.2, 0.5), _p("guinco", 0.5, 0.9)]
-    trocas = legenda.corrigir(palavras, ["Ginsu"])
+def test_erro_de_grafia_perto_do_nome_e_corrigido():
+    """A correcao automatica serve para erro de GRAFIA: a transcricao escreveu
+    quase o nome certo."""
+    palavras = [_p("li", 0.0, 0.2), _p("na", 0.2, 0.4), _p("Anthropik", 0.4, 0.9)]
+    trocas = legenda.corrigir(palavras, ["Anthropic"])
     assert len(trocas) == 1
+    assert palavras[2]["p"] == "Anthropic"
+
+
+def test_erro_de_som_nao_e_corrigido_sozinho():
+    """E NAO EXISTE LIMIAR QUE FACA ISSO COM SEGURANCA.
+
+    MEDIDO. Os erros de som que se gostaria de pegar: "guinco" bate 0,545
+    contra "Ginsu" e "naique" bate 0,600 contra "Nike". As palavras comuns que
+    nao podem ser tocadas: "verdade" bate 0,533 contra "Seedance" e "bastante"
+    bate 0,588 contra "ByteDance". As duas faixas SE SOBREPOEM -- corrigir
+    "guinco" obriga a aceitar que "verdade" vire "Seedance" na legenda
+    queimada, e foi o que aconteceu com material real.
+
+    Entao a funcao nao promete o que nao pode cumprir: erro de som se conserta
+    com `pedidas`, a troca dita palavra por palavra."""
+    palavras = [_p("as", 0.0, 0.2), _p("facas", 0.2, 0.5), _p("guinco", 0.5, 0.9)]
+    assert legenda.corrigir(palavras, ["Ginsu"]) == []
+    assert palavras[2]["p"] == "guinco", "a fala foi mexida sem pedido"
+
+    palavras = [_p("as", 0.0, 0.2), _p("facas", 0.2, 0.5), _p("guinco", 0.5, 0.9)]
+    legenda.corrigir(palavras, ["Ginsu"], pedidas={"guinco": "Ginsu"})
     assert palavras[2]["p"] == "Ginsu"
+
+
+def test_o_limiar_nao_pode_descer_ate_o_erro_de_som():
+    """Se alguem baixar LIMIAR_PROPRIO para fazer "guinco" passar, este teste
+    cai junto -- e o que ele protege e a fala inteira, nao um nome."""
+    assert legenda.LIMIAR_PROPRIO > 0.60, (
+        "abaixo de 0,60 a correcao troca palavra comum: 'bastante' bate 0,588 "
+        "contra 'ByteDance' e 'verdade' 0,533 contra 'Seedance'")
+    assert legenda.LIMIAR_PROPRIO < 0.88, (
+        "acima de 0,88 nem erro de grafia e corrigido: 'Seedence' bate 0,875 "
+        "contra 'Seedance'")
 
 
 def test_palavra_curta_nao_e_trocada():
@@ -52,8 +86,14 @@ def test_palavra_curta_nao_e_trocada():
 
 
 def test_pontuacao_colada_sobrevive_a_troca():
+    palavras = [_p("Anthropik?", 0.0, 0.4)]
+    legenda.corrigir(palavras, ["Anthropic"])
+    assert palavras[0]["p"] == "Anthropic?"
+
+
+def test_pontuacao_colada_sobrevive_a_troca_pedida():
     palavras = [_p("guinco?", 0.0, 0.4)]
-    legenda.corrigir(palavras, ["Ginsu"])
+    legenda.corrigir(palavras, [], pedidas={"guinco": "Ginsu"})
     assert palavras[0]["p"] == "Ginsu?"
 
 
@@ -104,9 +144,9 @@ def test_correcao_nao_move_palavra_no_tempo():
 
 
 def test_nome_proprio_de_quatro_letras_ainda_e_corrigido():
-    """A guarda protege a fala sem cegar a correcao. Subir MIN_LETRAS para 5
-    faria este teste falhar: 'Nike' tem quatro letras."""
-    palavras = [_p("comprei", 0.0, 0.4), _p("naique", 0.4, 0.9)]
+    """A guarda de tamanho protege a fala sem cegar a correcao. Subir
+    MIN_LETRAS para 5 faria este teste falhar: 'Nike' tem quatro letras."""
+    palavras = [_p("comprei", 0.0, 0.4), _p("Nikee", 0.4, 0.9)]
     trocas = legenda.corrigir(palavras, ["Nike"])
     assert palavras[1]["p"] == "Nike"
     assert len(trocas) == 1

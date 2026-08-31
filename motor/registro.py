@@ -5,7 +5,12 @@ de origem as pecas se acumulavam e a pagina chegou a 15 itens de uma vez."""
 import json
 from pathlib import Path
 
-DECISOES = (None, "aprovado", "descartado")
+# As mesmas palavras que aparecem na folha, e nao sinonimos delas: a folha e o
+# registro do que foi combinado, e traduzir a decisao no meio do caminho e como
+# se perde a diferenca entre o que a pessoa marcou e o que ficou anotado.
+# `escolhido` e a decisao de um bloco de escolha unica -- so um item do bloco
+# recebe.
+DECISOES = (None, "aprovado", "reprovado", "escolhido")
 
 
 class RegistroIlegivel(Exception):
@@ -35,7 +40,7 @@ def anotar(caminho, novas):
         if d.get("decisao") not in DECISOES:
             raise ValueError(
                 f"'{d.get('decisao')}' nao e uma decisao. So existe aprovado, "
-                "descartado, ou nada ainda.")
+                "reprovado, escolhido, ou nada ainda.")
     dados = carregar(caminho)
     dados.update(novas)
     gravar(caminho, dados)
@@ -43,8 +48,8 @@ def anotar(caminho, novas):
 
 
 def pendentes(itens, caminho):
-    """Os itens que ainda nao foram nem aprovados nem descartados."""
+    """Os itens que ainda nao foram decididos."""
     dados = carregar(caminho)
     return [i for i in itens
             if dados.get(i["id"], {}).get("decisao") not in
-            ("aprovado", "descartado")]
+            ("aprovado", "reprovado", "escolhido")]

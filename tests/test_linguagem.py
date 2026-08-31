@@ -88,7 +88,7 @@ def test_a_folha_fala_a_lingua_da_pessoa(tmp_path):
     """A folha e a outra coisa que a pessoa le. O texto fixo dela — titulo dos
     botoes, cabecalho — nao pode ter jargao."""
     from motor import folha
-    p = folha.escrever([], "estrutura", tmp_path / "f.html")
+    p = folha.escrever([], "primeira", tmp_path / "f.html")
     html = p.read_text(encoding="utf-8")
     visivel = re.sub(r"<(script|style)[\s\S]*?</\1>", " ", html)
     visivel = re.sub(r"<[^>]+>", " ", visivel).lower()

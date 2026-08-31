@@ -17,7 +17,7 @@ def test_grava_e_le_de_volta(tmp_path):
 def test_pendentes_tira_o_que_ja_foi_decidido(tmp_path):
     p = tmp_path / "registro.json"
     registro.gravar(p, {"a": {"decisao": "aprovado", "nota": ""},
-                        "b": {"decisao": "descartado", "nota": "nao gostei"}})
+                        "b": {"decisao": "reprovado", "nota": "nao gostei"}})
     itens = [{"id": "a"}, {"id": "b"}, {"id": "c"}]
     assert [i["id"] for i in registro.pendentes(itens, p)] == ["c"]
 
@@ -31,15 +31,15 @@ def test_item_sem_decisao_continua_pendente(tmp_path):
 def test_anotar_nao_apaga_o_que_ja_havia(tmp_path):
     p = tmp_path / "registro.json"
     registro.anotar(p, {"a": {"decisao": "aprovado", "nota": ""}})
-    registro.anotar(p, {"b": {"decisao": "descartado", "nota": ""}})
+    registro.anotar(p, {"b": {"decisao": "reprovado", "nota": ""}})
     assert set(registro.carregar(p)) == {"a", "b"}
 
 
 def test_anotar_atualiza_decisao_que_mudou(tmp_path):
     p = tmp_path / "registro.json"
     registro.anotar(p, {"a": {"decisao": "aprovado", "nota": ""}})
-    registro.anotar(p, {"a": {"decisao": "descartado", "nota": "mudei de ideia"}})
-    assert registro.carregar(p)["a"]["decisao"] == "descartado"
+    registro.anotar(p, {"a": {"decisao": "reprovado", "nota": "mudei de ideia"}})
+    assert registro.carregar(p)["a"]["decisao"] == "reprovado"
     assert registro.carregar(p)["a"]["nota"] == "mudei de ideia"
 
 
