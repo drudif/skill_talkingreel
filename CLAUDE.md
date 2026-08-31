@@ -59,10 +59,32 @@ duas divergirem, o letreiro entra fora de hora e nada acusa.
   coisas juntas resolvem o dessync progressivo; qualquer uma sozinha nao resolve.
 - `alimiter` tem `level=true` por padrao, que soma +1,5 dB DEPOIS de limitar. Sem `level=disabled`
   o pico sai em 0 dB.
+- **O AAC acrescenta ~0,3 dB depois do limitador.** MEDIDO com gravacao e trilha reais: o mix sai
+  do `alimiter` em -1,5 dB cravado e o mesmo audio em AAC mede -1,2 dB. E do formato, nao do
+  motor. Por isso `TETO_DB = -1.5` nao e folga arbitraria — e a margem que absorve isso. Um teste
+  que meca so a saida de `trilha.aplicar` (que e PCM) nao pega isto.
 - Em `sidechaincompress`, a musica e comprimida e a voz e o gatilho. Invertido, renderiza sem erro.
 - **Letreiro animado sai em `qtrle`.** E o unico formato deste ffmpeg que guarda transparencia;
   em h264 o letreiro entra dentro de um retangulo preto. O quadro parado depois da entrada e
   repetido por `tpad`, nao gerado pelo Pillow.
+
+## Armadilhas de custo — todas achadas com um 4K de celular de 4,7 minutos
+O material de teste sintetico e pequeno, e por isso NENHUMA destas aparece nele. Todas foram
+medidas com o arquivo de verdade, e as tres primeiras deixavam a skill inutilizavel.
+
+- **`-vn` em toda leitura de audio.** Sem ele o ffmpeg decodifica o video inteiro so para jogar
+  fora, e o custo vira o do tamanho da IMAGEM. Medido: `silencedetect` levou **48,2s sem `-vn`
+  contra 0,3s com ele**, mesma resposta. Roda uma vez por cena.
+- **Quadro se busca, nao se filtra.** Pedir quadros espalhados com `fps=` obriga a decodificar
+  tudo: **passou de 2 minutos** contra **6,9s** buscando um a um com `-ss` antes do `-i`.
+- **O corte ja enquadra.** `aperta` guardava os pedacos na resolucao da camera para o passo
+  seguinte escalar para 1080x1920. Medido em 3s de 4K: **6,7s e 8,6 MB** mantendo o tamanho,
+  **2,4s e 2,8 MB** ja enquadrado. Quem passa `area` para `aperta` deve passar `""` adiante.
+- **Rotacao nos metadados.** Celular grava em pe e guarda deitado, com uma marca de -90. O ffprobe
+  devolve o tamanho GUARDADO; os filtros trabalham com o girado. `probe.dimensao` corrige — sem
+  isso o dossie dizia "gravado deitado" para um video em pe, e a conta do encaixe do split saia
+  trocada. Para criar arquivo de teste com a marca: `-display_rotation` ANTES do `-i`
+  (`-metadata:s:v:0 rotate=` e ignorado em silencio por este ffmpeg).
 
 ## Armadilhas de medicao
 - **Nivel de audio se mede contra a FALA do proprio filme, nunca contra o silencio**: num talking
@@ -85,6 +107,13 @@ duas divergirem, o letreiro entra fora de hora e nada acusa.
   exato; em 0,02 sobra pano (o fundo novo cobre 37% onde devia cobrir 67); em 0,20 a figura comeca
   a ser comida e em 0,28 some. Fixado em 0,11. **O palpite inicial de 0,20 estava errado** — so a
   medicao pegou.
+
+- **A trilha nao tem rotulo, tem medida.** A primeira versao exigia quatro nomes fixos
+  (`calma.mp3`, `tensao.mp3`...) e nenhuma das quatro faixas reais tinha esses nomes — exigir nome
+  canonico obriga a renomear musica baixada, e o rotulo seria um dado que ninguem conferiu. Agora
+  `trilha.disponiveis()` le qualquer audio da pasta, mede, e ordena da mais parada para a mais
+  agitada. **`picos_por_minuto` nao e batida por minuto**: e quantas vezes a energia sobe acima da
+  media. Serve para ORDENAR as faixas entre si, nao como andamento musical.
 
 ## Armadilhas do dominio
 - A transcricao diz QUAL e a palavra; a energia do audio diz ONDE cortar. Oclusiva (p t k b d g)

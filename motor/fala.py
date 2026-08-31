@@ -34,7 +34,9 @@ def envelope(caminho, passo=PASSO, de=None, ate=None):
     if ate is not None:
         corte += ["-to", f"{ate:.3f}"]
     r = subprocess.run(
-        ["ffmpeg", "-v", "error", *corte, "-i", str(caminho),
+        # `-vn` NAO e detalhe: sem ele o ffmpeg decodifica o video junto so
+        # para jogar fora. Ver a nota em pausas_internas.
+        ["ffmpeg", "-v", "error", "-vn", *corte, "-i", str(caminho),
          "-ac", "1", "-ar", str(_TAXA_ENV), "-f", "f32le", "-"],
         capture_output=True)
     amostras = array.array("f")
@@ -81,9 +83,18 @@ def bordas_com_teto(caminho, teto=None, de=None, ate=None):
 def pausas_internas(caminho, ini, fim):
     """Pares (inicio, fim) de silencio inteiramente dentro do trecho, acima de
     PAUSA_MAX. Usa o detector do ffmpeg a -45 dB: a -34 dB a cauda da palavra
-    era lida como silencio."""
+    era lida como silencio.
+
+    O `-vn` E O QUE FAZ ISTO TERMINAR. Sem ele o ffmpeg decodifica o video
+    inteiro junto com o audio, mesmo a saida sendo descartada, e o custo e do
+    tamanho da IMAGEM e nao do som. MEDIDO num arquivo de celular de 4K com 4,7
+    minutos: 48,2 segundos sem `-vn` contra 0,3 segundo com ele, e a mesma
+    resposta nos dois casos -- 66 pausas. Como isto roda uma vez por cena, um
+    video de dez cenas perdia oito minutos decodificando imagem para medir
+    silencio."""
     r = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-ss", f"{ini:.3f}", "-to", f"{fim:.3f}",
+        ["ffmpeg", "-hide_banner", "-vn",
+         "-ss", f"{ini:.3f}", "-to", f"{fim:.3f}",
          "-i", str(caminho),
          "-af", f"silencedetect=n={config.DB_PAUSA}dB:d={config.PAUSA_MAX}",
          "-f", "null", "-"],

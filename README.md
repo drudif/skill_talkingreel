@@ -19,8 +19,8 @@ resposta antes de seguir.
 A transcrição baixa um modelo de cerca de 2,9 GB no primeiro uso. Só acontece quando a legenda
 está ligada.
 
-As quatro trilhas prontas não vêm no repositório — ver
-[assets/trilhas/LEIA-ME.md](assets/trilhas/LEIA-ME.md).
+As trilhas ficam em [assets/trilhas/](assets/trilhas/), com qualquer nome de arquivo — a skill
+mede cada uma e mostra as opções da mais parada para a mais agitada.
 
 ## Como instalar
 

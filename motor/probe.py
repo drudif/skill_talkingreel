@@ -24,11 +24,45 @@ def dur(caminho):
         return 0.0
 
 
+def rotacao(caminho):
+    """Quantos graus o arquivo pede para girar a imagem, ou 0.
+
+    Celular grava com o sensor sempre na mesma posicao e anota a rotacao num
+    campo a parte, em vez de girar os pixels. Um video gravado em pe chega
+    guardado deitado, com esta marca em -90."""
+    saida = _ffprobe(["-select_streams", "v:0",
+                      "-show_entries", "stream_side_data=rotation",
+                      "-of", "default=nw=1:nk=1", str(caminho)])
+    for linha in saida.splitlines():
+        try:
+            return int(round(float(linha.strip())))
+        except ValueError:
+            continue
+    return 0
+
+
 def dimensao(caminho):
+    """Largura e altura COMO O FFMPEG ENTREGA aos filtros, ja com a rotacao
+    do arquivo aplicada.
+
+    O ffprobe devolve o tamanho GUARDADO, que num video de celular gravado em
+    pe vem deitado -- 3840x2160 com uma marca de -90 grau. Todo calculo deste
+    motor acontece depois dos filtros, onde a imagem ja esta girada: usar o
+    numero guardado faz a conta do encaixe do material complementar sair
+    trocada, e o video sai com o enquadramento errado sem nada acusar.
+
+    MEDIDO num arquivo de iPhone: guardado 3840x2160, marca -90, entregue aos
+    filtros 2160x3840. Sem esta correcao o dossie dizia "gravado deitado" para
+    um video que esta em pe."""
     saida = _ffprobe(["-select_streams", "v:0", "-show_entries", "stream=width,height",
                       "-of", "csv=p=0", str(caminho)])
     nums = [int(x) for x in saida.split(",") if x.strip()]
-    return (nums[0], nums[1]) if len(nums) >= 2 else (0, 0)
+    if len(nums) < 2:
+        return (0, 0)
+    largura, altura = nums[0], nums[1]
+    if abs(rotacao(caminho)) % 180 == 90:
+        return (altura, largura)
+    return (largura, altura)
 
 
 def tem_audio(caminho):

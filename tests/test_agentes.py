@@ -93,3 +93,37 @@ def test_o_bingo_sabe_quando_ligar_a_legenda():
     desperdicio que a pessoa espera sentada."""
     t = _texto("bingo").lower()
     assert '"legenda": true' in t and "false" in t
+
+
+def test_o_bluey_pergunta_antes_de_mandar_transcrever():
+    """A ordem que custa dinheiro se for invertida: medir, perguntar, trabalhar.
+
+    Transcrever e a etapa mais cara do trabalho todo. Propor corte e letreiro
+    para quem ja tem roteiro gasta duas vezes: uma para produzir, outra porque
+    a pessoa tem de ler e recusar o que nao pediu."""
+    t = _texto("bluey").lower()
+    assert "quatro perguntas" in t, "o bluey nao faz as perguntas antes"
+    assert "espere a resposta" in t
+    for assunto in ("roteiro", "música", "quanto tempo"):
+        assert assunto in t, f"as perguntas nao cobrem '{assunto}'"
+    # o Bingo mede antes; o Bandit so entra depois das respostas
+    pos_bingo = t.find("dispare só o bingo")
+    pos_bandit = t.find("dispare o bandit")
+    assert 0 <= pos_bingo < pos_bandit, (
+        "o bluey manda transcrever antes de medir e perguntar")
+
+
+def test_o_bandit_nao_comeca_sem_as_respostas():
+    t = _texto("bandit").lower()
+    assert "respostas da pessoa" in t
+    assert "peça ao bluey" in t or "peca ao bluey" in t, (
+        "o bandit nao diz o que fazer quando as respostas nao vem junto")
+
+
+def test_nenhum_agente_sugere_material_que_a_pessoa_nao_tem():
+    """Sugerir b-roll para quem nao mandou nenhum e propor trabalho que ela nao
+    pode aceitar -- ou gravar de novo, ou pagar um servico."""
+    t = _texto("bandit").lower()
+    assert "se ela tiver mandado" in t or "só se ela tiver mandado" in t, (
+        "o bandit pode propor material complementar que nao existe")
+    assert "não sugira que ela grave" in t or "nao sugira que ela grave" in t

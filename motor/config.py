@@ -59,7 +59,15 @@ VERDE_TOLERANCIA = 0.11  # quanto o corte do pano verde aceita de variacao de
 VERDE_BORDA = 0.08       # suavizacao do contorno recortado
 
 LUFS = -14                      # normalizacao. As gravacoes chegam por volta de -36 dB
-TETO_DB = -1.5                  # teto do limitador, para a voz nao estourar
+TETO_DB = -1.5           # teto do limitador, para a voz nao estourar. A margem
+                         # ate 0 dB NAO e folga arbitraria: MEDIDO com gravacao
+                         # e trilha reais, o limitador entrega -1,5 dB cravado e
+                         # o mesmo audio em AAC — o formato do arquivo entregue —
+                         # sai em -1,2 dB. O acrescimo e do formato, que
+                         # reconstroi a onda de forma aproximada, e nao ha o que
+                         # corrigir no limitador. Encostar este numero em zero
+                         # faria o arquivo final passar de 0 dB e distorcer no
+                         # aplicativo.
 
 VOL_TRILHA = 0.34               # musica bem abaixo da voz
 SR = 48000                      # taxa de amostragem, igual em TODA etapa. Misturar

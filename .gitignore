@@ -51,3 +51,11 @@ Thumbs.db
 
 # Claude Code
 .claude/settings.local.json
+
+# Material de teste do usuario dentro de assets/. As fontes e as trilhas ficam
+# (a skill precisa delas); gravacao nao — um .mov de celular tem centenas de MB
+# e nao e parte da skill.
+assets/*.mov
+assets/*.mp4
+assets/*.MOV
+assets/*.MP4

@@ -95,3 +95,21 @@ def test_o_contrato_diz_que_todo_tempo_e_da_gravacao():
     assert "segundo da grava" in t, (
         "o contrato nao diz que todo instante e segundo da gravacao")
     assert "motor/tempo.py" in t, "nao diz quem faz a conversao"
+
+
+def test_o_skill_manda_medir_perguntar_e_so_entao_trabalhar():
+    """A ordem das tres etapas e o que evita gastar a etapa cara a toa. Medir e
+    barato e nao decide nada; perguntar e de graca; transcrever custa."""
+    t = SKILL.read_text(encoding="utf-8").lower()
+    assert "meça primeiro, pergunte depois, trabalhe por último" in t, (
+        "o SKILL.md nao fixa a ordem das tres etapas")
+    assert "não transcreva" in t, (
+        "o SKILL.md nao proibe transcrever antes das respostas")
+    assert "puláveis" in t, "as perguntas precisam poder ser puladas"
+
+
+def test_o_skill_diz_o_que_acontece_quem_nao_responde():
+    """Pergunta pulavel sem padrao definido trava o trabalho de quem so quer o
+    video pronto."""
+    t = SKILL.read_text(encoding="utf-8").lower()
+    assert "quem pular todas recebe o padrão" in t

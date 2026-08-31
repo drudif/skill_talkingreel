@@ -84,8 +84,12 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
         # de olhar a mesma lista de pausas. Detectar duas vezes abriria a porta
         # para as duas discordarem, e o sintoma seria o letreiro fora de hora.
         pausas = fala.pausas_internas(cena.arquivo, ini, fim)
+        # o enquadramento entra JA no corte: assim os pedacos intermediarios
+        # saem em 1080x1920 em vez da resolucao da camera. Com 4K isso e a
+        # diferenca entre segundos e minutos por cena.
         apertado, n_pausas = tratamentos.aperta(
-            cena.arquivo, tmp / f"a{cena.n:03d}.mov", ini, fim, pausas=pausas)
+            cena.arquivo, tmp / f"a{cena.n:03d}.mov", ini, fim, pausas=pausas,
+            area=area)
         cena_apertada = replace(cena, arquivo=Path(apertado))
         if cena.fundo:
             # a cor do pano sai do arquivo ORIGINAL, que tem o pano inteiro e
@@ -96,7 +100,7 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
                 cor=imagem.cor_do_fundo_verde(cena.arquivo))
             cena_apertada = replace(cena_apertada, arquivo=trocado)
         seg = _segmento(cena_apertada, tmp / f"s{cena.n:03d}.mov",
-                        ja_cortado=True, area=area, contraste=contraste)
+                        ja_cortado=True, area="", contraste=contraste)
         # medido ANTES do letreiro: o overlay nao muda a duracao (e para isso
         # que serve o eof_action=pass), e o mapa precisa da duracao real para
         # corrigir o arredondamento acumulado.

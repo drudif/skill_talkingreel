@@ -22,21 +22,50 @@ LADO = 128        # o quadro e reduzido a este tamanho antes de medir: a
 QUADROS = 6       # quantos quadros espalhados pelo video entram na conta
 
 
+def _instantes(caminho, quantos):
+    """Os instantes a amostrar, espalhados pelo video e longe das pontas.
+
+    Longe das pontas de proposito: o primeiro e o ultimo segundo costumam ter a
+    mao na camera, a tela preta do corte, ou a pessoa ainda se ajeitando."""
+    d = probe.dur(caminho) or 1.0
+    if d <= 1.0:
+        return [d / 2]
+    margem = min(1.0, d * 0.05)
+    util = d - 2 * margem
+    return [margem + util * (i + 0.5) / quantos for i in range(quantos)]
+
+
+def _um_quadro(caminho, instante, filtro):
+    """Um quadro so, buscado direto no instante pedido.
+
+    O `-ss` vai ANTES do `-i`, e aqui a razao nao e a de sempre (nao escorregar
+    o corte) e sim VELOCIDADE: assim o ffmpeg pula direto para perto do
+    instante, em vez de decodificar tudo o que vem antes.
+
+    MEDIDO num arquivo de celular de 4K com 4,7 minutos: pedir seis quadros
+    espalhados com um filtro de taxa, que obriga a decodificar o video inteiro,
+    passou de DOIS MINUTOS; buscando um quadro de cada vez, 6,9 segundos. O
+    dossie e a primeira coisa que roda, antes de qualquer decisao -- travar ali
+    trava tudo."""
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-ss", f"{instante:.3f}", "-i", str(caminho),
+         "-frames:v", "1", "-vf", filtro, "-f", "rawvideo", "-"],
+        capture_output=True)
+    return r.stdout
+
+
 def _quadros(caminho, quantos=QUADROS, lado=LADO):
     """Lista de quadros reduzidos, cada um como uma lista de brilho (0 a 255).
 
     Um video pode mudar muito de luz do comeco ao fim -- a pessoa se mexe, uma
     nuvem passa. Medir um quadro so daria um retrato de um instante."""
-    d = probe.dur(caminho) or 1.0
-    taxa = max(0.1, quantos / d)
-    r = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(caminho),
-         "-vf", f"fps={taxa:.6f},scale={lado}:{lado},format=gray",
-         "-f", "rawvideo", "-"], capture_output=True)
     n = lado * lado
-    bruto = r.stdout
-    return [list(bruto[i * n:(i + 1) * n])
-            for i in range(min(quantos, len(bruto) // n))]
+    saida = []
+    for t in _instantes(caminho, quantos):
+        bruto = _um_quadro(caminho, t, f"scale={lado}:{lado},format=gray")
+        if len(bruto) >= n:
+            saida.append(list(bruto[:n]))
+    return saida
 
 
 def _percentil(ordenado, p):
@@ -111,16 +140,14 @@ MOLDURA = 0.18      # que parte de cada lado do quadro conta como borda
 
 
 def _quadros_rgb(caminho, quantos=QUADROS, lado=64):
-    d = probe.dur(caminho) or 1.0
-    taxa = max(0.1, quantos / d)
-    r = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(caminho),
-         "-vf", f"fps={taxa:.6f},scale={lado}:{lado},format=rgb24",
-         "-f", "rawvideo", "-"], capture_output=True)
+    """Como `_quadros`, mas com a cor. Mesma busca direta pelo instante."""
     n = lado * lado * 3
-    bruto = r.stdout
-    return [bruto[i * n:(i + 1) * n]
-            for i in range(min(quantos, len(bruto) // n))]
+    saida = []
+    for t in _instantes(caminho, quantos):
+        bruto = _um_quadro(caminho, t, f"scale={lado}:{lado},format=rgb24")
+        if len(bruto) >= n:
+            saida.append(bruto[:n])
+    return saida
 
 
 def quanto_tem_de_verde(caminho):

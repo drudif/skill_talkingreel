@@ -41,6 +41,25 @@ regra do trabalho:
 1. Leia `referencias/limites.md`. São as recusas que não se negociam.
 2. Pergunte onde está a gravação, se a pessoa ainda não disse.
 
+## A conversa que vem antes do trabalho
+
+**Meça primeiro, pergunte depois, trabalhe por último.** Nessa ordem, e sem pular.
+
+O Bingo mede os arquivos com `motor/dossie.py` — isso é rápido e não decide nada. Com o que ele
+achou na mão, o Bluey conta o que viu e faz **quatro perguntas, de uma vez, todas puláveis**:
+
+1. Você já sabe o que quer que fique no vídeo, ou prefere que eu escolha os melhores trechos?
+2. Tem outros vídeos ou fotos para entrar junto?
+3. Quer música por baixo?
+4. Quanto tempo você quer que o vídeo final tenha?
+
+**Não transcreva, não sugira letreiro e não proponha material antes dessas respostas.** Transcrever
+é a etapa mais demorada de todas, e sugerir corte para quem já tem roteiro é trabalho jogado fora —
+duas vezes, porque a pessoa ainda tem de ler e recusar o que ela não pediu.
+
+Quem pular todas recebe o padrão: a skill escolhe os trechos, sem material extra, sem música, e sem
+alvo de duração. Dizer isso em uma linha e seguir.
+
 ## As duas aprovações
 
 | aprovação | quem trabalha | a folha decide |

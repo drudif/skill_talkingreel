@@ -179,3 +179,44 @@ def test_o_limitador_segura_o_teto(tmp_path):
     assert pico <= config.TETO_DB + 0.5, (
         f"o pico saiu em {pico} dB, acima do teto de {config.TETO_DB} dB — "
         "verifique se o alimiter esta com level=disabled")
+
+
+def test_o_arquivo_entregue_ainda_respeita_o_teto(tmp_path):
+    """O teste acima mede o audio SEM compressao, que e o que sai de
+    `trilha.aplicar`. Mas o que a pessoa recebe passa depois por AAC, e o AAC
+    NAO devolve exatamente o que entrou.
+
+    MEDIDO com gravacao real e trilha real: o limitador entrega -1,5 dB
+    cravado, e o mesmo audio em AAC sai em -1,2 dB. Os 0,3 dB aparecem na
+    compressao, e nao ha nada a corrigir no limitador -- e comportamento do
+    formato, que reconstroi a onda de forma aproximada e pode passar do pico
+    original.
+
+    O que isso significa para o projeto: o teto de -1,5 dB nao e folga
+    arbitraria, e a margem que absorve esse acrescimo. Baixar TETO_DB para
+    perto de zero, achando que ganha volume, faria o arquivo final passar de
+    0 dB e distorcer no aplicativo -- e o teste antigo, que mede antes da
+    compressao, continuaria passando."""
+    import subprocess
+    filme = _tom(tmp_path / "fa.mov", freq=220, total=4.0, janela=(1.0, 2.0),
+                 ganho=8.0)
+    musica = _tom(tmp_path / "ma.mov", freq=880, total=4.0, video=False)
+    sem_compressao = trilha.aplicar(filme, musica, tmp_path / "sc.mov")
+
+    entregue = tmp_path / "entregue.mp4"
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-i", str(sem_compressao),
+         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+         "-ar", str(config.SR), str(entregue)], check=True)
+
+    _, antes = _medir(sem_compressao, ss=0, dur=probe.dur(sem_compressao))
+    _, depois = _medir(entregue, ss=0, dur=probe.dur(entregue))
+    print(f"\n[trilha] sem compressao: {antes:.1f} dB | entregue em AAC: "
+          f"{depois:.1f} dB (teto: {config.TETO_DB} dB)")
+
+    assert depois < 0.0, (
+        f"o arquivo entregue chegou a {depois:.1f} dB: em 0 dB o som distorce "
+        f"no aplicativo")
+    assert depois <= config.TETO_DB + 1.0, (
+        f"o AAC acrescentou {depois - antes:.1f} dB sobre {antes:.1f} dB, "
+        f"mais do que a margem do teto absorve")

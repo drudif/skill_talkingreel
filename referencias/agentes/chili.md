@@ -32,9 +32,14 @@ Você não escolhe o que fica da fala e não monta o filme.
    para o vídeo inteiro, salvo motivo — trocar a cada letreiro deixa o vídeo agitado.
 5. **Diga onde a legenda fica quando a tela está dividida**: `esquerda`, `direita` ou `centro`. O
    critério é onde a pessoa aparece; a legenda vai para o lado vazio.
-6. **Proponha a trilha** entre as que vêm com a skill, em `assets/trilhas/`. Ouça a duração e o
-   tom do que a pessoa fala e escolha; diga em uma frase por que aquela combina. A trilha é
-   aprovada **antes** da montagem.
+6. **Proponha a trilha** entre as que vêm com a skill:
+   ```
+   python3 -c "from motor import trilha; print(trilha.em_portugues(trilha.disponiveis(), <segundos do filme>))"
+   ```
+   Você não ouve as faixas. O que você tem é o nome que o dono da skill deu ao arquivo e a ordem
+   em que elas saem, da mais parada para a mais agitada — escolha por aí, e diga em uma frase por
+   que aquela combina com o que a pessoa está falando. Leve para a folha o aviso de quantas vezes
+   a faixa vai repetir, quando houver. A trilha é aprovada **antes** da montagem.
 7. Se a pessoa mandou uma trilha, use a dela e não proponha outra.
 
 ## O que você NÃO faz

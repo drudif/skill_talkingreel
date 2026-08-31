@@ -30,9 +30,11 @@ def _roda(args):
         raise RuntimeError("ffmpeg falhou: " + r.stderr.strip()[:500])
 
 
-def _saida_padrao(destino):
-    return ["-c:v", "libx264", "-crf", "18", "-preset", "medium",
-            "-c:a", "pcm_s16le", "-ar", str(config.SR), "-ac", "2", str(destino)]
+def _saida_padrao(destino, vf=None):
+    filtro = ["-vf", vf] if vf else []
+    return filtro + ["-c:v", "libx264", "-crf", "18", "-preset", "medium",
+                     "-c:a", "pcm_s16le", "-ar", str(config.SR), "-ac", "2",
+                     str(destino)]
 
 
 def _velocidade(vel):
@@ -201,7 +203,7 @@ def com_peca_animada(base, peca, destino, entra=0.0):
     return destino
 
 
-def aperta(caminho, destino, ini, fim, pausas=None):
+def aperta(caminho, destino, ini, fim, pausas=None, area=None):
     """Corta as pontas E comprime as pausas internas. Devolve (arquivo, quantas
     pausas foram comprimidas).
 
@@ -211,13 +213,26 @@ def aperta(caminho, destino, ini, fim, pausas=None):
     `pausas` existe para quem ja as detectou nao pagar de novo pela deteccao,
     que e uma passada inteira do ffmpeg pelo audio. Quem chama assim tambem
     garante que o mapa de tempo e o corte olham EXATAMENTE a mesma lista -- se
-    as duas divergirem, o letreiro entra na hora errada e nada acusa."""
+    as duas divergirem, o letreiro entra na hora errada e nada acusa.
+
+    `area` PODE E DEVE ser passado: com ele, o enquadramento vertical acontece
+    JA AQUI, e os pedacos saem no tamanho final em vez de na resolucao da
+    camera. MEDIDO num arquivo de celular de 4K: cortar tres segundos mantendo
+    o tamanho da camera custou 6,7 segundos e 8,6 MB; cortando ja enquadrado,
+    2,4 segundos e 2,8 MB. Como cada cena passa por aqui, e como o destino e
+    1080x1920 de qualquer jeito, guardar 4K no meio do caminho e so custo.
+    Quem passa `area` deve passar "" adiante, para o enquadramento nao ser
+    refeito -- refazer nao estraga a imagem, mas paga de novo."""
     if pausas is None:
         pausas = fala.pausas_internas(caminho, ini, fim)
+    vf = None if area is None else (
+        f"{area}scale={config.W}:{config.H}"
+        f":force_original_aspect_ratio=increase:flags=lanczos,"
+        f"crop={config.W}:{config.H},setsar=1")
     if not pausas:
         _roda(["ffmpeg", "-y", "-v", "error",
                "-ss", f"{ini:.3f}", "-to", f"{fim:.3f}", "-i", str(caminho)]
-              + _saida_padrao(destino))
+              + _saida_padrao(destino, vf))
         return destino, 0
 
     partes = []
@@ -225,7 +240,7 @@ def aperta(caminho, destino, ini, fim, pausas=None):
         pedaco = f"{destino}.p{k}.mov"
         _roda(["ffmpeg", "-y", "-v", "error",
                "-ss", f"{ini + a:.3f}", "-to", f"{ini + b:.3f}", "-i", str(caminho)]
-              + _saida_padrao(pedaco))
+              + _saida_padrao(pedaco, vf))
         partes.append(pedaco)
 
     args = ["ffmpeg", "-y", "-v", "error"]

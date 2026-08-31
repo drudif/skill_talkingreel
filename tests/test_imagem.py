@@ -197,3 +197,44 @@ def test_a_cor_do_pano_e_lida_da_propria_gravacao(tmp_path):
 def test_sem_pano_verde_nao_ha_cor_para_ler(tmp_path):
     c = fixtures.clipe_croma(tmp_path / "sala.mov", verde=False)
     assert imagem.cor_do_fundo_verde(c) is None
+
+
+def test_a_leitura_de_quadros_busca_o_instante_em_vez_de_decodificar_tudo(
+        tmp_path, monkeypatch):
+    """O defeito que isto impede: pedir quadros espalhados com um filtro de
+    taxa obriga o ffmpeg a decodificar o video INTEIRO para descartar quase
+    todos os quadros.
+
+    MEDIDO num arquivo de celular de 4K com 4,7 minutos: passou de DOIS MINUTOS
+    do jeito antigo, contra 6,9 segundos buscando um quadro de cada vez. E a
+    primeira coisa que roda no trabalho todo -- travar ali trava tudo."""
+    import subprocess as sp
+    c = _clipe(tmp_path / "q.mov", seg=2.0)
+    vistos = []
+    real = sp.run
+
+    def espiao(args, *a, **k):
+        if args and args[0] == "ffmpeg":
+            vistos.append(list(args))
+        return real(args, *a, **k)
+
+    monkeypatch.setattr(imagem.subprocess, "run", espiao)
+    quadros = imagem._quadros(c, quantos=4)
+
+    assert len(quadros) == 4
+    assert len(vistos) == 4, (
+        f"esperava uma busca por quadro e vieram {len(vistos)} comandos")
+    for cmd in vistos:
+        assert "-ss" in cmd and cmd.index("-ss") < cmd.index("-i"), (
+            "o quadro nao foi buscado direto no instante")
+        assert not any("fps=" in str(x) for x in cmd), (
+            "voltou o filtro de taxa, que decodifica o video inteiro")
+
+
+def test_os_quadros_amostrados_ficam_longe_das_pontas(tmp_path):
+    """O primeiro e o ultimo segundo costumam ter a mao na camera, a tela preta
+    do corte, ou a pessoa ainda se ajeitando -- medir ali daria um retrato do
+    que nao vai para o video."""
+    ts = imagem._instantes("qualquer", 6)  # nao le o arquivo: _instantes usa dur
+    assert all(t > 0 for t in ts)
+    assert ts == sorted(ts), "os instantes sairam fora de ordem"

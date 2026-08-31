@@ -94,3 +94,58 @@ def test_area_util_de_arquivo_que_nao_abre_nao_quebra(tmp_path):
     ruim = tmp_path / "vazio.mp4"
     ruim.write_bytes(b"")
     assert probe.area_util(ruim) is None
+
+
+def _com_rotacao(origem, destino, graus):
+    """Copia o arquivo marcando a rotacao, sem girar os pixels -- que e como o
+    celular grava.
+
+    `-display_rotation` vai ANTES do `-i`: e opcao de entrada, e o que ela faz e
+    dizer como aquela entrada deve ser exibida. O jeito antigo
+    (`-metadata:s:v:0 rotate=`) e ignorado em silencio por este ffmpeg, e o
+    teste passava a pular sozinho sem exercitar nada."""
+    import subprocess
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-display_rotation", str(graus),
+         "-i", str(origem), "-c", "copy", str(destino)], check=True)
+    return destino
+
+
+def test_a_dimensao_respeita_a_rotacao_do_arquivo(tmp_path):
+    """Achado com um video de iPhone de verdade: gravado em pe, guardado
+    deitado (3840x2160) com uma marca de -90 grau. O ffprobe devolve o tamanho
+    GUARDADO; os filtros do ffmpeg trabalham com o girado.
+
+    Quem usa o numero guardado erra a conta do encaixe do material complementar
+    e o video sai com o enquadramento errado, sem nada acusar."""
+    deitado = fixtures.clipe_fala(tmp_path / "d.mov", falas=[(0.2, 0.8)],
+                                  total=1.5, w=640, h=360)
+    assert probe.dimensao(deitado) == (640, 360)
+
+    girado = _com_rotacao(deitado, tmp_path / "g.mov", 90)
+    if probe.rotacao(girado) == 0:
+        import pytest
+        pytest.skip("este ffmpeg nao gravou a marca de rotacao no arquivo")
+    assert probe.dimensao(girado) == (360, 640), (
+        "a dimensao ignorou a marca de rotacao: um video gravado em pe seria "
+        "tratado como deitado")
+
+
+def test_sem_marca_de_rotacao_nada_muda(tmp_path):
+    c = fixtures.clipe_fala(tmp_path / "n.mov", falas=[(0.2, 0.8)], total=1.5,
+                            w=640, h=360)
+    assert probe.rotacao(c) == 0
+    assert probe.dimensao(c) == (640, 360)
+
+
+def test_area_util_nao_cropa_video_que_a_rotacao_ja_poe_em_pe(tmp_path):
+    """O crop existe para tirar a barra preta dos lados de um video deitado.
+    Num video que so PARECE deitado, por causa da marca de rotacao, ele
+    recortaria a imagem inteira a toa."""
+    deitado = fixtures.clipe_fala(tmp_path / "r.mov", falas=[(0.2, 0.8)],
+                                  total=1.5, w=640, h=360)
+    girado = _com_rotacao(deitado, tmp_path / "rg.mov", 90)
+    if probe.rotacao(girado) == 0:
+        import pytest
+        pytest.skip("este ffmpeg nao gravou a marca de rotacao no arquivo")
+    assert probe.area_util(girado) is None

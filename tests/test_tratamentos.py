@@ -1,4 +1,4 @@
-from motor import arte, cenas, config, probe, tratamentos
+from motor import arte, cenas, config, fala, probe, tratamentos
 from tests import fixtures
 
 
@@ -752,3 +752,32 @@ def test_a_peca_animada_entra_na_hora_pedida(tmp_path):
         "o letreiro ja aparece antes da hora pedida")
     assert dif(limpo, regiao(2.2)) > 20, (
         "o letreiro nao apareceu depois da hora pedida")
+
+
+def test_o_corte_ja_entrega_o_tamanho_final_quando_recebe_a_area(tmp_path):
+    """O defeito que isto impede: guardar 4K nos arquivos de passagem, para
+    escalar tudo para 1080x1920 no passo seguinte.
+
+    MEDIDO num arquivo de celular de 4K: cortar tres segundos mantendo o
+    tamanho da camera custou 6,7 segundos e 8,6 MB; cortando ja enquadrado, 2,4
+    segundos e 2,8 MB. Numa montagem de onze cenas isso foi a diferenca entre
+    minutos e segundos."""
+    grande = fixtures.clipe_fala(tmp_path / "g4k.mov", falas=[(0.3, 1.2)],
+                                 total=2.5, w=1440, h=2560)
+    assert probe.dimensao(grande) == (1440, 2560)
+
+    ini, fim = fala.bordas(grande)
+    enquadrado = tratamentos.aperta(grande, tmp_path / "e.mov", ini, fim,
+                                    area="")[0]
+    assert probe.dimensao(enquadrado) == (config.W, config.H), (
+        "o corte devolveu a resolucao da camera; o enquadramento nao entrou")
+
+
+def test_sem_a_area_o_corte_preserva_a_resolucao(tmp_path):
+    """Quem chama sem `area` continua recebendo o que sempre recebeu -- e o que
+    mantem `aperta` util fora da montagem."""
+    grande = fixtures.clipe_fala(tmp_path / "g2.mov", falas=[(0.3, 1.2)],
+                                 total=2.5, w=720, h=1280)
+    ini, fim = fala.bordas(grande)
+    igual = tratamentos.aperta(grande, tmp_path / "i.mov", ini, fim)[0]
+    assert probe.dimensao(igual) == (720, 1280)

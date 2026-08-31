@@ -1,24 +1,36 @@
 # As trilhas que vêm com a skill
 
-Quatro faixas, para a Chili escolher uma quando a pessoa não mandou música própria.
+Ponha aqui as músicas que a Chili pode propor quando a pessoa não mandar uma própria.
 
-**Ainda não estão aqui.** Ponha os quatro arquivos nesta pasta, em `.mp3` ou `.m4a`, com estes
-nomes — a Chili procura por eles e `tests/test_trilhas.py` confere:
+**O nome do arquivo não importa.** Pode ser o nome que veio do site onde você baixou, com carimbo
+de data e tudo — a skill lê qualquer `.mp3`, `.m4a`, `.wav`, `.aac` ou `.flac` que estiver nesta
+pasta, e limpa o carimbo sozinha ao mostrar o nome.
 
-| arquivo | quando serve |
-|---|---|
-| `calma.mp3` | conversa, opinião, relato — a música fica atrás e não disputa |
-| `tensao.mp3` | quando o assunto tem virada, problema, alerta |
-| `animada.mp3` | humor, novidade, convite — ritmo para a frente |
-| `neutra.mp3` | conteúdo técnico ou institucional, onde a música é só base |
+O que ela ignora: arquivo que não é áudio, arquivo que não abre, e faixa com menos de 5 segundos
+— um efeito sonoro solto na pasta não pode virar opção de trilha.
 
-## O que a skill faz com elas
+## Como a Chili escolhe sem ouvir
 
-A música entra abaixo da voz e **abaixa sozinha quando a pessoa fala**. Quem cuida disso é
-`motor/trilha.py`, e o volume já está calibrado — não é preciso preparar a faixa de nenhum jeito
-especial.
+Ela não ouve. Então a skill **mede** cada faixa e mostra as opções da mais parada para a mais
+agitada, com a duração de cada uma. Isso, mais o nome que você deu ao arquivo, é o que ela tem
+para decidir — e é o que aparece na folha para a pessoa aprovar.
 
-Faixa mais curta que o vídeo repete até o fim. Faixa mais longa é cortada.
+Para ver o que a skill está entendendo das suas faixas:
+
+```bash
+python3 -c "from motor import trilha; print(trilha.em_portugues(trilha.disponiveis()))"
+```
+
+Se o nome do arquivo não disser nada sobre a música, renomeie para algo que diga. É o único
+rótulo que existe.
+
+## O que a skill faz com a faixa escolhida
+
+A música entra abaixo da voz e **abaixa sozinha quando a pessoa fala**. O volume já está
+calibrado — não é preciso preparar a faixa de nenhum jeito especial.
+
+Faixa mais curta que o vídeo **repete** até o fim, e a folha avisa quantas vezes antes de a pessoa
+escolher. Faixa mais longa é cortada.
 
 ## Direitos
 

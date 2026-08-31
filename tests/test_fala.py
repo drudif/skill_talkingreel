@@ -73,3 +73,54 @@ def test_duas_pausas_internas_em_ordem(tmp_path):
     assert len(pausas) == 2
     (a_ini, a_fim), (b_ini, b_fim) = pausas
     assert a_ini < a_fim <= b_ini < b_fim
+
+
+def _comandos_de(monkeypatch, modulo):
+    """Captura os comandos de ffmpeg que uma funcao dispara, sem rodar nada."""
+    import subprocess as sp
+    vistos = []
+    real = sp.run
+
+    def espiao(args, *a, **k):
+        if args and args[0] in ("ffmpeg", "ffprobe"):
+            vistos.append(list(args))
+        return real(args, *a, **k)
+
+    monkeypatch.setattr(modulo.subprocess, "run", espiao)
+    return vistos
+
+
+def test_medir_audio_nao_manda_decodificar_video(tmp_path, monkeypatch):
+    """O defeito que isto impede: sem `-vn`, o ffmpeg decodifica o video
+    inteiro so para jogar fora, e o custo passa a ser do tamanho da IMAGEM.
+
+    MEDIDO num arquivo de celular de 4K com 4,7 minutos: 48,2 segundos sem
+    `-vn` contra 0,3 segundo com ele, e a mesma resposta -- 66 pausas. Aqui a
+    verificacao e do COMANDO, e nao do tempo: com clipe pequeno a diferenca
+    encolhe para 3x, que nao sustenta um limite estavel; a propriedade que
+    importa e nao pedir o video, e essa da para conferir sempre."""
+    c = fixtures.clipe_fala(tmp_path / "v.mov", falas=[(0.3, 1.0)], total=2.0)
+    vistos = _comandos_de(monkeypatch, fala)
+
+    fala.envelope(c)
+    fala.pausas_internas(c, 0.0, 2.0)
+
+    assert vistos, "nenhum comando foi disparado"
+    for cmd in vistos:
+        assert "-vn" in cmd, (
+            "um comando de analise de audio nao tem -vn e vai decodificar o "
+            f"video a toa: {' '.join(str(x) for x in cmd)[:160]}")
+
+
+def test_o_corte_do_audio_vem_antes_da_entrada(tmp_path, monkeypatch):
+    """`-ss` depois do `-i` vira opcao de saida: o ffmpeg decodifica tudo desde
+    o comeco e so entao descarta. Num arquivo longo isso e a diferenca entre
+    instantaneo e minutos."""
+    c = fixtures.clipe_fala(tmp_path / "w.mov", falas=[(0.3, 1.0)], total=3.0)
+    vistos = _comandos_de(monkeypatch, fala)
+    fala.envelope(c, de=1.0, ate=2.0)
+
+    for cmd in vistos:
+        if "-ss" in cmd:
+            assert cmd.index("-ss") < cmd.index("-i"), (
+                "o -ss ficou depois do -i e virou opcao de saida")

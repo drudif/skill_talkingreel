@@ -71,6 +71,66 @@ filme leve para aprovar, dossie para o paralelismo, e a lista de quatro trilhas.
   `do_filme()`, que desconta o comeco da cena, e um teste que falha se os dois pares passarem a dar
   o mesmo resultado.
 
+### O primeiro video de verdade, e as quatro coisas que ele quebrou
+
+Ate aqui o material de teste tinha sido clipe sintetico e recortes curtos de gravacoes antigas.
+O primeiro arquivo cru de celular — 4K, 4,7 minutos, 677 MB — derrubou quatro coisas de uma vez,
+e nenhuma delas aparecia no material pequeno.
+
+- **A analise de audio decodificava o video.** `silencedetect` sem `-vn` levou **48,2 segundos**
+  onde com `-vn` leva **0,3**, com a mesma resposta: 66 pausas. Como roda uma vez por cena, uma
+  montagem de dez cenas perdia oito minutos decodificando imagem para medir silencio.
+- **A leitura de quadros decodificava o video inteiro.** Pedir seis quadros espalhados com um
+  filtro de taxa **passou de dois minutos**; buscando um de cada vez com `-ss`, **6,9 segundos**.
+  E o primeiro passo do trabalho todo.
+- **O corte guardava 4K.** `aperta` cortava mantendo a resolucao da camera, e o passo seguinte
+  escalava tudo para 1080x1920. Medido em tres segundos: **6,7s e 8,6 MB** contra **2,4s e
+  2,8 MB** cortando ja enquadrado. Na montagem de onze cenas, 17,3s por cena viraram 3,9s.
+- **A rotacao nos metadados.** O arquivo tem `rotation=-90`: gravado em pe, guardado deitado. O
+  ffprobe devolve o tamanho guardado e os filtros trabalham com o girado, entao o dossie dizia
+  "gravado deitado" para um video que esta em pe — e `recorte_topo`, que usa essas dimensoes para
+  encaixar o material complementar na tela dividida, faria a conta ao contrario.
+
+Somando: o dossie saiu de **mais de dois minutos para 7,6 segundos**, e a montagem de onze cenas
+ficou em **3 minutos**, com o laudo limpo.
+
+**O que isto diz sobre o metodo.** O CLAUDE.md ja avisava que clipe sintetico nao substitui
+gravacao real, e a lista de defeitos que so apareceram com material do usuario tinha tres itens.
+Agora tem sete. O que os tres primeiros novos tem em comum e que **nao sao erros de logica**: o
+resultado sempre esteve certo, so demorava tanto que ninguem chegaria ao fim. Teste de unidade com
+clipe de dois segundos passa nos dois casos.
+
+### A decupagem que o material de verdade exigiu
+
+O video tinha 566 palavras e **quase toda frase falada de duas a sete vezes** — a pessoa ensaiando
+ate acertar. E exatamente o caso que o Bandit existe para resolver, e a primeira vez que ele foi
+exercitado com material assim. Das 14 frases, sobraram 11 trechos; 3min57s foram descartados, e o
+filme final ficou em 43,6 segundos com o laudo limpo.
+
+A coordenada unica de tempo passou no teste que importa: os quatro letreiros foram escritos em
+segundos da GRAVACAO (12,3s / 62,8s / 171,5s / 194,2s) e o motor os pos em 0,9s / 12,1s / 25,5s /
+31,7s do filme, sem que ninguem fizesse conta.
+
+### O rotulo que nao sobreviveu ao material de verdade
+
+A lista de trilhas nasceu com quatro nomes fixos — `calma`, `tensao`, `animada`, `neutra` — e um
+LEIA-ME mandando salvar os arquivos com esses nomes. Quando as quatro faixas reais chegaram,
+nenhuma delas tinha esses nomes: vieram do exportador, com carimbo de data no fim.
+
+Duas saidas: mandar renomear, ou mudar o desenho. A primeira poe atrito em quem instala e entrega,
+em troca, um rotulo que ninguem conferiu — nada garante que o arquivo chamado `tensao.mp3` seja
+tenso. A segunda foi a escolhida: `trilha.disponiveis()` le qualquer audio da pasta, **mede** cada
+um, e devolve a lista ordenada da mais parada para a mais agitada. O nome que o dono do arquivo
+deu, mais essa ordem, e o que a Chili tem para escolher — e as duas coisas sao verdadeiras, ao
+contrario do rotulo.
+
+Medido nas quatro faixas instaladas: 45s, 45s, 45s e 240s, com 103, 201, 295 e 188 picos por
+minuto. Tres delas repetem duas vezes num video de 90 segundos, e a folha passou a avisar disso
+antes de a pessoa escolher.
+
+**`picos_por_minuto` nao e batida por minuto**, e o codigo diz isso onde alguem possa confundir:
+e a contagem de vezes que a energia sobe acima da media. Serve para ordenar as faixas entre si.
+
 ### A decisao de desenho que sustenta o paralelismo
 
 Bandit e Bingo correm juntos, mas o Bingo **so mede**. A propriedade que torna isso seguro esta
