@@ -86,20 +86,34 @@ def _cabe(texto, caminho_fonte, corpo, largura_max):
 
 
 def _desenha_linhas(d, linhas, f, y_inicial, altura_linha, cor_texto,
-                    contorno, cor_contorno):
+                    contorno, cor_contorno, ate_palavra=None):
     """Desenha as linhas centralizadas, empilhando de cima para baixo a
     partir de `y_inicial`. Usado tanto pra sondar a mancha real de tinta
     quanto pro desenho final -- as duas passadas tem que ser identicas,
-    senao a mancha sondada nao bate com o que sai no PNG."""
+    senao a mancha sondada nao bate com o que sai no PNG.
+
+    `ate_palavra` desenha so as N primeiras palavras, e e o que faz a frase se
+    montar. Cada palavra fica na posicao que tera na frase COMPLETA: a linha e
+    centralizada pelo texto inteiro dela, e as palavras que ainda nao entraram
+    deixam o lugar vazio. Sem isso cada palavra apareceria centralizada sozinha
+    e saltaria para o lado quando a proxima entrasse."""
     y = y_inicial
+    ja = 0
     for linha in linhas:
         largura = d.textlength(linha, font=f)
-        d.text(((config.W - largura) / 2, y), linha, font=f,
-               fill=cor_texto, stroke_width=contorno, stroke_fill=cor_contorno)
+        x = (config.W - largura) / 2
+        for palavra in linha.split():
+            if ate_palavra is not None and ja >= ate_palavra:
+                return
+            d.text((x, y), palavra, font=f, fill=cor_texto,
+                   stroke_width=contorno, stroke_fill=cor_contorno)
+            x += d.textlength(palavra + " ", font=f)
+            ja += 1
         y += altura_linha
 
 
-def letreiro(texto, escolhas, destino, base=None, contorno=None):
+def letreiro(texto, escolhas, destino, base=None, contorno=None,
+             ate_palavra=None):
     """PNG 1080x1920 transparente com o texto apoiado em `base`.
 
     `escolhas` e o que a pessoa escolheu -- `{"fonte": ..., "paleta": ...,
@@ -169,6 +183,12 @@ def letreiro(texto, escolhas, destino, base=None, contorno=None):
         # sonda a mancha real de tinta numa camada a
         # parte, pra apoiar o box nela -- a metrica nominal da fonte nao
         # bate com o pixel de tinta de verdade.
+        #
+        # A sonda usa sempre a frase INTEIRA, mesmo quando so parte dela vai
+        # ser desenhada: a caixa entra no tamanho final e as palavras aparecem
+        # dentro dela. Sondar so o pedaco faria a caixa crescer e saltar a cada
+        # palavra, inclusive mudando de altura quando a frase passa a ocupar
+        # duas linhas.
         sonda = Image.new("RGBA", (config.W, config.H), (0, 0, 0, 0))
         _desenha_linhas(ImageDraw.Draw(sonda), linhas, f, y, altura_linha,
                         cor_texto, contorno, cor_contorno)
@@ -183,7 +203,7 @@ def letreiro(texto, escolhas, destino, base=None, contorno=None):
                         fill=estilos.rgb(peca["caixa"]) + (255,))
 
     _desenha_linhas(d, linhas, f, y, altura_linha, cor_texto, contorno,
-                    cor_contorno)
+                    cor_contorno, ate_palavra=ate_palavra)
     im.save(destino)
     return destino
 
@@ -239,20 +259,15 @@ def letreiro_animado(texto, escolhas, destino, dur=None, base=None,
         if mancha is None:                      # texto vazio: nada a animar
             mancha = (0, 0, inteira.width, inteira.height)
 
-        palavras = texto.split()
-        pedacos = [" ".join(palavras[:i + 1]) for i in range(len(palavras))] \
-            or [texto]
-
+        quantas = max(1, len(texto.split()))
         prontos = []
-        for i, pedaco in enumerate(pedacos):
-            parcial = letreiro(pedaco, escolhas, pasta / f"p{i:04d}.png",
-                               base=base, contorno=contorno)
-            im = Image.open(parcial).convert("RGBA")
-            caixa = im.getchannel("A").getbbox()
-            encaixado = Image.new("RGBA", im.size, (0, 0, 0, 0))
-            if caixa:
-                encaixado.paste(im.crop(caixa), (mancha[0], caixa[1]))
-            prontos.append(encaixado)
+        for i in range(quantas):
+            # o MESMO desenho da frase inteira, com N palavras visiveis: a
+            # quebra de linha, a posicao de cada palavra e o tamanho da caixa
+            # sao os da frase completa desde o primeiro quadro.
+            parcial = letreiro(texto, escolhas, pasta / f"p{i:04d}.png",
+                               base=base, contorno=contorno, ate_palavra=i + 1)
+            prontos.append(Image.open(parcial).convert("RGBA").copy())
             (pasta / f"p{i:04d}.png").unlink(missing_ok=True)
 
         # Cada pedaco e desenhado UMA vez e repetido pelos quadros que couberem.

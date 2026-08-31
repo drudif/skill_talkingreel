@@ -342,3 +342,64 @@ def test_uma_palavra_so_tambem_funciona(tmp_path):
     """Frase de uma palavra nao tem o que montar, e nao pode quebrar."""
     peca = arte.letreiro_animado("AGORA", None, tmp_path / "u.mov", dur=1.0)
     assert _quadro(peca, 0.8).getchannel("A").getbbox() is not None
+
+
+def test_a_caixa_nao_muda_de_tamanho_enquanto_a_frase_monta(tmp_path):
+    """O defeito que isto impede, visto no video pronto: a caixa crescia a cada
+    palavra e, quando a frase passava a ocupar duas linhas, saltava de altura e
+    de posicao. A caixa entra no tamanho final e as palavras aparecem dentro
+    dela.
+
+    A frase escolhida quebra em duas linhas de proposito -- e ali que o salto
+    aparecia."""
+    peca = arte.letreiro_animado(
+        "FRASE LONGA QUE QUEBRA EM DUAS LINHAS",
+        {"paleta": "branco e preto", "efeito": "caixa"},
+        tmp_path / "c.mov", dur=1.5, base=1300)
+    caixas = []
+    for t in (0.02, 0.14, 0.26, 0.38, 1.0):
+        b = _quadro(peca, t).getchannel("A").getbbox()
+        assert b, f"nada desenhado em {t}s"
+        caixas.append(b)
+    largura = {c[2] - c[0] for c in caixas}
+    altura = {c[3] - c[1] for c in caixas}
+    topo = {c[1] for c in caixas}
+    assert len(largura) == 1, f"a caixa mudou de largura: {sorted(largura)}"
+    assert len(altura) == 1, f"a caixa mudou de altura: {sorted(altura)}"
+    assert len(topo) == 1, f"a caixa mudou de posicao: {sorted(topo)}"
+
+
+def test_sem_caixa_a_frase_ainda_monta_palavra_a_palavra(tmp_path):
+    """A correcao da caixa nao pode ter parado a animacao: no efeito de
+    contorno nao ha caixa, e a tinta tem de crescer do mesmo jeito."""
+    peca = arte.letreiro_animado(
+        "UMA DUAS TRES QUATRO", {"efeito": "contorno"},
+        tmp_path / "s.mov", dur=1.5, base=1300)
+    larguras = []
+    for t in (0.02, 0.16, 0.30, 1.0):
+        b = _quadro(peca, t).getchannel("A").getbbox()
+        larguras.append(b[2] - b[0] if b else 0)
+    assert larguras == sorted(larguras) and larguras[-1] > larguras[0] * 1.8, (
+        f"a frase nao foi crescendo: {larguras}")
+
+
+def test_cada_palavra_fica_onde_estara_na_frase_pronta(tmp_path):
+    """Cada palavra e desenhada na posicao que tera no fim. Centralizar cada
+    pedaco sozinho faria as palavras ja escritas escorregarem para o lado a
+    cada palavra nova."""
+    from PIL import ImageChops
+    peca = arte.letreiro_animado(
+        "UMA DUAS TRES", {"efeito": "contorno"},
+        tmp_path / "p.mov", dur=1.5, base=1300)
+    cedo = _quadro(peca, 0.02)
+    tarde = _quadro(peca, 1.0)
+    # o que ja estava desenhado cedo tem de estar igual, no mesmo lugar, tarde
+    so_cedo = cedo.getchannel("A")
+    caixa = so_cedo.getbbox()
+    assert caixa, "nada desenhado no primeiro quadro"
+    diferenca = ImageChops.difference(cedo.crop(caixa), tarde.crop(caixa))
+    fora = sum(1 for p in diferenca.getchannel("A").getdata() if p > 40)
+    total = (caixa[2] - caixa[0]) * (caixa[3] - caixa[1])
+    assert fora / total < 0.05, (
+        f"a primeira palavra mudou de lugar: {fora / total:.0%} da area dela "
+        f"esta diferente no fim")

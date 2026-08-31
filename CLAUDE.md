@@ -86,9 +86,15 @@ duas divergirem, o letreiro entra fora de hora e nada acusa.
   que meca so a saida de `trilha.aplicar` (que e PCM) nao pega isto.
 - Em `sidechaincompress`, a musica e comprimida e a voz e o gatilho. Invertido, renderiza sem erro.
 - **O letreiro tem UMA entrada: a frase se monta palavra a palavra.** Houve sete por um tempo, e a
-  escolha entre elas nao mudava nada que importasse. Cada pedaco e desenhado uma vez e repetido
-  pelos quadros que couberem — sem isso a entrada dura um quadro por palavra, e numa frase de tres
-  isso da um decimo de segundo, com a frase inteira aparecendo antes de dar para ver a primeira.
+  escolha entre elas nao mudava nada que importasse. Duas armadilhas, as duas vistas no video
+  pronto:
+  - Cada pedaco e desenhado uma vez e **repetido pelos quadros que couberem**. Sem isso a entrada
+    dura um quadro por palavra: numa frase de tres, um decimo de segundo, e a frase inteira aparece
+    antes de dar para ver a primeira.
+  - O pedaco NAO e uma frase nova: e a frase INTEIRA com N palavras visiveis (`ate_palavra`).
+    Desenhar "FÁCIL" como texto proprio recalcula quebra de linha, largura e caixa — e a cada
+    palavra tudo saltava de tamanho e de lugar, inclusive mudando de uma para duas linhas no fim.
+    A sonda da caixa usa sempre o texto completo.
 - **Letreiro animado sai em `qtrle`.** E o unico formato deste ffmpeg que guarda transparencia;
   em h264 o letreiro entra dentro de um retangulo preto. O quadro parado depois da entrada e
   repetido por `tpad`, nao gerado pelo Pillow.
