@@ -85,6 +85,10 @@ duas divergirem, o letreiro entra fora de hora e nada acusa.
   motor. Por isso `TETO_DB = -1.5` nao e folga arbitraria — e a margem que absorve isso. Um teste
   que meca so a saida de `trilha.aplicar` (que e PCM) nao pega isto.
 - Em `sidechaincompress`, a musica e comprimida e a voz e o gatilho. Invertido, renderiza sem erro.
+- **O letreiro tem UMA entrada: a frase se monta palavra a palavra.** Houve sete por um tempo, e a
+  escolha entre elas nao mudava nada que importasse. Cada pedaco e desenhado uma vez e repetido
+  pelos quadros que couberem — sem isso a entrada dura um quadro por palavra, e numa frase de tres
+  isso da um decimo de segundo, com a frase inteira aparecendo antes de dar para ver a primeira.
 - **Letreiro animado sai em `qtrle`.** E o unico formato deste ffmpeg que guarda transparencia;
   em h264 o letreiro entra dentro de um retangulo preto. O quadro parado depois da entrada e
   repetido por `tpad`, nao gerado pelo Pillow.

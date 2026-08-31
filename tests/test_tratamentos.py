@@ -712,8 +712,7 @@ def test_a_peca_animada_nao_muda_a_duracao_do_video(tmp_path):
     erro se acumula ate o fim."""
     from motor import arte
     base = fixtures.clipe_fala(tmp_path / "b.mov", falas=[(0.2, 2.0)], total=3.0)
-    peca = arte.letreiro_animado("ANIMADO", None, tmp_path / "p.mov",
-                                 animacao="sobe", dur=1.5)
+    peca = arte.letreiro_animado("ANIMADO", None, tmp_path / "p.mov", dur=1.5)
     saida = tratamentos.com_peca_animada(base, peca, tmp_path / "o.mov",
                                          entra=0.5)
     assert abs(probe.dur(saida) - probe.dur(base)) < 0.08, (
@@ -727,8 +726,8 @@ def test_a_peca_animada_entra_na_hora_pedida(tmp_path):
     from PIL import Image
     from motor import arte
     base = fixtures.clipe_fala(tmp_path / "b2.mov", falas=[(0.2, 2.5)], total=3.5)
-    peca = arte.letreiro_animado("TARDE", None, tmp_path / "p2.mov",
-                                 animacao="aparece", dur=1.0, base=1300)
+    peca = arte.letreiro_animado("TARDE", None, tmp_path / "p2.mov", dur=1.0,
+                                 base=1300)
     saida = tratamentos.com_peca_animada(base, peca, tmp_path / "o2.mov",
                                          entra=1.5)
 

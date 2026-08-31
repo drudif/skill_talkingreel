@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from motor import arte, config, estilos
+from motor import config, estilos
 
 # Onde a legenda pode ficar quando a tela esta dividida em duas. Em tela
 # cheia ela e sempre centralizada, entao "cheia" nao e escolha de ninguem.
@@ -34,7 +34,6 @@ class Letreiro:
     ate: Optional[float] = None
     base: Optional[int] = None
     box: bool = False
-    animacao: str = "aparece"
 
 
 @dataclass
@@ -279,19 +278,12 @@ def carregar(caminho):
                 raise CenasInvalidas(
                     f"cena {n}: o letreiro aparece em {l_de} segundos, mas "
                     f"esta cena termina em {ate}. Ele nunca apareceria")
-            animacao = bruto_letreiro.get("animacao", "aparece")
-            if animacao not in arte.ANIMACOES:
-                raise CenasInvalidas(
-                    f"cena {n}: nao conheco a entrada '{animacao}' do "
-                    "letreiro. As que existem sao: "
-                    + ", ".join(arte.ANIMACOES))
             letreiro = Letreiro(
                 texto=bruto_letreiro["texto"],
                 de=l_de,
                 ate=l_ate,
                 base=bruto_letreiro.get("base"),
-                box=bool(bruto_letreiro.get("box", False)),
-                animacao=animacao)
+                box=bool(bruto_letreiro.get("box", False)))
 
         # Montar cena validada
         montadas.append(Cena(

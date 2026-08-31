@@ -96,7 +96,6 @@ uma cena que se alongou, sem precisar saber em que segundo a voz entra.
 | `ate` | não | segundo da gravação em que o texto some. Sem isso, fica até o fim da cena |
 | `base` | não | onde o texto se apoia na altura da tela |
 | `box` | não | caixa sólida atrás do texto. Padrão sem caixa |
-| `animacao` | não | como o texto entra: `aparece`, `sobe`, `esquerda` ou `pulo`. Padrão `aparece` |
 
 **`de` e `ate` do letreiro são segundos da gravação, iguais aos da cena** — o
 instante em que a pessoa fala aquela frase no arquivo original. O motor desconta
@@ -106,18 +105,12 @@ sozinho o corte das pausas e a aceleração.
 aparecer fora dele nunca apareceria, e o motor recusa o arquivo dizendo isso, em
 vez de montar um filme silenciosamente sem o texto.
 
-**Como o texto entra.** São quatro entradas, e todas duram menos de meio
-segundo — o suficiente para o olho acompanhar, sem atrasar a leitura.
+**Como o texto entra: a frase se monta palavra a palavra.** É a única entrada, e
+não há o que escolher. Ela dura menos de meio segundo — o suficiente para o olho
+acompanhar as palavras entrando, sem atrasar a leitura.
 
-| entrada | o que acontece |
-|---|---|
-| `aparece` | o texto surge no lugar, de leve |
-| `sobe` | o texto entra vindo de baixo |
-| `esquerda` | o texto entra vindo da esquerda |
-| `pulo` | o texto surge menor, passa um pouco do tamanho e assenta |
-
-A entrada muda **como** o texto chega, nunca **onde** ele para: os quatro
-terminam exatamente na mesma posição do texto parado.
+O texto se apoia sempre na posição da frase inteira, e não pula de lugar
+enquanto monta. E termina exatamente onde o texto parado ficaria.
 
 **Texto que ficaria menos de 0,4 segundo na tela é esticado até 0,4.** Acontece
 quando o letreiro foi ancorado num trecho que o corte de pausa removeu. Menos que

@@ -118,8 +118,7 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
                 dura = max(config.LEG_MIN_LETREIRO, d - entra)
             peca = tmp / f"l{cena.n:03d}.mov"
             arte.letreiro_animado(cena.letreiro.texto, prod.letreiro_estilo,
-                                  peca, animacao=cena.letreiro.animacao,
-                                  dur=dura, base=cena.letreiro.base)
+                                  peca, dur=dura, base=cena.letreiro.base)
             com_arte = tmp / f"la{cena.n:03d}.mov"
             tratamentos.com_peca_animada(seg, peca, com_arte, entra=entra)
             seg = com_arte

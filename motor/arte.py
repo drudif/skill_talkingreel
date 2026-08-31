@@ -190,77 +190,29 @@ def letreiro(texto, escolhas, destino, base=None, contorno=None):
 
 # --- o letreiro entrando ---
 #
-# O texto continua sendo desenhado UMA vez pelo Pillow, com a busca de corpo e
-# a quebra de linha que ja existiam. A animacao so TRANSFORMA esse desenho
-# quadro a quadro -- deslocar, redimensionar, clarear. Redesenhar o texto a
-# cada quadro custaria a busca de corpo inteira trinta vezes por segundo, e o
-# resultado seria o mesmo.
+# UMA ENTRADA SO: a frase se monta palavra a palavra. Houve sete por um tempo --
+# surgir de leve, subir, vir da esquerda, pular, varrer, digitar letra a letra --
+# e a escolha entre elas nao mudava nada que importasse. Uma entrada so tambem
+# tira uma decisao do caminho de quem esta tentando publicar um video.
 #
-# A peca sai como um video com fundo transparente. Depois da entrada o letreiro
-# fica parado, e o quadro parado e repetido pelo proprio ffmpeg (`tpad`), sem
-# gerar imagem nenhuma a mais.
+# O texto continua sendo desenhado pelo Pillow, com a busca de corpo e a quebra
+# de linha que ja existiam. Depois da entrada o letreiro fica parado, e o quadro
+# parado e repetido pelo proprio ffmpeg (`tpad`), sem gerar imagem a mais.
 
-ENTRADA = 0.45       # quanto dura a entrada. ESTIMATIVA, nao medicao: e o
-                     # tempo em que o olho acompanha o movimento sem que ele
-                     # atrase a leitura. Mais curto vira estalo, mais longo
-                     # rouba tempo de quem esta lendo.
-DESLOCA = 90         # de quantos pixels o texto vem, nas entradas que deslizam
-ANIMACOES = ("aparece", "sobe", "esquerda", "pulo")
-
-
-def _suave(a):
-    """Desacelerando no fim. Movimento com velocidade constante parece
-    mecanico; o olho espera que a coisa chegue e assente."""
-    return 1 - (1 - a) ** 3
+ENTRADA = 0.45       # quanto dura a entrada inteira, do vazio a frase completa.
+                     # ESTIMATIVA, nao medicao: e o tempo em que o olho
+                     # acompanha as palavras entrando sem que isso atrase a
+                     # leitura. Mais curto vira estalo; mais longo rouba tempo
+                     # de quem esta lendo.
 
 
-def _com_repuxo(a):
-    """Como `_suave`, mas passa um pouco do lugar e volta. E o que da o
-    caracter de pulo."""
-    s = 1.70158
-    return 1 + (s + 1) * (a - 1) ** 3 + s * (a - 1) ** 2
+def letreiro_animado(texto, escolhas, destino, dur=None, base=None,
+                     contorno=None, fps=None, entrada=None):
+    """O letreiro como peca de video com fundo transparente, montando-se
+    palavra a palavra.
 
-
-def _quadro_da_entrada(png, animacao, avanco, mancha):
-    """Um quadro da entrada. `avanco` vai de 0, no comeco, a 1, na posicao
-    final. Devolve uma imagem do tamanho do quadro inteiro."""
-    from PIL import Image
-    if avanco >= 1.0 and animacao != "pulo":
-        return png
-    vazio = Image.new("RGBA", png.size, (0, 0, 0, 0))
-
-    if animacao == "pulo":
-        # a escala tem de girar em torno do centro da MANCHA de tinta, nao do
-        # centro do quadro: o letreiro se apoia embaixo, e escalar pelo centro
-        # do quadro faria ele subir e descer junto.
-        e = 0.82 + 0.18 * _com_repuxo(avanco)
-        x0, y0, x1, y1 = mancha
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        recorte = png.crop(mancha)
-        nw = max(1, int(round(recorte.width * e)))
-        nh = max(1, int(round(recorte.height * e)))
-        vazio.paste(recorte.resize((nw, nh), Image.LANCZOS),
-                    (int(round(cx - nw / 2)), int(round(cy - nh / 2))))
-    else:
-        dx = dy = 0
-        if animacao == "sobe":
-            dy = int(round(DESLOCA * (1 - _suave(avanco))))
-        elif animacao == "esquerda":
-            dx = -int(round(DESLOCA * (1 - _suave(avanco))))
-        vazio.paste(png, (dx, dy))
-
-    if avanco < 1.0:
-        alfa = vazio.getchannel("A").point(lambda v: int(v * avanco))
-        vazio.putalpha(alfa)
-    return vazio
-
-
-def letreiro_animado(texto, escolhas, destino, animacao="aparece", dur=None,
-                     base=None, contorno=None, fps=None, entrada=None):
-    """O letreiro como peca de video com fundo transparente, entrando.
-
-    `animacao` e uma de ANIMACOES. `dur` e quanto a peca dura no total; sem
-    ela, a peca acaba quando a entrada acaba.
+    `dur` e quanto a peca dura no total; sem ela, a peca acaba quando a entrada
+    acaba.
 
     Sai em qtrle, que e o formato de video deste ffmpeg que guarda
     transparencia -- ou seja, que sabe dizer que parte do quadro nao tem tinta
@@ -273,32 +225,47 @@ def letreiro_animado(texto, escolhas, destino, animacao="aparece", dur=None,
     from pathlib import Path
     from PIL import Image
 
-    if animacao not in ANIMACOES:
-        raise ValueError(
-            f"nao conheco a animacao '{animacao}'. As que existem sao: "
-            + ", ".join(ANIMACOES))
     fps = config.FPS if fps is None else fps
     entrada = ENTRADA if entrada is None else entrada
     pasta = Path(tempfile.mkdtemp(prefix="letreiro-"))
     try:
+        # a frase inteira, primeiro: e dela que sai a posicao em que todos os
+        # pedacos se apoiam. Centralizar cada pedaco faria o texto pular de
+        # lugar a cada palavra que entra.
         png_caminho = letreiro(texto, escolhas, pasta / "base.png", base=base,
                                contorno=contorno)
-        png = Image.open(png_caminho).convert("RGBA")
-        mancha = png.getchannel("A").getbbox()
+        inteira = Image.open(png_caminho).convert("RGBA")
+        mancha = inteira.getchannel("A").getbbox()
         if mancha is None:                      # texto vazio: nada a animar
-            mancha = (0, 0, png.width, png.height)
+            mancha = (0, 0, inteira.width, inteira.height)
 
-        n = max(1, int(round(entrada * fps)))
+        palavras = texto.split()
+        pedacos = [" ".join(palavras[:i + 1]) for i in range(len(palavras))] \
+            or [texto]
+
+        prontos = []
+        for i, pedaco in enumerate(pedacos):
+            parcial = letreiro(pedaco, escolhas, pasta / f"p{i:04d}.png",
+                               base=base, contorno=contorno)
+            im = Image.open(parcial).convert("RGBA")
+            caixa = im.getchannel("A").getbbox()
+            encaixado = Image.new("RGBA", im.size, (0, 0, 0, 0))
+            if caixa:
+                encaixado.paste(im.crop(caixa), (mancha[0], caixa[1]))
+            prontos.append(encaixado)
+            (pasta / f"p{i:04d}.png").unlink(missing_ok=True)
+
+        # Cada pedaco e desenhado UMA vez e repetido pelos quadros que couberem.
+        # Sem isso a entrada dura um quadro por palavra: numa frase de tres
+        # palavras isso da um decimo de segundo, e a frase inteira aparece antes
+        # de dar para ver a primeira.
+        n = max(len(prontos), int(round(entrada * fps)))
         for i in range(n):
-            avanco = (i + 1) / n
-            _quadro_da_entrada(png, animacao, avanco, mancha).save(
-                pasta / f"q{i:04d}.png")
+            prontos[min(len(prontos) - 1,
+                        i * len(prontos) // n)].save(pasta / f"q{i:04d}.png")
 
         parada = ""
         if dur is not None and dur > entrada:
-            # o ffmpeg repete o ultimo quadro pelo resto do tempo. Gerar esses
-            # quadros com o Pillow seria desenhar a mesma imagem dezenas de
-            # vezes para nada.
             parada = f",tpad=stop_mode=clone:stop_duration={dur - entrada:.3f}"
         r = subprocess.run(
             ["ffmpeg", "-y", "-v", "error", "-framerate", str(fps),

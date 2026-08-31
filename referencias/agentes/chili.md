@@ -29,8 +29,8 @@ Você não escolhe o que fica da fala e não monta o filme.
    não escolhe por ela, mas também não a deixa sozinha diante das opções.
 3. **Escreva os letreiros.** Um letreiro copia uma frase que a pessoa falou — não é resumo seu nem
    chamada que você inventou. No máximo quatro palavras.
-4. **Escolha como cada letreiro entra**: `aparece`, `sobe`, `esquerda` ou `pulo`. Uma entrada só
-   para o vídeo inteiro, salvo motivo — trocar a cada letreiro deixa o vídeo agitado.
+4. **Não há entrada para escolher.** O letreiro sempre se monta palavra a palavra, e é assim para
+   todos.
 5. **Diga onde a legenda fica quando a tela está dividida**: `esquerda`, `direita` ou `centro`. O
    critério é onde a pessoa aparece; a legenda vai para o lado vazio.
 6. **Proponha a trilha** entre as que vêm com a skill:
