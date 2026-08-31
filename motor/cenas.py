@@ -61,10 +61,12 @@ class Producao:
     velocidade: float
     trilha: Optional[Path]
     cenas: list = field(default_factory=list)
-    estilo: str = estilos.PADRAO
+    legenda_estilo: dict = field(default_factory=dict)
+    letreiro_estilo: dict = field(default_factory=dict)
     legenda: bool = True
     legenda_split: str = "esquerda"
     proprios: list = field(default_factory=list)
+    trocas: dict = field(default_factory=dict)
     contraste: object = True    # True mede e corrige; False deixa como veio;
                                 # um numero forca aquele esticamento
 
@@ -96,12 +98,28 @@ def carregar(caminho):
     # Velocidade geral (padrao em config.VELOCIDADE)
     velocidade = float(dados.get("velocidade", config.VELOCIDADE))
 
-    # Estilo visual (uma das fichas de motor/estilos.py; padrao brutalista)
-    estilo = dados.get("estilo", estilos.PADRAO)
-    if estilo not in estilos.ESTILOS:
-        raise CenasInvalidas(
-            f"nao conheco o estilo '{estilo}'. Os que existem sao: "
-            + ", ".join(sorted(estilos.ESTILOS)))
+    # Como o texto aparece: fonte, paleta e efeito, escolhidos em separado
+    # para a legenda e para o letreiro. O que faltar vira o padrao.
+    def _visual(campo, para):
+        bruto = dados.get(campo) or {}
+        if not isinstance(bruto, dict):
+            raise CenasInvalidas(
+                f"'{campo}' e um conjunto de escolhas, por exemplo "
+                '{"fonte": "sem serifa", "paleta": "amarelo", '
+                '"efeito": "contorno"}')
+        for chave in bruto:
+            if chave not in ("fonte", "paleta", "efeito"):
+                raise CenasInvalidas(
+                    f"'{campo}' nao tem o campo '{chave}'. Ele aceita fonte, "
+                    "paleta e efeito")
+        try:
+            estilos.compor(bruto, para)
+        except estilos.EstiloDesconhecido as e:
+            raise CenasInvalidas(str(e)) from e
+        return bruto
+
+    legenda_estilo = _visual("legenda_estilo", "legenda")
+    letreiro_estilo = _visual("letreiro_estilo", "letreiro")
     legenda = bool(dados.get("legenda", True))
     legenda_split = dados.get("legenda_split", "esquerda")
     if legenda_split not in LEGENDA_NO_SPLIT:
@@ -113,6 +131,23 @@ def carregar(caminho):
         raise CenasInvalidas(
             "'proprios' e uma lista de nomes escritos do jeito certo, "
             "por exemplo [\"Ginsu\", \"Anthropic\"]")
+
+    # Trocas ditadas palavra por palavra. E o UNICO jeito de consertar erro de
+    # SOM na transcricao -- "sidense" nao se parece com "Seedance" quando se
+    # comparam as letras, e nao ha limiar de semelhanca que pegue isso sem
+    # trocar palavra comum da fala junto (ver motor/legenda.py).
+    trocas = dados.get("trocas") or {}
+    if not isinstance(trocas, dict):
+        raise CenasInvalidas(
+            "'trocas' e uma lista de trocas, do jeito que a transcricao "
+            "escreveu para o jeito certo, por exemplo "
+            "{\"sidense\": \"Seedance\"}")
+    for errado, certo in trocas.items():
+        if not isinstance(errado, str) or not isinstance(certo, str) \
+                or not errado.strip() or not certo.strip():
+            raise CenasInvalidas(
+                f"a troca {errado!r} -> {certo!r} nao serve: os dois lados "
+                "precisam ser texto")
 
     # Correcao de contraste: True mede cada gravacao e corrige a que estiver
     # lavada; False nao mexe; um numero forca o mesmo esticamento em todas.
@@ -276,8 +311,10 @@ def carregar(caminho):
         velocidade=velocidade,
         trilha=_caminho(raiz, trilha, "trilha") if trilha else None,
         cenas=montadas,
-        estilo=estilo,
+        legenda_estilo=legenda_estilo,
+        letreiro_estilo=letreiro_estilo,
         legenda_split=legenda_split,
         proprios=proprios,
+        trocas={k.lower(): v for k, v in trocas.items()},
         legenda=legenda,
         contraste=contraste)

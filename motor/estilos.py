@@ -1,39 +1,46 @@
-"""As sete fichas de estilo, reduzidas da skill de carrossel ao que atravessa
-para video: cor, fonte e como o texto se apoia no quadro.
+"""Como o texto aparece: a fonte, a paleta e o efeito.
 
-DUAS FONTES POR FICHA, e nao uma: a do letreiro e a da legenda. Sao as mesmas
-que a skill de carrossel usa para titulo e corpo, e sao a metade do que separa
-um estilo do outro. Antes desta separacao os sete usavam a MESMA fonte na
-pratica -- todas as fichas listavam a mesma primeira candidata, e como ela
-existia na maquina do autor, ganhava sempre. Os sete estilos diferiam so por
-cor, e "fonte" era um eixo que existia so no papel.
+O QUE MUDOU, E POR QUE. Antes havia sete fichas fechadas -- cada uma com fonte,
+cor e efeito amarrados, e a pessoa escolhia uma das sete. Fechado tem uma
+vantagem real (nao sai combinacao feia) e um custo que apareceu no uso: a pessoa
+gosta da letra de uma e da cor de outra, e nao tem como pedir isso.
 
-AS FONTES VEM COM A SKILL, em `assets/fontes/`, com as licencas ao lado. Mas
-NUNCA sao exigidas: cada ficha lista candidatas em ordem e `fonte()` devolve a
+Agora sao TRES escolhas independentes, e duas vezes -- uma para a legenda e
+outra para o letreiro:
+
+    fonte   +   paleta   +   efeito
+
+A legenda escolhe entre tres fontes de leitura (serifa, sem serifa, monoespaco);
+o letreiro, entre cinco fontes de display, que sao as de chamar atencao. As
+cinco paletas e os dois efeitos valem para os dois.
+
+POR QUE SO DOIS EFEITOS. Sao os dois que funcionam sobre imagem em movimento:
+contorno escuro em volta da letra, como legenda de televisao, ou a letra dentro
+de uma caixa cheia. Qualquer outra coisa -- sombra suave, brilho, gradiente --
+some assim que o fundo muda de cor, e o fundo aqui e o rosto de alguem se
+mexendo.
+
+A FONTE NUNCA E EXIGIDA: cada entrada lista candidatas em ordem e devolve a
 primeira que existir, terminando numa que existe em todo Mac. Sem isso a skill
-quebraria na maquina de quem clonasse sem os arquivos."""
+quebraria na maquina de quem clonasse sem os arquivos.
+"""
 from pathlib import Path
 
 FONTES_DA_SKILL = str(Path(__file__).resolve().parent.parent / "assets" / "fontes")
 FONTES_DO_SISTEMA = "/System/Library/Fonts"
 FONTES_DO_SISTEMA_SUPLEMENTAR = "/System/Library/Fonts/Supplemental"
-FONTES_DO_USUARIO = str(Path.home() / "Library" / "Fonts")
 
 # ultima linha de defesa: existe em todo Mac
 RESERVA = f"{FONTES_DO_SISTEMA}/Helvetica.ttc"
 
 
 class EstiloDesconhecido(Exception):
-    """O estilo pedido nao existe. A mensagem lista os que existem."""
+    """A fonte, a paleta ou o efeito pedido nao existe. A mensagem lista os
+    que existem."""
 
 
 def _p(nome):
-    """Fonte que vem dentro da propria skill."""
     return f"{FONTES_DA_SKILL}/{nome}"
-
-
-def _u(nome):
-    return f"{FONTES_DO_USUARIO}/{nome}"
 
 
 def _s(nome):
@@ -41,79 +48,118 @@ def _s(nome):
 
 
 def _sup(nome):
-    """Fontes do sistema que ficam em Supplemental/ no macOS moderno
-    (Impact, Georgia e varias outras nao estao mais na raiz de Fonts)."""
+    """Fontes do sistema que ficam em Supplemental/ no macOS moderno."""
     return f"{FONTES_DO_SISTEMA_SUPLEMENTAR}/{nome}"
 
 
-ESTILOS = {
-    "terminal": {
-        "nome": "Terminal — vazio, tipografia seca, sem enfeite",
-        "fundo": "#0A0A0A", "texto": "#F2F2F2", "contorno": "#0A0A0A",
-        "legenda_caixa": "#0A0A0A", "legenda_texto": "#F2F2F2",
-        "fontes": [_p("Cascadia-Mono-300.ttf"), _s("Menlo.ttc"), RESERVA],
-        "fontes_legenda": [_p("Cascadia-Mono-400.ttf"), _s("Menlo.ttc"), RESERVA],
-        "peso_letreiro": 96,
+# --- as fontes da LEGENDA: tres jeitos de ler ---------------------------------
+# Legenda e texto pequeno e corrido, lido de relance enquanto a pessoa fala.
+# Fonte de display aqui cansa, e por isso as tres sao de leitura.
+FONTES_LEGENDA = {
+    "sem serifa": {
+        "como e": "Letra limpa, sem os pezinhos. A mais neutra das tres.",
+        "arquivos": [_p("Work-Sans-400.ttf"), _s("HelveticaNeue.ttc"), RESERVA],
     },
-    "brutalista": {
-        "nome": "Brutalista — amarelo puro, contorno preto grosso",
-        "fundo": "#FFE800", "texto": "#FFE800", "contorno": "#000000",
-        "legenda_caixa": "#FFFFFF", "legenda_texto": "#000000",
-        "fontes": [_p("Anton-400.ttf"), _sup("Impact.ttf"), RESERVA],
-        "fontes_legenda": [_p("IBM-Plex-Mono-400.ttf"), _s("Menlo.ttc"), RESERVA],
-        "peso_letreiro": 104,
+    "serifa": {
+        "como e": "Letra com pezinhos, como livro. Fica mais calma e séria.",
+        "arquivos": [_p("Newsreader-400.ttf"), _sup("Georgia.ttf"), RESERVA],
     },
-    "neubrutal": {
-        "nome": "Neubrutal — cor chapada, contorno duro, sombra deslocada",
-        "fundo": "#3D5AFE", "texto": "#FFFFFF", "contorno": "#0A0A0A",
-        "legenda_caixa": "#3D5AFE", "legenda_texto": "#FFFFFF",
-        "fontes": [_p("Chivo-900.ttf"), _s("Avenir Next.ttc"), RESERVA],
-        "fontes_legenda": [_p("Chivo-Mono-400.ttf"), _s("Menlo.ttc"), RESERVA],
-        "peso_letreiro": 96,
-    },
-    "editorial": {
-        "nome": "Editorial — creme e tinta, uma imagem grande",
-        "fundo": "#F4F1EA", "texto": "#1A1A1A", "contorno": "#F4F1EA",
-        "legenda_caixa": "#F4F1EA", "legenda_texto": "#1A1A1A",
-        "fontes": [_p("Fraunces-700.ttf"), _sup("Georgia.ttf"), RESERVA],
-        "fontes_legenda": [_p("Work-Sans-400.ttf"), _s("HelveticaNeue.ttc"), RESERVA],
-        "peso_letreiro": 88,
-    },
-    "riso": {
-        "nome": "Risografia — duas tintas, rosa e azul",
-        "fundo": "#FF4F7B", "texto": "#FFF8E7", "contorno": "#1B2A88",
-        "legenda_caixa": "#FFF8E7", "legenda_texto": "#1B2A88",
-        "fontes": [_p("Antonio-700.ttf"), _s("Avenir Next.ttc"), RESERVA],
-        "fontes_legenda": [_p("Newsreader-400.ttf"), _sup("Georgia.ttf"), RESERVA],
-        "peso_letreiro": 96,
-    },
-    "colagem": {
-        "nome": "Colagem — recorte de papel, tipografia cortada",
-        "fundo": "#E8E2D0", "texto": "#111111", "contorno": "#E8E2D0",
-        "legenda_caixa": "#111111", "legenda_texto": "#E8E2D0",
-        "fontes": [_p("Bodoni-Moda-900.ttf"), _sup("Didot.ttc"), RESERVA],
-        "fontes_legenda": [_p("Karla-400.ttf"), _s("Helvetica.ttc"), RESERVA],
-        "peso_letreiro": 92,
-    },
-    "superminimal": {
-        "nome": "Superminimal — branco, uma cor de acento",
-        "fundo": "#FFFFFF", "texto": "#111111", "contorno": "#FFFFFF",
-        "legenda_caixa": "#FFFFFF", "legenda_texto": "#111111",
-        "fontes": [_p("Plus-Jakarta-Sans-500.ttf"), _s("HelveticaNeue.ttc"), RESERVA],
-        "fontes_legenda": [_p("Plus-Jakarta-Sans-400.ttf"), _s("HelveticaNeue.ttc"), RESERVA],
-        "peso_letreiro": 84,
+    "monoespaço": {
+        "como e": "Todas as letras ocupam a mesma largura, como máquina de "
+                  "escrever. Puxa para o técnico.",
+        "arquivos": [_p("IBM-Plex-Mono-400.ttf"), _s("Menlo.ttc"), RESERVA],
     },
 }
 
-PADRAO = "brutalista"
+# --- as fontes do LETREIRO: cinco jeitos de chamar atencao --------------------
+FONTES_LETREIRO = {
+    "estreita": {
+        "como e": "Muito alta e apertada. Cabe frase grande sem diminuir a "
+                  "letra.",
+        "arquivos": [_p("Anton-400.ttf"), _sup("Impact.ttf"), RESERVA],
+    },
+    "estreita leve": {
+        "como e": "Alta e apertada como a outra, mas com o traço mais fino.",
+        "arquivos": [_p("Antonio-700.ttf"), _sup("Impact.ttf"), RESERVA],
+    },
+    "pesada": {
+        "como e": "Grossa e larga, sem serifa. A que mais ocupa espaço.",
+        "arquivos": [_p("Chivo-900.ttf"), _s("HelveticaNeue.ttc"), RESERVA],
+    },
+    "revista": {
+        "como e": "Serifa moderna, com traço grosso e fino bem diferentes. "
+                  "Ar de capa de revista.",
+        "arquivos": [_p("Bodoni-Moda-900.ttf"), _sup("Didot.ttc"), RESERVA],
+    },
+    "editorial": {
+        "como e": "Serifa mais macia, menos dura que a de revista.",
+        "arquivos": [_p("Fraunces-700.ttf"), _sup("Georgia.ttf"), RESERVA],
+    },
+}
+
+# --- as cinco paletas ---------------------------------------------------------
+# Cada uma diz quatro cores: a da letra e a do contorno (no efeito de contorno),
+# e a da caixa e a da letra dentro dela (no efeito de caixa). As duas metades
+# existem porque a mesma cor de letra nem sempre serve nos dois: amarelo com
+# contorno preto se le bem sobre video, mas amarelo dentro de caixa amarela
+# sumiria.
+PALETAS = {
+    "branco e preto": {
+        "como e": "Letra branca com contorno preto, ou caixa branca com letra "
+                  "preta. É o que quase todo vídeo usa, e funciona sobre "
+                  "qualquer imagem.",
+        "texto": "#FFFFFF", "contorno": "#000000",
+        "caixa": "#FFFFFF", "caixa_texto": "#000000",
+    },
+    "amarelo": {
+        "como e": "Amarelo forte com contorno preto. A que mais para o dedo de "
+                  "quem rola a tela.",
+        "texto": "#FFE800", "contorno": "#000000",
+        "caixa": "#FFE800", "caixa_texto": "#000000",
+    },
+    "preto e branco": {
+        "como e": "O contrário da primeira: letra preta com contorno branco, "
+                  "ou caixa preta com letra branca. Mais sóbrio.",
+        "texto": "#111111", "contorno": "#FFFFFF",
+        "caixa": "#111111", "caixa_texto": "#FFFFFF",
+    },
+    "verde": {
+        "como e": "Verde claro sobre contorno escuro. Puxa para tecnologia.",
+        "texto": "#5BFF8F", "contorno": "#06120A",
+        "caixa": "#06120A", "caixa_texto": "#5BFF8F",
+    },
+    "rosa": {
+        "como e": "Rosa forte com contorno escuro. Criativo, com pegada de "
+                  "arte impressa.",
+        "texto": "#FF4F7B", "contorno": "#1B0A12",
+        "caixa": "#FFF8E7", "caixa_texto": "#C31549",
+    },
+}
+
+# --- os dois efeitos ----------------------------------------------------------
+EFEITOS = {
+    "contorno": "A letra com um traço escuro em volta, como legenda de "
+                "televisão. A imagem aparece atrás do texto.",
+    "caixa": "A letra dentro de um retângulo cheio. Tapa a imagem naquele "
+             "pedaço, e é o que se lê melhor sobre fundo bagunçado.",
+}
+
+# o que sai quando ninguem escolhe nada
+PADRAO_LEGENDA = {"fonte": "sem serifa", "paleta": "branco e preto",
+                  "efeito": "caixa"}
+PADRAO_LETREIRO = {"fonte": "estreita", "paleta": "amarelo",
+                   "efeito": "contorno"}
+
+CORPO_LEGENDA = 54       # o corpo da legenda; o do letreiro sai de config
+CORPO_LETREIRO = 104
 
 
-def carregar(chave):
-    if chave not in ESTILOS:
+def _escolher(qual, chave, tabela, onde):
+    if chave not in tabela:
         raise EstiloDesconhecido(
-            f"nao conheco o estilo '{chave}'. Os que existem sao: "
-            + ", ".join(sorted(ESTILOS)))
-    return ESTILOS[chave]
+            f"nao conheco {qual} '{chave}' para {onde}. As que existem sao: "
+            + ", ".join(sorted(tabela)))
+    return tabela[chave]
 
 
 def _primeira_que_existe(candidatas):
@@ -123,18 +169,45 @@ def _primeira_que_existe(candidatas):
     return RESERVA
 
 
-def fonte(chave):
-    """A fonte do LETREIRO: primeira da lista que existir no disco."""
-    return _primeira_que_existe(carregar(chave)["fontes"])
+def fonte_da_legenda(chave):
+    return _primeira_que_existe(
+        _escolher("a fonte", chave, FONTES_LEGENDA, "a legenda")["arquivos"])
 
 
-def fonte_legenda(chave):
-    """A fonte da LEGENDA. E outra que a do letreiro de proposito: no carrossel
-    de onde estas fichas vieram, cada estilo tem uma para titulo e outra para
-    corpo, e usar a de titulo num texto pequeno e corrido deixa a leitura
-    pesada. Ficha sem esta lista cai na do letreiro."""
-    ficha = carregar(chave)
-    return _primeira_que_existe(ficha.get("fontes_legenda") or ficha["fontes"])
+def fonte_do_letreiro(chave):
+    return _primeira_que_existe(
+        _escolher("a fonte", chave, FONTES_LETREIRO, "o letreiro")["arquivos"])
+
+
+def paleta(chave):
+    return _escolher("a paleta", chave, PALETAS, "o texto")
+
+
+def efeito(chave):
+    if chave not in EFEITOS:
+        raise EstiloDesconhecido(
+            f"nao conheco o efeito '{chave}'. Os que existem sao: "
+            + ", ".join(sorted(EFEITOS)))
+    return chave
+
+
+def compor(escolhas, para):
+    """Junta fonte, paleta e efeito num so lugar, com o padrao no que faltar.
+
+    `para` e "legenda" ou "letreiro" -- muda a lista de fontes e o padrao."""
+    if para not in ("legenda", "letreiro"):
+        raise ValueError("compor() e para 'legenda' ou 'letreiro'")
+    padrao = PADRAO_LEGENDA if para == "legenda" else PADRAO_LETREIRO
+    e = {**padrao, **(escolhas or {})}
+    p = paleta(e["paleta"])
+    efeito(e["efeito"])
+    arquivo = (fonte_da_legenda(e["fonte"]) if para == "legenda"
+               else fonte_do_letreiro(e["fonte"]))
+    return {"fonte": e["fonte"], "arquivo": arquivo, "paleta": e["paleta"],
+            "efeito": e["efeito"],
+            "texto": p["caixa_texto"] if e["efeito"] == "caixa" else p["texto"],
+            "contorno": p["contorno"], "caixa": p["caixa"],
+            "corpo": CORPO_LEGENDA if para == "legenda" else CORPO_LETREIRO}
 
 
 def rgb(cor):
@@ -146,5 +219,4 @@ def rgb(cor):
 def distancia_de_cor(a, b):
     """Distancia simples entre duas cores. Serve para provar contraste, nao
     para julgar estetica."""
-    ra, rb = rgb(a), rgb(b)
-    return sum(abs(x - y) for x, y in zip(ra, rb))
+    return sum(abs(x - y) for x, y in zip(rgb(a), rgb(b)))

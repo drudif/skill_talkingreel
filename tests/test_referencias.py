@@ -7,20 +7,28 @@ RAIZ = Path(__file__).resolve().parent.parent
 
 # --- Task 4: os estilos, em portugues ---
 
-def test_todo_estilo_do_motor_esta_descrito():
+def test_toda_escolha_do_motor_esta_descrita():
+    """Uma opcao que existe no motor e nao aparece aqui e uma opcao que ninguem
+    vai pedir."""
     from motor import estilos
     t = (RAIZ / "referencias/estilos.md").read_text(encoding="utf-8")
-    for chave in estilos.ESTILOS:
-        assert f"`{chave}`" in t, f"o estilo '{chave}' nao esta descrito"
+    for grupo in (estilos.FONTES_LEGENDA, estilos.FONTES_LETREIRO,
+                  estilos.PALETAS, estilos.EFEITOS):
+        for chave in grupo:
+            assert f"`{chave}`" in t, f"a opcao '{chave}' nao esta descrita"
 
 
-def test_nenhum_estilo_descrito_deixou_de_existir():
+
+def test_nenhuma_opcao_descrita_deixou_de_existir():
+    """O contrario: o arquivo prometendo o que o motor nao tem."""
     from motor import estilos
     t = (RAIZ / "referencias/estilos.md").read_text(encoding="utf-8")
-    citados = set(re.findall(r"^\| `(\w+)`", t, re.M))
-    assert citados <= set(estilos.ESTILOS), (
-        f"o arquivo cita estilo que o motor nao tem: "
-        f"{citados - set(estilos.ESTILOS)}")
+    existem = (set(estilos.FONTES_LEGENDA) | set(estilos.FONTES_LETREIRO)
+               | set(estilos.PALETAS) | set(estilos.EFEITOS))
+    citadas = set(re.findall(r"^\| `([^`]+)`", t, re.M))
+    assert citadas <= existem, (
+        f"o arquivo cita opcao que o motor nao tem: {citadas - existem}")
+
 
 
 def test_o_arquivo_de_estilos_nao_repete_cor_nem_fonte():

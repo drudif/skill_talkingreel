@@ -95,23 +95,55 @@ def test_lista_vazia_de_cenas_e_erro(tmp_path):
         cenas.carregar(p)
 
 
-def test_estilo_padrao_quando_nao_dito(tmp_path):
+def test_o_visual_padrao_quando_nao_e_dito(tmp_path):
+    """Quem nao escolhe nada recebe algo que funciona, e nao um erro."""
+    from motor import estilos
     p = _grava(tmp_path, {"cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
-    assert cenas.carregar(p).estilo == "brutalista"
+    prod = cenas.carregar(p)
+    assert prod.legenda_estilo == {} and prod.letreiro_estilo == {}
+    # vazio nao quer dizer sem visual: e o padrao, resolvido na hora de desenhar
+    assert estilos.compor(prod.legenda_estilo, "legenda")["arquivo"]
 
 
-def test_estilo_escolhido(tmp_path):
-    p = _grava(tmp_path, {"estilo": "terminal", "cenas": [
+
+def test_o_visual_escolhido_e_lido(tmp_path):
+    p = _grava(tmp_path, {
+        "legenda_estilo": {"fonte": "serifa", "paleta": "verde"},
+        "letreiro_estilo": {"fonte": "pesada", "efeito": "caixa"},
+        "cenas": [{"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    prod = cenas.carregar(p)
+    assert prod.legenda_estilo["fonte"] == "serifa"
+    assert prod.letreiro_estilo["efeito"] == "caixa"
+
+
+def test_escolher_uma_coisa_nao_obriga_a_escolher_as_outras(tmp_path):
+    """A pessoa escolhe a cor sem ter de escolher a letra junto."""
+    from motor import estilos
+    p = _grava(tmp_path, {
+        "legenda_estilo": {"paleta": "rosa"},
+        "cenas": [{"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    peca = estilos.compor(cenas.carregar(p).legenda_estilo, "legenda")
+    assert peca["paleta"] == "rosa"
+    assert peca["fonte"] == estilos.PADRAO_LEGENDA["fonte"]
+
+
+
+def test_opcao_inexistente_diz_quais_existem(tmp_path):
+    p = _grava(tmp_path, {"legenda_estilo": {"paleta": "roxo-neon"}, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
-    assert cenas.carregar(p).estilo == "terminal"
-
-
-def test_estilo_inexistente_diz_quais_existem(tmp_path):
-    p = _grava(tmp_path, {"estilo": "roxo-neon", "cenas": [
-        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
-    with pytest.raises(cenas.CenasInvalidas, match="brutalista"):
+    with pytest.raises(cenas.CenasInvalidas, match="amarelo"):
         cenas.carregar(p)
+
+
+def test_campo_desconhecido_no_visual_e_erro(tmp_path):
+    """Um campo com nome errado seria ignorado em silencio, e a pessoa acharia
+    que escolheu."""
+    p = _grava(tmp_path, {"legenda_estilo": {"cor": "amarelo"}, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    with pytest.raises(cenas.CenasInvalidas, match="fonte, paleta e efeito"):
+        cenas.carregar(p)
+
 
 
 def test_letreiro_e_lido(tmp_path):
@@ -247,3 +279,34 @@ def test_legenda_pode_ser_desligada(tmp_path):
     p = _grava(tmp_path, {"legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
     assert cenas.carregar(p).legenda is False
+
+
+# --- trocas ditadas palavra por palavra ---
+
+def test_trocas_sao_lidas(tmp_path):
+    """O unico jeito de consertar erro de SOM na transcricao. Sem este campo no
+    contrato, a descoberta de que a comparacao de letras nao pega erro de som
+    deixaria a skill sem saida nenhuma para esses casos."""
+    p = _grava(tmp_path, {"trocas": {"Sidense": "Seedance"}, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    assert cenas.carregar(p).trocas == {"sidense": "Seedance"}
+
+
+def test_sem_trocas_o_campo_vem_vazio(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    assert cenas.carregar(p).trocas == {}
+
+
+def test_trocas_em_formato_errado_e_erro(tmp_path):
+    p = _grava(tmp_path, {"trocas": ["sidense", "Seedance"], "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    with pytest.raises(cenas.CenasInvalidas, match="jeito certo"):
+        cenas.carregar(p)
+
+
+def test_troca_com_lado_vazio_e_erro(tmp_path):
+    p = _grava(tmp_path, {"trocas": {"sidense": "  "}, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    with pytest.raises(cenas.CenasInvalidas, match="texto"):
+        cenas.carregar(p)

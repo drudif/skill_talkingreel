@@ -1,8 +1,9 @@
-"""As duas previas: o catalogo dos sete estilos e o filme leve.
+"""As duas previas: o catalogo de escolhas e o filme leve.
 
-A que mais importa e o catalogo. Se as sete amostras sairem parecidas demais, a
-folha de aprovacao pede uma escolha que a pessoa nao tem como fazer -- e ela vai
-escolher pelo nome, que e exatamente o que o catalogo existe para evitar.
+O catalogo mostra UM EIXO POR VEZ -- as tres fontes com a mesma cor e o mesmo
+efeito, depois as cinco cores com a mesma fonte. Comparar as trinta combinacoes
+de uma vez nao e escolher, e adivinhar; e a folha estaria pedindo uma decisao
+que ninguem consegue tomar olhando.
 """
 import subprocess
 
@@ -34,7 +35,7 @@ def _dif(a, b, caixa):
 # --- a amostra ---
 
 def test_a_amostra_sai_no_tamanho_do_video(tmp_path, gravacao):
-    p = previa.amostra(gravacao, 1.0, "brutalista", tmp_path / "a.jpg",
+    p = previa.amostra(gravacao, 1.0, None, tmp_path / "a.jpg",
                        letreiro="OLA", legenda="teste")
     assert Image.open(p).size == (config.W, config.H)
 
@@ -43,13 +44,20 @@ def test_a_amostra_mostra_o_letreiro_e_a_legenda(tmp_path, gravacao):
     """Sem o texto por cima a amostra e so um quadro do video, e nao ajuda
     ninguem a escolher estilo nenhum."""
     from motor import arte
-    limpa = previa.amostra(gravacao, 1.0, "brutalista", tmp_path / "limpa.jpg")
-    cheia = previa.amostra(gravacao, 1.0, "brutalista", tmp_path / "cheia.jpg",
+    limpa = previa.amostra(gravacao, 1.0, None, tmp_path / "limpa.jpg")
+    cheia = previa.amostra(gravacao, 1.0, None, tmp_path / "cheia.jpg",
                            letreiro="ISSO MUDA TUDO", legenda="a legenda")
-    ref = arte.letreiro("ISSO MUDA TUDO", "brutalista", tmp_path / "r.png")
+    ref = arte.letreiro("ISSO MUDA TUDO", None, tmp_path / "r.png")
     caixa = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
     assert _dif(limpa, cheia, caixa) > 20, (
         "o letreiro nao apareceu na amostra")
+
+
+def _caixa_da_legenda(tmp_path, texto):
+    """A regiao onde a legenda cai, tirada da propria peca."""
+    from motor import legenda as mod_legenda
+    g = mod_legenda.png(texto, None, tmp_path / "_rg.png")
+    return Image.open(g).convert("RGBA").getchannel("A").getbbox()
 
 
 def _caixa_das_pecas(tmp_path, texto_letreiro, texto_legenda):
@@ -60,7 +68,7 @@ def _caixa_das_pecas(tmp_path, texto_letreiro, texto_legenda):
     maior que a tinta, dilui a diferenca na media e faz duas imagens bem
     distintas empatarem."""
     from motor import arte, legenda as mod_legenda
-    l = arte.letreiro(texto_letreiro, "brutalista", tmp_path / "_rl.png")
+    l = arte.letreiro(texto_letreiro, None, tmp_path / "_rl.png")
     g = mod_legenda.png(texto_legenda, "brutalista", tmp_path / "_rg.png")
     cl = Image.open(l).convert("RGBA").getchannel("A").getbbox()
     cg = Image.open(g).convert("RGBA").getchannel("A").getbbox()
@@ -68,68 +76,52 @@ def _caixa_das_pecas(tmp_path, texto_letreiro, texto_legenda):
             max(cl[2], cg[2]), max(cl[3], cg[3]))
 
 
-def test_os_sete_estilos_nao_saem_parecidos(tmp_path, gravacao):
-    """O teste que sustenta o catalogo: se dois estilos saem iguais na amostra,
-    a folha pede uma escolha que a pessoa nao tem como fazer olhando.
-
-    A comparacao cobre letreiro E legenda, porque e o par que separa os sete.
-
-    MEDIDO na gravacao real, antes e depois de cada estilo ganhar fonte
-    propria: o par mais parecido saiu de 20,8 para 37,0, e o pior deles --
-    `terminal` contra `neubrutal`, que usavam a mesma fonte e a mesma cor de
-    letreiro -- saiu de 20,8 para 57,5."""
-    letreiro, legenda = "ISSO MUDA TUDO", "a legenda fica assim"
-    caixa = _caixa_das_pecas(tmp_path, letreiro, legenda)
-    amostras = previa.das_sete(gravacao, 1.0, tmp_path / "cat",
-                               letreiro=letreiro, legenda=legenda)
-    chaves = list(amostras)
-    iguais = []
-    for i, a in enumerate(chaves):
-        for b in chaves[i + 1:]:
-            d = _dif(amostras[a], amostras[b], caixa)
-            if d < 8:
-                iguais.append((a, b, round(d, 1)))
-    assert not iguais, (
-        f"estes estilos saem quase identicos na amostra: {iguais}. "
-        "A pessoa nao teria como escolher olhando")
+def test_as_opcoes_de_um_eixo_nao_saem_parecidas(tmp_path, gravacao):
+    """O teste que sustenta o catalogo: se duas opcoes do mesmo eixo saem
+    iguais na amostra, a folha pede uma escolha impossivel de fazer olhando."""
+    caixa = _caixa_da_legenda(tmp_path, "a legenda fica assim")
+    cat = previa.catalogo(gravacao, 1.0, tmp_path / "cat", "legenda",
+                          "a legenda fica assim")
+    for eixo, opcoes in cat.items():
+        chaves = list(opcoes)
+        iguais = []
+        for i, a in enumerate(chaves):
+            for b in chaves[i + 1:]:
+                d = _dif(opcoes[a], opcoes[b], caixa)
+                if d < 8:
+                    iguais.append((a, b, round(d, 1)))
+        assert not iguais, (
+            f"no eixo '{eixo}' estas opcoes saem quase identicas: {iguais}")
 
 
-def test_os_estilos_se_separam_so_pelo_letreiro(tmp_path, gravacao):
-    """O caso mais duro: uma amostra so com letreiro, sem legenda.
-
-    Antes de cada ficha ganhar fonte propria, `terminal` e `neubrutal` eram
-    indistinguiveis aqui -- mesma fonte, texto claro, contorno escuro. Este
-    teste guarda a correcao: agora a tipografia sozinha separa os sete."""
-    from motor import arte
-    ref = arte.letreiro("SO LETREIRO", "brutalista", tmp_path / "rr.png")
-    caixa = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
-    feitas = {}
-    for chave in estilos.ESTILOS:
-        feitas[chave] = previa.amostra(gravacao, 1.0, chave,
-                                       tmp_path / f"so-{chave}.jpg",
-                                       letreiro="SO LETREIRO")
-    chaves = list(feitas)
-    iguais = []
-    for i, a in enumerate(chaves):
-        for b in chaves[i + 1:]:
-            d = _dif(feitas[a], feitas[b], caixa)
-            if d < 8:
-                iguais.append((a, b, round(d, 1)))
-    assert not iguais, (
-        f"estes estilos tem o mesmo letreiro: {iguais}")
 
 
-def test_das_sete_cobre_todos_os_estilos_que_o_motor_tem(tmp_path, gravacao):
-    amostras = previa.das_sete(gravacao, 1.0, tmp_path / "c2", letreiro="X")
-    assert set(amostras) == set(estilos.ESTILOS)
-    for caminho in amostras.values():
-        assert caminho.exists() and caminho.stat().st_size > 0
+def test_o_catalogo_cobre_os_tres_eixos_inteiros(tmp_path, gravacao):
+    cat = previa.catalogo(gravacao, 1.0, tmp_path / "c2", "letreiro", "OLA")
+    assert set(cat) == {"fonte", "paleta", "efeito"}
+    assert set(cat["fonte"]) == set(estilos.FONTES_LETREIRO)
+    assert set(cat["paleta"]) == set(estilos.PALETAS)
+    assert set(cat["efeito"]) == set(estilos.EFEITOS)
+    for eixo in cat.values():
+        for caminho in eixo.values():
+            assert caminho.exists() and caminho.stat().st_size > 0
+
+
+def test_o_catalogo_muda_uma_coisa_de_cada_vez(tmp_path, gravacao):
+    """E o que torna a comparacao possivel. Se cada amostra mudasse tudo, a
+    pessoa nao teria como saber o que causou a diferenca que ela viu."""
+    cat = previa.catalogo(gravacao, 1.0, tmp_path / "c3", "legenda", "texto",
+                          fixas={"paleta": "amarelo", "efeito": "caixa"})
+    # no eixo da fonte, todas saem amarelas e com caixa; o que muda e a letra
+    assert len(cat["fonte"]) == len(estilos.FONTES_LEGENDA)
+    assert len(cat["paleta"]) == len(estilos.PALETAS)
+
 
 
 def test_a_amostra_cabe_na_folha(tmp_path, gravacao):
     """A folha nao carrega arquivo de fora: a imagem vai embutida nela. Uma
     amostra grande demais infla a pagina inteira."""
-    p = previa.amostra(gravacao, 1.0, "riso", tmp_path / "m.jpg",
+    p = previa.amostra(gravacao, 1.0, None, tmp_path / "m.jpg",
                        letreiro="TESTE", legenda="legenda")
     uri = miniatura.de_imagem(p)
     assert uri and uri.startswith("data:image/jpeg;base64,")
@@ -140,7 +132,7 @@ def test_a_amostra_cabe_na_folha(tmp_path, gravacao):
 def test_a_amostra_nao_deixa_arquivo_solto(tmp_path, gravacao):
     """Os arquivos de passagem sao apagados. Sete estilos deixariam vinte e um
     arquivos na pasta de trabalho da pessoa."""
-    previa.amostra(gravacao, 1.0, "editorial", tmp_path / "s.jpg",
+    previa.amostra(gravacao, 1.0, None, tmp_path / "s.jpg",
                    letreiro="OLA", legenda="oi")
     soltos = [p.name for p in tmp_path.iterdir() if p.name.startswith(".")]
     assert not soltos, f"sobraram arquivos de passagem: {soltos}"

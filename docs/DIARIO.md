@@ -111,6 +111,46 @@ A coordenada unica de tempo passou no teste que importa: os quatro letreiros for
 segundos da GRAVACAO (12,3s / 62,8s / 171,5s / 194,2s) e o motor os pos em 0,9s / 12,1s / 25,5s /
 31,7s do filme, sem que ninguem fizesse conta.
 
+### As sete fichas de estilo, e por que elas sairam
+
+O desenho fechado tinha uma vantagem real — nao sai combinacao feia — e um custo que so apareceu
+com alguem usando: a pessoa gosta da letra de uma ficha e da cor de outra, e nao tem como pedir.
+O pedido veio assim, e foi atendido: **fonte + paleta + efeito**, escolhidos em separado, uma vez
+para a legenda e outra para o letreiro.
+
+Tres decisoes de desenho que a troca obrigou:
+
+- **A folha mostra um eixo por vez.** Sao 30 combinacoes possiveis na legenda e 50 no letreiro;
+  poe-las lado a lado nao seria escolher, seria adivinhar. `previa.catalogo()` gera uma tela por
+  eixo, com os outros dois parados — a pessoa ve as tres fontes com a mesma cor, depois as cinco
+  cores com a mesma fonte.
+- **Cada paleta tem quatro cores.** A cor que se le com contorno nao e a que se le dentro de uma
+  caixa: amarelo com contorno preto funciona sobre video, amarelo em caixa amarela sumiria.
+- **So dois efeitos.** Sao os dois que sobrevivem a imagem em movimento. Sombra, brilho e degrade
+  somem quando o fundo muda de cor, e o fundo aqui e um rosto se mexendo.
+
+**O defeito que a troca revelou.** A conta que ancora o letreiro na base usava `corpo * ENTRELINHA`
+— 114px em corpo 104 — para qualquer fonte. As cinco de display ocupam de **124 a 159**: com a mais
+alta, o texto descia **46px abaixo da base pedida**, e a base existe justamente para o letreiro nao
+cair onde o aplicativo desenha a propria interface. Ficava latente porque as sete fichas usavam a
+mesma fonte na pratica, e o 114 batia por acaso. Agora a ancora sai da metrica real, e o erro ficou
+entre -18 e +7px, sempre para o lado seguro.
+
+### O laudo que acusava o corte por causa da musica
+
+Montado o filme com trilha, o laudo apontou dez emendas com som de fala. O mesmo corte sem trilha:
+**zero de dez**. A medicao de emenda procura som onde deveria haver silencio, e num filme com
+musica por baixo nao ha silencio em lugar nenhum — ela acusava tudo, inclusive o que estava certo.
+Dar esse resultado ao Bluey faria ele devolver para o corte um filme bom.
+
+A primeira guarda comparava a fala com o percentil 10 do envelope, e barrou um caso legitimo: num
+talking head denso o percentil 10 JA E fala, e a distancia deu 0,5 dB num filme perfeitamente
+medivel. O que sempre sobra, mesmo na fala mais corrida, sao os **micro-silencios de dentro das
+palavras** — a oclusiva que `fala.py` ja documentava. Medindo contra o percentil 2: fala densa
+44,2 dB, corte limpo 50,8, com trilha 20,2. Limiar em 32.
+
+Agora o laudo **avisa que nao conseguiu conferir**, e diz onde conferir, em vez de acusar.
+
 ### O rotulo que nao sobreviveu ao material de verdade
 
 A lista de trilhas nasceu com quatro nomes fixos — `calma`, `tensao`, `animada`, `neutra` — e um

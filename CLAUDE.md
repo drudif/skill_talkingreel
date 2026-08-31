@@ -44,6 +44,15 @@ duas divergirem, o letreiro entra fora de hora e nada acusa.
   `b-roll` — nos .md de referencia, escreva "pano verde" e "material complementar".
 - **Recusa dura**: texto normativo em `motor/limites.py`, com soma de verificacao. Quem para e o
   Bluey, antes da folha.
+- **O visual e composto, nao escolhido de uma lista fechada.** Fonte + paleta + efeito, uma vez
+  para a legenda e outra para o letreiro. As sete fichas fechadas sairam: elas nao deixavam a
+  pessoa gostar da letra de uma e da cor de outra, que foi o que apareceu no uso.
+- **A folha mostra UM EIXO POR VEZ.** As tres fontes com a mesma cor e o mesmo efeito, depois as
+  cinco cores com a mesma fonte. Comparar as trinta combinacoes de uma vez nao e escolher, e
+  adivinhar — e a folha estaria pedindo uma decisao que ninguem consegue tomar olhando.
+- **Cada paleta tem QUATRO cores**, nao duas: a da letra e a do contorno, mais a da caixa e a da
+  letra dentro dela. Amarelo com contorno preto se le sobre video; amarelo dentro de caixa amarela
+  sumiria. `estilos.compor()` pega a certa conforme o efeito.
 - **A folha e gerada em Python, nunca escrita pelo modelo.** O custo do projeto de origem foi
   reescrever 50 KB de HTML por rodada; agora o modelo produz so a lista de itens.
 - **A folha tem SECOES, e duas naturezas de item.** `tipo: "escolha"` e cartao grande com radio,
@@ -143,7 +152,13 @@ medidas com o arquivo de verdade, e as tres primeiras deixavam a skill inutiliza
 - **Transcrever e a etapa cara** (modelo de 2,9GB). `legenda: false` pula ela inteira;
   `montar(..., transcrever=...)` injeta uma falsa; `tests/conftest.py` faz a suite falhar alto se
   algum teste cair na transcricao de verdade.
-- Fonte licenciada nao pode ser exigida: `estilos.fonte()` cai numa fonte do sistema. **Mas o
+- Fonte licenciada nao pode ser exigida: a lista de cada opcao termina numa fonte que existe em
+  todo Mac.
+- **A base do letreiro sai da METRICA da fonte, nao de `corpo * entrelinha`.** As duas coisas nao
+  sao a mesma: entrelinha e o espaco ENTRE linhas. MEDIDO em corpo 104: a conta antiga reservava
+  114px para toda fonte, e as cinco de display ocupam de 124 a 159 — com a mais alta o texto descia
+  46px ABAIXO da base, que existe justamente para o letreiro nao cair sob a interface do
+  aplicativo. Ficava latente enquanto todas as fichas usavam a mesma fonte. **Mas o
   contrario tambem custou caro**: por listarem todas a MESMA primeira candidata, e ela existir na
   maquina do autor, as sete fichas usavam duas fontes no total — "fonte" era um dos tres eixos que
   separam um estilo do outro, e o unico que nao separava nada. Agora cada ficha tem fonte propria

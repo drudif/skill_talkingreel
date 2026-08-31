@@ -127,3 +127,14 @@ def test_nenhum_agente_sugere_material_que_a_pessoa_nao_tem():
     assert "se ela tiver mandado" in t or "só se ela tiver mandado" in t, (
         "o bandit pode propor material complementar que nao existe")
     assert "não sugira que ela grave" in t or "nao sugira que ela grave" in t
+
+
+def test_o_bluey_diz_o_que_a_previa_ainda_nao_tem():
+    """Aconteceu com material real: mostrei o corte junto da primeira folha e
+    chamei de pronto. Faltavam legenda, musica e o material extra — que era
+    exatamente o que aquela folha estava decidindo — e a pessoa entendeu que eu
+    tinha ignorado as escolhas dela."""
+    t = _texto("bluey").lower()
+    assert "sem legenda, sem música e sem o material extra" in t or \
+           "sem legenda, sem musica e sem o material extra" in t, (
+        "o bluey nao avisa o que falta no video que mostra na primeira folha")

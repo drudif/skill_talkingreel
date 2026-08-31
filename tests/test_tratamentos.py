@@ -389,7 +389,7 @@ def _brilho(caminho, t, crop="crop=600:200:240:1050"):
 def test_overlay_entra_no_instante_pedido(tmp_path):
     from motor import arte
     base = fixtures.clipe_fala(tmp_path / "base.mov", falas=[(0.2, 2.0)], total=3.0)
-    peca = arte.letreiro("TESTE", "brutalista", tmp_path / "p.png", base=1200)
+    peca = arte.letreiro("TESTE", None, tmp_path / "p.png", base=1200)
     saida = tratamentos.com_overlay(base, peca, tmp_path / "o.mov",
                                     entra=1.5, dura=None)
     assert _quanto_mudou(saida, 0.5, 2.5, _crop_da_peca(peca)) > 20, (
@@ -399,7 +399,7 @@ def test_overlay_entra_no_instante_pedido(tmp_path):
 def test_overlay_nao_muda_formato_nem_audio(tmp_path):
     from motor import arte
     base = fixtures.clipe_fala(tmp_path / "b2.mov", falas=[(0.2, 1.0)], total=2.0)
-    peca = arte.letreiro("X", "brutalista", tmp_path / "p2.png")
+    peca = arte.letreiro("X", None, tmp_path / "p2.png")
     saida = tratamentos.com_overlay(base, peca, tmp_path / "o2.mov", entra=0.0)
     assert probe.dimensao(saida) == (1080, 1920)
     assert probe.tem_audio(saida) is True
@@ -409,7 +409,7 @@ def test_overlay_nao_muda_formato_nem_audio(tmp_path):
 def test_overlay_com_duracao_sai_do_quadro(tmp_path):
     from motor import arte
     base = fixtures.clipe_fala(tmp_path / "b3.mov", falas=[(0.2, 3.0)], total=4.0)
-    peca = arte.letreiro("SOME", "brutalista", tmp_path / "p3.png", base=1200)
+    peca = arte.letreiro("SOME", None, tmp_path / "p3.png", base=1200)
     saida = tratamentos.com_overlay(base, peca, tmp_path / "o3.mov",
                                     entra=0.5, dura=1.0)
     # mesmo limiar medido de test_overlay_entra_no_instante_pedido, mesma razao.
@@ -424,7 +424,7 @@ def test_overlay_duracao_nao_round_bate_com_a_base(tmp_path):
     pela base. Base com duracao nao redonda (2.37s) para forcar o caso."""
     from motor import arte
     base = fixtures.clipe_fala(tmp_path / "hnr.mov", falas=[(0.2, 1.5)], total=2.37)
-    peca = arte.letreiro("H", "brutalista", tmp_path / "ph.png")
+    peca = arte.letreiro("H", None, tmp_path / "ph.png")
     saida = tratamentos.com_overlay(base, peca, tmp_path / "oh.mov",
                                     entra=0.1, dura=None)
     d_base, d_saida = probe.dur(base), probe.dur(saida)
@@ -449,7 +449,7 @@ def test_overlay_audio_copiado_bit_a_bit(tmp_path):
     bater exatamente com os da entrada (pcm_s16le, 48000 Hz)."""
     from motor import arte
     base = fixtures.clipe_fala(tmp_path / "bi.mov", falas=[(0.2, 1.0)], total=2.0)
-    peca = arte.letreiro("I", "brutalista", tmp_path / "pi.png")
+    peca = arte.letreiro("I", None, tmp_path / "pi.png")
     saida = tratamentos.com_overlay(base, peca, tmp_path / "oi.mov", entra=0.0)
 
     codec_in, taxa_in = _ffprobe_audio(base)
@@ -468,10 +468,10 @@ def test_overlay_duas_vezes_seguidas_sobrevive(tmp_path):
     from motor import arte
     base = fixtures.clipe_fala(tmp_path / "bj.mov", falas=[(0.3, 2.0)], total=3.0)
 
-    peca1 = arte.letreiro("UM", "brutalista", tmp_path / "pj1.png", base=900)
+    peca1 = arte.letreiro("UM", None, tmp_path / "pj1.png", base=900)
     passo1 = tratamentos.com_overlay(base, peca1, tmp_path / "oj1.mov", entra=0.0)
 
-    peca2 = arte.letreiro("DOIS", "brutalista", tmp_path / "pj2.png", base=1650)
+    peca2 = arte.letreiro("DOIS", None, tmp_path / "pj2.png", base=1650)
     passo2 = tratamentos.com_overlay(passo1, peca2, tmp_path / "oj2.mov", entra=0.0)
 
     # As janelas saem do bbox da PROPRIA peca, nao de coordenada anotada a
@@ -567,7 +567,7 @@ def test_overlay_nao_perde_quadro_em_nenhuma_duracao(tmp_path):
     quadros viravam 133, e a folga variava de 0,057s a 0,157s sem relacao com
     o tamanho da cena — a cena mais LONGA era a pior. Um filme de dez cenas com
     letreiro acumulava mais de um segundo de descompasso entre boca e som."""
-    peca = arte.letreiro("TESTE", "brutalista", tmp_path / "p.png", base=1400)
+    peca = arte.letreiro("TESTE", None, tmp_path / "p.png", base=1400)
     for total in (1.3, 2.4, 4.5):
         base = fixtures.clipe_fala(tmp_path / f"b{total}.mov",
                                    falas=[(0.15, total - 0.15)], total=total)
@@ -594,7 +594,7 @@ def test_overlay_sobrevive_a_peca_mais_curta_que_a_base(tmp_path, monkeypatch):
     acaba no meio do filme."""
     from motor import probe as mod_probe
     base = fixtures.clipe_fala(tmp_path / "b.mov", falas=[(0.2, 3.3)], total=3.5)
-    peca = arte.letreiro("CURTA", "brutalista", tmp_path / "p.png", base=1400)
+    peca = arte.letreiro("CURTA", None, tmp_path / "p.png", base=1400)
     verdadeira = mod_probe.dur(base)
 
     monkeypatch.setattr("motor.tratamentos.probe.dur", lambda _: 1.0)
@@ -712,7 +712,7 @@ def test_a_peca_animada_nao_muda_a_duracao_do_video(tmp_path):
     erro se acumula ate o fim."""
     from motor import arte
     base = fixtures.clipe_fala(tmp_path / "b.mov", falas=[(0.2, 2.0)], total=3.0)
-    peca = arte.letreiro_animado("ANIMADO", "brutalista", tmp_path / "p.mov",
+    peca = arte.letreiro_animado("ANIMADO", None, tmp_path / "p.mov",
                                  animacao="sobe", dur=1.5)
     saida = tratamentos.com_peca_animada(base, peca, tmp_path / "o.mov",
                                          entra=0.5)
@@ -727,12 +727,12 @@ def test_a_peca_animada_entra_na_hora_pedida(tmp_path):
     from PIL import Image
     from motor import arte
     base = fixtures.clipe_fala(tmp_path / "b2.mov", falas=[(0.2, 2.5)], total=3.5)
-    peca = arte.letreiro_animado("TARDE", "brutalista", tmp_path / "p2.mov",
+    peca = arte.letreiro_animado("TARDE", None, tmp_path / "p2.mov",
                                  animacao="aparece", dur=1.0, base=1300)
     saida = tratamentos.com_peca_animada(base, peca, tmp_path / "o2.mov",
                                          entra=1.5)
 
-    ref = arte.letreiro("TARDE", "brutalista", tmp_path / "ref.png", base=1300)
+    ref = arte.letreiro("TARDE", None, tmp_path / "ref.png", base=1300)
     x0, y0, x1, y1 = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
     crop = f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
 

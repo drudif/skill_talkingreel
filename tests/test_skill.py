@@ -81,10 +81,11 @@ def test_o_contrato_descreve_todo_campo_que_o_motor_le():
     """Um campo sem documentacao e um campo que nenhum agente vai usar."""
     from motor import cenas
     t = (RAIZ / "referencias/contrato.md").read_text(encoding="utf-8")
-    for campo in ("estilo", "legenda", "legenda_split", "proprios",
+    for campo in ("legenda_estilo", "letreiro_estilo", "legenda",
+                  "legenda_split", "proprios",
                   "velocidade", "trilha", "cenas", "trat", "arquivo",
                   "topo", "teto", "letreiro", "de", "ate",
-                  "fundo", "contraste"):
+                  "fundo", "contraste", "trocas"):
         assert f"`{campo}`" in t, f"o contrato nao explica o campo '{campo}'"
 
 

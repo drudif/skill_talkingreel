@@ -48,14 +48,27 @@ def rodar(filme, caminho_cenas=None):
                         f"{fim_mapa:.2f} segundos, mas o filme dura "
                         f"{dur_real:.2f} segundos")
 
-    emendas, repeticao = [], []
+    emendas, repeticao, aviso_emenda = [], [], None
     if cenas_mapa:
-        # as emendas sao os inicios de cena, da segunda em diante
-        emendas = medidas.emendas(filme, [c["ini"] for c in cenas_mapa[1:]])
-        for e in emendas:
-            problemas.append(
-                f"na emenda aos {e['instante']:.1f} segundos ainda ha som de "
-                f"fala: o corte pode ter comido um pedaco de palavra")
+        # A pergunta vem antes da resposta. Num filme com musica por baixo nao
+        # ha silencio em lugar nenhum, e a medicao de emenda acusa TODAS --
+        # medido, as mesmas dez emendas passaram de zero acusadas para dez ao
+        # entrar a trilha. Dar esse resultado ao Bluey faria ele devolver para o
+        # corte um filme que estava certo.
+        da, distancia = medidas.da_para_ouvir_emenda(filme)
+        if not da:
+            aviso_emenda = (
+                f"nao da para conferir as emendas neste arquivo: a musica cobre "
+                f"o silencio, e a distancia entre a fala e o fundo caiu para "
+                f"{distancia:.0f} decibeis. Confira no arquivo sem musica, "
+                f"antes de a trilha entrar")
+        else:
+            # as emendas sao os inicios de cena, da segunda em diante
+            emendas = medidas.emendas(filme, [c["ini"] for c in cenas_mapa[1:]])
+            for e in emendas:
+                problemas.append(
+                    f"na emenda aos {e['instante']:.1f} segundos ainda ha som "
+                    f"de fala: o corte pode ter comido um pedaco de palavra")
 
         raiz = Path(caminho_cenas).parent
         topos = {c["n"]: raiz / c["topo"] for c in cenas_mapa
@@ -73,6 +86,8 @@ def rodar(filme, caminho_cenas=None):
             "dimensao": [w, h],
             "cenas": len(cenas_mapa),
             "emendas": emendas,
+            # AVISA e nao reprova: nao e defeito do filme, e limite da medicao
+            "emenda_nao_medida": aviso_emenda,
             # repeticao AVISA e nao reprova: repetir pode ser deliberado
             "repeticao": repeticao,
             "problemas": problemas}
@@ -91,6 +106,9 @@ def em_portugues(resultado):
     else:
         linhas.append("Encontrei isto:")
         linhas += [f"- {p}" for p in resultado["problemas"]]
+    if resultado.get("emenda_nao_medida"):
+        linhas.append("Uma coisa que nao consegui conferir:")
+        linhas.append(f"- {resultado['emenda_nao_medida']}.")
     if resultado.get("repeticao"):
         linhas.append("Uma observacao, que nao e erro:")
     for r in resultado.get("repeticao", []):

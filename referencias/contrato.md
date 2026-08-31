@@ -25,7 +25,10 @@ fora de hora.
 ```json
 {
   "velocidade": 1.15,
-  "estilo": "brutalista",
+  "legenda_estilo": {"fonte": "sem serifa", "paleta": "branco e preto",
+                     "efeito": "caixa"},
+  "letreiro_estilo": {"fonte": "estreita", "paleta": "amarelo",
+                      "efeito": "contorno"},
   "legenda": true,
   "legenda_split": "esquerda",
   "proprios": ["Ginsu", "Anthropic"],
@@ -51,10 +54,12 @@ take longo vira um filme.
 | campo | precisa? | o que é |
 |---|---|---|
 | `velocidade` | não | quanto o filme acelera. 1.15 é o padrão, e não se nota |
-| `estilo` | não | uma das sete fichas. Padrão `brutalista` |
+| `legenda_estilo` | não | como a legenda aparece: `fonte`, `paleta` e `efeito`. O que faltar vira o padrão |
+| `letreiro_estilo` | não | o mesmo para o texto grande na tela. As fontes são outras |
 | `legenda` | não | queimar a legenda no fim. Padrão `true`. **Desligar pula a transcrição inteira**, que é a etapa mais demorada |
 | `legenda_split` | não | onde a legenda fica quando a tela está dividida em duas: `esquerda`, `direita` ou `centro`. Padrão `esquerda` |
-| `proprios` | não | nomes que a transcrição costuma errar, escritos do jeito certo. **Só nome próprio, e só com 4 letras ou mais** |
+| `proprios` | não | nomes que a transcrição costuma errar, escritos do jeito certo. **Só nome próprio, e só com 4 letras ou mais**. Conserta erro de escrita parecido com o nome, não erro de som |
+| `trocas` | não | trocas ditadas palavra por palavra: `{"sidense": "Seedance"}`. É o único jeito de consertar quando a transcrição ouviu errado |
 | `trilha` | não | a música de fundo. Ela abaixa sozinha quando a pessoa fala. Sem este campo, o filme sai sem música |
 | `contraste` | não | `true` mede cada gravação e corrige a que estiver lavada; `false` deixa a imagem como veio; um número força o mesmo ajuste em todas. Padrão `true` |
 | `cenas` | sim | a lista de cenas, em ordem |
@@ -117,6 +122,39 @@ terminam exatamente na mesma posição do texto parado.
 **Texto que ficaria menos de 0,4 segundo na tela é esticado até 0,4.** Acontece
 quando o letreiro foi ancorado num trecho que o corte de pausa removeu. Menos que
 isso ninguém lê, e o texto sumiria sem explicação.
+
+## Como o texto aparece: `legenda_estilo` e `letreiro_estilo`
+
+Cada um aceita três campos, e todos são opcionais:
+
+| campo | o que é |
+|---|---|
+| `fonte` | a letra. A legenda escolhe entre três de leitura; o letreiro, entre cinco de chamar atenção |
+| `paleta` | as cores. São cinco, e valem para os dois |
+| `efeito` | `contorno` (traço escuro em volta da letra) ou `caixa` (letra dentro de um retângulo cheio) |
+
+As opções de cada campo estão em `referencias/estilos.md`. Escolher um campo não
+obriga a escolher os outros: o que faltar vira o padrão.
+
+**A cor da letra muda conforme o efeito, e isso é de propósito.** Amarelo com
+contorno preto se lê bem sobre vídeo, mas amarelo dentro de caixa amarela
+sumiria. Cada paleta traz as duas cores, e o motor pega a certa.
+
+## Consertar nome na legenda: `proprios` e `trocas`
+
+São duas coisas diferentes, e a diferença importa.
+
+**`proprios` conserta erro de escrita.** A transcrição escreveu quase certo — "Anthropik" no
+lugar de "Anthropic" — e o motor troca sozinho, comparando letra por letra.
+
+**`trocas` conserta erro de som.** A transcrição ouviu outra coisa: escreveu "Sidense" onde a
+pessoa disse "Seedance". Aí não há semelhança de escrita nenhuma entre o que saiu e o que devia
+sair, e o motor não tem como adivinhar — você diz qual palavra vira qual.
+
+**Por que não basta afrouxar a comparação de escrita para pegar os dois casos.** Foi medido: para
+"guinco" virar "Ginsu" a comparação teria de aceitar semelhança de 0,545, e nesse ponto "verdade"
+(0,533) e "bastante" (0,588) também viram nome próprio na legenda queimada. As duas faixas se
+encostam. Comparar letras não diz nada sobre som.
 
 ## Trocar o fundo: `fundo`
 

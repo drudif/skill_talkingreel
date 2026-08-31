@@ -167,7 +167,7 @@ def test_as_quatro_posicoes_existem():
 
 def test_legenda_em_tela_cheia_e_centralizada(tmp_path):
     from PIL import Image
-    p = legenda.png("uma frase", "brutalista", tmp_path / "a.png", posicao="cheia")
+    p = legenda.png("uma frase", None, tmp_path / "a.png", posicao="cheia")
     caixa = Image.open(p).convert("RGBA").getchannel("A").getbbox()
     x0, y0, x1, y1 = caixa
     centro = (x0 + x1) / 2
@@ -177,7 +177,7 @@ def test_legenda_em_tela_cheia_e_centralizada(tmp_path):
 
 def test_legenda_a_esquerda_no_split(tmp_path):
     from PIL import Image
-    p = legenda.png("uma frase", "brutalista", tmp_path / "b.png", posicao="esquerda")
+    p = legenda.png("uma frase", None, tmp_path / "b.png", posicao="esquerda")
     x0, y0, _, _ = Image.open(p).convert("RGBA").getchannel("A").getbbox()
     assert abs(x0 - 60) < 12
     assert abs(y0 - 827) < 12
@@ -185,7 +185,7 @@ def test_legenda_a_esquerda_no_split(tmp_path):
 
 def test_legenda_a_direita_no_split(tmp_path):
     from PIL import Image
-    p = legenda.png("uma frase", "brutalista", tmp_path / "c.png", posicao="direita")
+    p = legenda.png("uma frase", None, tmp_path / "c.png", posicao="direita")
     _, y0, x1, _ = Image.open(p).convert("RGBA").getchannel("A").getbbox()
     assert abs(x1 - (1080 - 60)) < 12
     assert abs(y0 - 827) < 12
@@ -193,8 +193,8 @@ def test_legenda_a_direita_no_split(tmp_path):
 
 def test_centro_do_split_usa_a_mesma_base_da_tela_cheia(tmp_path):
     from PIL import Image
-    a = legenda.png("frase", "brutalista", tmp_path / "d.png", posicao="cheia")
-    b = legenda.png("frase", "brutalista", tmp_path / "e.png", posicao="centro")
+    a = legenda.png("frase", None, tmp_path / "d.png", posicao="cheia")
+    b = legenda.png("frase", None, tmp_path / "e.png", posicao="centro")
     ba = Image.open(a).convert("RGBA").getchannel("A").getbbox()
     bb = Image.open(b).convert("RGBA").getchannel("A").getbbox()
     assert abs(ba[3] - bb[3]) < 4, "a legenda saltaria na virada de cena"
@@ -204,7 +204,7 @@ def test_texto_longo_quebra_e_nao_vaza(tmp_path):
     from PIL import Image
     from motor import config
     p = legenda.png("uma frase bastante longa que precisa quebrar em duas linhas",
-                    "brutalista", tmp_path / "f.png", posicao="cheia")
+                    None, tmp_path / "f.png", posicao="cheia")
     x0, y0, x1, y1 = Image.open(p).convert("RGBA").getchannel("A").getbbox()
     assert (x1 - x0) <= config.LEG_LARGURA_MAX + 8
     assert (y1 - y0) > config.LEG_CORPO      # mais de uma linha
@@ -223,7 +223,7 @@ def test_palavra_sem_espaco_nao_vaza_o_quadro(tmp_path):
     from motor import config
     palavra = "a" * 40
     for posicao in legenda.POSICOES:
-        p = legenda.png(palavra, "brutalista", tmp_path / f"{posicao}.png",
+        p = legenda.png(palavra, None, tmp_path / f"{posicao}.png",
                         posicao=posicao)
         x0, y0, x1, y1 = _bbox(p)
         assert x0 > 4, f"{posicao}: a tinta encosta na borda esquerda (x0={x0})"
@@ -235,7 +235,7 @@ def test_palavra_sem_espaco_nao_vaza_o_quadro(tmp_path):
 
 def test_palavra_sem_espaco_vira_mais_de_uma_linha(tmp_path):
     from motor import config
-    p = legenda.png("a" * 40, "brutalista", tmp_path / "fatiada.png")
+    p = legenda.png("a" * 40, None, tmp_path / "fatiada.png")
     _, y0, _, y1 = _bbox(p)
     assert (y1 - y0) > config.LEG_CORPO * config.LEG_ENTRELINHA * 1.5, (
         "a palavra longa nao foi fatiada em mais de uma linha")
@@ -244,7 +244,7 @@ def test_palavra_sem_espaco_vira_mais_de_uma_linha(tmp_path):
 def test_frase_normal_continua_em_uma_linha(tmp_path):
     """A quebra forcada nao pode fatiar quem cabe."""
     from motor import config
-    p = legenda.png("uma frase", "brutalista", tmp_path / "curta.png")
+    p = legenda.png("uma frase", None, tmp_path / "curta.png")
     _, y0, _, y1 = _bbox(p)
     assert (y1 - y0) < config.LEG_CORPO * config.LEG_ENTRELINHA * 1.5
 
@@ -292,7 +292,7 @@ def _crop_da_legenda(tmp_path, texto, posicao="cheia"):
     sinal — medido antes, um recorte quatro vezes maior que a tinta baixou a
     diferenca de 72 para 15."""
     from PIL import Image
-    ref = legenda.png(texto, "brutalista", tmp_path / "_ref.png", posicao=posicao)
+    ref = legenda.png(texto, None, tmp_path / "_ref.png", posicao=posicao)
     x0, y0, x1, y1 = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
     return f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
 
@@ -318,7 +318,7 @@ def test_a_faixa_tem_a_duracao_do_filme(tmp_path):
     filme = fixtures.clipe_fala(tmp_path / "f.mov", falas=[(0.3, 2.0)], total=4.0)
     palavras = [{"p": "uma", "t": 0.5, "f": 0.8},
                 {"p": "frase", "t": 0.8, "f": 1.2}]
-    faixa, omitidos = legenda.faixa(legenda.blocos(palavras), "brutalista",
+    faixa, omitidos = legenda.faixa(legenda.blocos(palavras), None,
                                     tmp_path / "faixa.mov", total=probe.dur(filme),
                                     mapa=[])
     assert abs(probe.dur(faixa) - 4.0) < 0.15, (
@@ -331,7 +331,7 @@ def test_queimar_nao_muda_duracao_nem_audio(tmp_path):
     from tests import fixtures
     filme = fixtures.clipe_fala(tmp_path / "g.mov", falas=[(0.3, 2.0)], total=4.0)
     palavras = [{"p": "teste", "t": 0.5, "f": 1.0}]
-    saida = legenda.queimar(filme, legenda.blocos(palavras), "brutalista",
+    saida = legenda.queimar(filme, legenda.blocos(palavras), None,
                             tmp_path / "leg.mp4", mapa=[])
     assert abs(probe.dur(saida) - probe.dur(filme)) < 0.15
     assert probe.tem_audio(saida) is True
@@ -342,7 +342,7 @@ def test_a_legenda_aparece_no_quadro(tmp_path):
     from tests import fixtures
     filme = fixtures.clipe_fala(tmp_path / "h.mov", falas=[(0.3, 2.0)], total=4.0)
     palavras = [{"p": "teste", "t": 1.0, "f": 1.8}]
-    saida = legenda.queimar(filme, legenda.blocos(palavras), "brutalista",
+    saida = legenda.queimar(filme, legenda.blocos(palavras), None,
                             tmp_path / "leg2.mp4", mapa=[])
     crop = _crop_da_legenda(tmp_path, "teste")
     assert _quanto_mudou(saida, 1.4, 3.5, crop) > 20, "a legenda nao apareceu"
@@ -353,7 +353,7 @@ def test_bloco_sob_letreiro_e_omitido(tmp_path):
     filme = fixtures.clipe_fala(tmp_path / "i.mov", falas=[(0.3, 3.0)], total=4.0)
     palavras = [{"p": "escondido", "t": 1.0, "f": 1.8}]
     mapa = [{"n": 1, "ini": 0.0, "fim": 4.0, "letreiro": [0.0, 4.0]}]
-    saida = legenda.queimar(filme, legenda.blocos(palavras), "brutalista",
+    saida = legenda.queimar(filme, legenda.blocos(palavras), None,
                             tmp_path / "leg3.mp4", mapa=mapa)
     crop = _crop_da_legenda(tmp_path, "escondido")
     assert _quanto_mudou(saida, 1.4, 3.5, crop) < 6, (

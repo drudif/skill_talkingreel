@@ -99,8 +99,13 @@ def _desenha_linhas(d, linhas, f, y_inicial, altura_linha, cor_texto,
         y += altura_linha
 
 
-def letreiro(texto, estilo, destino, base=None, contorno=None, box=False):
+def letreiro(texto, escolhas, destino, base=None, contorno=None):
     """PNG 1080x1920 transparente com o texto apoiado em `base`.
+
+    `escolhas` e o que a pessoa escolheu -- `{"fonte": ..., "paleta": ...,
+    "efeito": ...}` -- ou None para o padrao. O antigo `box=True` virou
+    `efeito: "caixa"`: era a mesma decisao dita duas vezes, uma como parametro
+    solto e outra dentro da ficha de estilo.
 
     O corpo encolhe ate caber na largura. No projeto de origem um letreiro de
     300pt vazou o quadro em 1075 de 1080 -- a busca evita isso.
@@ -109,22 +114,24 @@ def letreiro(texto, estilo, destino, base=None, contorno=None, box=False):
     (por exemplo um token sem espaco de 40 caracteres), ela e fatiada em mais
     de uma linha em vez de vazar a margem -- ver `quebra_forcando_largura`.
 
-    `box=True` desenha um retangulo cheio na cor de fundo da ficha, atras do
-    texto, com folga de `FOLGA_BOX` em volta da mancha de tinta (nao do
-    quadro inteiro) -- sustentacao para quando o letreiro cai sobre imagem
-    clara e o contorno sozinho nao basta. Sem grafismo alem disso: nao ha
-    moldura de cena, so o que sustenta o proprio letreiro. Quando a cor de
-    texto da ficha e igual a de fundo (caso do `brutalista`, amarelo nos
-    dois -- o texto sumiria sobre o proprio box), o box usa a cor de
-    `contorno` da ficha no lugar."""
-    ficha = estilos.carregar(estilo)
-    caminho_fonte = estilos.fonte(estilo)
+    No efeito `caixa` sai um retangulo cheio atras do texto, com folga de
+    `FOLGA_BOX` em volta da mancha de tinta (nao do quadro inteiro) --
+    sustentacao para quando o letreiro cai sobre imagem clara e o contorno
+    sozinho nao basta. A paleta ja traz a cor da caixa e a da letra dentro
+    dela, que sao diferentes das de fora: amarelo com contorno preto se le bem
+    sobre video, mas amarelo dentro de caixa amarela sumiria.
+
+    Sem grafismo alem disso: nao ha moldura de cena, so o que sustenta o
+    proprio letreiro."""
+    peca = estilos.compor(escolhas, "letreiro")
+    caminho_fonte = peca["arquivo"]
+    box = peca["efeito"] == "caixa"
     base = BASE_PADRAO if base is None else base
     contorno = CONTORNO if contorno is None else contorno
     largura_max = config.W - MARGEM * 2
 
     linhas, f, maior = None, None, None
-    corpo = ficha["peso_letreiro"]
+    corpo = peca["corpo"]
     while True:
         linhas, f, maior = _cabe(texto, caminho_fonte, corpo, largura_max)
         if maior <= largura_max or corpo <= CORPO_MINIMO:
@@ -138,16 +145,28 @@ def letreiro(texto, estilo, destino, base=None, contorno=None, box=False):
         d_sonda = ImageDraw.Draw(im_sonda)
         linhas = quebra_forcando_largura(d_sonda, texto, f, largura_max)
 
+    # Onde a ultima linha se apoia sai da METRICA DA FONTE, e nao de
+    # `corpo * ENTRELINHA`. As duas coisas nao sao a mesma: a entrelinha e o
+    # espaco ENTRE linhas, e a metrica e quanto a letra ocupa de fato.
+    #
+    # MEDIDO em corpo 104: a conta antiga reservava 114px para toda fonte,
+    # enquanto as cinco de display ocupam de 124 a 159. Com a mais alta o texto
+    # descia 46px abaixo da base pedida -- e a base existe justamente para o
+    # letreiro nao cair onde o aplicativo desenha a propria interface.
+    subida, descida = f.getmetrics()
     altura_linha = corpo * ENTRELINHA
-    y = base - altura_linha * len(linhas)
-    cor_texto = estilos.rgb(ficha["texto"]) + (255,)
-    cor_contorno = estilos.rgb(ficha["contorno"]) + (255,)
+    y = base - descida - subida - altura_linha * (len(linhas) - 1)
+    cor_texto = estilos.rgb(peca["texto"]) + (255,)
+    # dentro da caixa o contorno some: a caixa ja separa a letra da imagem, e
+    # contorno por cima de fundo cheio so engrossa o traco.
+    cor_contorno = (estilos.rgb(peca["caixa"]) if box
+                    else estilos.rgb(peca["contorno"])) + (255,)
 
     im = Image.new("RGBA", (config.W, config.H), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
 
     if box:
-        # sonda a mancha real de tinta (contorno incluso) numa camada a
+        # sonda a mancha real de tinta numa camada a
         # parte, pra apoiar o box nela -- a metrica nominal da fonte nao
         # bate com o pixel de tinta de verdade.
         sonda = Image.new("RGBA", (config.W, config.H), (0, 0, 0, 0))
@@ -160,9 +179,8 @@ def letreiro(texto, estilo, destino, base=None, contorno=None, box=False):
             by0 = max(0, y0 - FOLGA_BOX)
             bx1 = min(config.W, x1 + FOLGA_BOX)
             by1 = min(config.H, y1 + FOLGA_BOX)
-            cor_box = (ficha["contorno"] if ficha["fundo"] == ficha["texto"]
-                      else ficha["fundo"])
-            d.rectangle([bx0, by0, bx1, by1], fill=estilos.rgb(cor_box) + (255,))
+            d.rectangle([bx0, by0, bx1, by1],
+                        fill=estilos.rgb(peca["caixa"]) + (255,))
 
     _desenha_linhas(d, linhas, f, y, altura_linha, cor_texto, contorno,
                     cor_contorno)
@@ -237,9 +255,8 @@ def _quadro_da_entrada(png, animacao, avanco, mancha):
     return vazio
 
 
-def letreiro_animado(texto, estilo, destino, animacao="aparece", dur=None,
-                     base=None, contorno=None, box=False, fps=None,
-                     entrada=None):
+def letreiro_animado(texto, escolhas, destino, animacao="aparece", dur=None,
+                     base=None, contorno=None, fps=None, entrada=None):
     """O letreiro como peca de video com fundo transparente, entrando.
 
     `animacao` e uma de ANIMACOES. `dur` e quanto a peca dura no total; sem
@@ -264,8 +281,8 @@ def letreiro_animado(texto, estilo, destino, animacao="aparece", dur=None,
     entrada = ENTRADA if entrada is None else entrada
     pasta = Path(tempfile.mkdtemp(prefix="letreiro-"))
     try:
-        png_caminho = letreiro(texto, estilo, pasta / "base.png", base=base,
-                               contorno=contorno, box=box)
+        png_caminho = letreiro(texto, escolhas, pasta / "base.png", base=base,
+                               contorno=contorno)
         png = Image.open(png_caminho).convert("RGBA")
         mancha = png.getchannel("A").getbbox()
         if mancha is None:                      # texto vazio: nada a animar

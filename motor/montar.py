@@ -117,10 +117,9 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
             else:
                 dura = max(config.LEG_MIN_LETREIRO, d - entra)
             peca = tmp / f"l{cena.n:03d}.mov"
-            arte.letreiro_animado(cena.letreiro.texto, prod.estilo, peca,
-                                  animacao=cena.letreiro.animacao, dur=dura,
-                                  base=cena.letreiro.base,
-                                  box=cena.letreiro.box)
+            arte.letreiro_animado(cena.letreiro.texto, prod.letreiro_estilo,
+                                  peca, animacao=cena.letreiro.animacao,
+                                  dur=dura, base=cena.letreiro.base)
             com_arte = tmp / f"la{cena.n:03d}.mov"
             tratamentos.com_peca_animada(seg, peca, com_arte, entra=entra)
             seg = com_arte
@@ -169,7 +168,7 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
         # adianta -- a musica entra depois, mas a duracao nao muda.
         ler = transcrever or mod_legenda.transcrever
         palavras = ler(destino)
-        mod_legenda.corrigir(palavras, prod.proprios)
+        mod_legenda.corrigir(palavras, prod.proprios, pedidas=prod.trocas)
         # guarda o filme SEM legenda antes de queimar: e um dos
         # entregaveis, para quando o aplicativo legenda sozinho. Sem isto ele
         # so existiria na pasta temporaria, que e descartada.
@@ -177,8 +176,8 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
                                         + destino.suffix)
         shutil.copyfile(destino, sem_legenda)
         com_leg = tmp / "legendado.mp4"
-        mod_legenda.queimar(destino, mod_legenda.blocos(palavras), prod.estilo,
-                            com_leg, mapa=mapa,
+        mod_legenda.queimar(destino, mod_legenda.blocos(palavras),
+                            prod.legenda_estilo, com_leg, mapa=mapa,
                             posicao_split=prod.legenda_split)
         shutil.copyfile(com_leg, destino)
 

@@ -29,6 +29,44 @@ def _percentil(valores, p):
     return ordenado[min(len(ordenado) - 1, int(len(ordenado) * p))]
 
 
+DINAMICA_MINIMA = 32.0     # dB entre a fala e o FUNDO ABSOLUTO do filme, abaixo
+                           # do que a medicao de emenda deixa de valer.
+                           # MEDIDO em tres filmes: fala do comeco ao fim, sem
+                           # pausa nenhuma, da 44,2; corte real limpo da 50,8;
+                           # o MESMO corte com musica por baixo cai para 20,2.
+                           # O limiar fica no meio dessa distancia.
+FUNDO = 0.02               # o percentil que representa o fundo. Tem de ser bem
+                           # baixo: num talking head denso o percentil 10 JA E
+                           # fala -- medido, a distancia ate ele deu 0,5 dB num
+                           # filme perfeitamente medivel, e a guarda barrava o
+                           # caso legitimo. O percentil 2 pega os micro-silencios
+                           # que existem DENTRO das palavras (a oclusiva de
+                           # `fala.py`), e esses so somem quando ha som continuo
+                           # por baixo.
+
+
+def da_para_ouvir_emenda(filme):
+    """(da, distancia em dB) entre a fala e o fundo deste filme.
+
+    A medicao de emenda procura som de fala onde deveria haver silencio. Num
+    filme com musica por baixo NAO HA silencio em lugar nenhum, e a conta passa
+    a acusar toda emenda -- inclusive as limpas. Medir assim e pior que nao
+    medir: quem le o laudo devolve para o corte um filme que estava certo.
+
+    Entao a pergunta vem antes da resposta: da para ouvir emenda aqui?
+
+    O que se compara e a fala com o FUNDO ABSOLUTO, e nao com um percentil de
+    baixo qualquer: um talking head bem cortado e quase todo fala, e ali o
+    percentil 10 ja e voz. O que sempre existe, mesmo na fala mais corrida, sao
+    os micro-silencios de dentro das palavras -- e sao justamente esses que a
+    musica cobre."""
+    env = fala.envelope(filme)
+    if not env:
+        return False, 0.0
+    distancia = _dB(_percentil(env, 0.75)) - _dB(_percentil(env, FUNDO))
+    return distancia >= DINAMICA_MINIMA, distancia
+
+
 def emendas(filme, instantes, janela=JANELA_EMENDA, margem=MARGEM_EMENDA):
     """Onde o filme foi costurado, ainda ha som de fala?
 
@@ -40,7 +78,11 @@ def emendas(filme, instantes, janela=JANELA_EMENDA, margem=MARGEM_EMENDA):
     nem o silencio. Absoluto nao serve porque os takes chegam a -36 dB. E o
     silencio nao serve porque num talking head bem cortado quase nao sobra
     silencio: medido, um filme de duas cenas coladas devolveu "silencio" a
-    -0,8 dB, que era fala, e nenhuma emenda suja aparecia."""
+    -0,8 dB, que era fala, e nenhuma emenda suja aparecia.
+
+    SO RODE ISTO ONDE `da_para_ouvir_emenda` disser que sim. Num filme com
+    musica por baixo o resultado nao vale nada: medido, as mesmas dez emendas
+    passaram de zero acusadas para dez."""
     env = fala.envelope(filme)
     if not env:
         return []

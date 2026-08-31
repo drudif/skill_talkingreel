@@ -103,13 +103,15 @@ def test_o_erro_de_contrato_diz_o_que_consertar(tmp_path):
 
     from motor import cenas
     p = tmp_path / "c.json"
-    p.write_text(json.dumps({"estilo": "roxo-neon", "cenas": [
-        {"n": 1, "trat": "cheia", "arquivo": "x.mov"}]}), encoding="utf-8")
+    p.write_text(json.dumps({
+        "legenda_estilo": {"fonte": "gotica"},
+        "cenas": [{"n": 1, "trat": "cheia", "arquivo": "x.mov"}]}),
+        encoding="utf-8")
     try:
         cenas.carregar(p)
-        raise AssertionError("deveria ter recusado o estilo inexistente")
+        assert False, "deveria ter recusado a fonte que nao existe"
     except cenas.CenasInvalidas as e:
         msg = str(e)
-        assert "brutalista" in msg, "o erro nao diz quais estilos existem"
-        for termo in JARGAO:
-            assert termo not in msg.lower(), f"o erro vazou '{termo}'"
+    assert "gotica" in msg, "o erro nao diz o que estava errado"
+    assert "sem serifa" in msg and "serifa" in msg, (
+        "o erro nao lista as opcoes que existem")

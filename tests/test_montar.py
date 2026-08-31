@@ -305,7 +305,7 @@ def test_letreiro_aparece_no_filme(tmp_path):
     filme = montar.montar(p, tmp_path / "f.mp4")
 
     # descobre onde a tinta cai, em vez de chutar coordenada
-    ref = arte.letreiro("APARECE", "brutalista", tmp_path / "ref.png", base=1300)
+    ref = arte.letreiro("APARECE", None, tmp_path / "ref.png", base=1300)
     x0, y0, x1, y1 = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
     crop = f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
 
@@ -347,7 +347,7 @@ def test_letreiro_e_ancorado_no_segundo_da_gravacao(tmp_path):
     scene2_ini = mapa[1]["ini"]
     esperado = tempo.de_registro(mapa[1]).no_filme(de)
 
-    ref = arte.letreiro("SEGUNDA", "brutalista", tmp_path / "ref.png", base=1300)
+    ref = arte.letreiro("SEGUNDA", None, tmp_path / "ref.png", base=1300)
     x0, y0, x1, y1 = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
     crop = f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
 
@@ -493,7 +493,7 @@ def _fala_falsa(palavras):
 def _crop_da_legenda(tmp_path, texto, posicao):
     from PIL import Image
     from motor import legenda as mod_leg
-    ref = mod_leg.png(texto, "brutalista", tmp_path / f"_ref-{posicao}.png",
+    ref = mod_leg.png(texto, None, tmp_path / f"_ref-{posicao}.png",
                       posicao=posicao)
     x0, y0, x1, y1 = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
     return f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
@@ -706,7 +706,7 @@ def test_letreiro_depois_de_uma_pausa_longa_desconta_a_pausa(tmp_path):
         f"(ingenuo={ingenuo:.2f}s, convertido={esperado:.2f}s). Sem essa "
         f"diferenca o teste nao prova nada")
 
-    ref = arte.letreiro("DEPOIS", "brutalista", tmp_path / "ref.png", base=1300)
+    ref = arte.letreiro("DEPOIS", None, tmp_path / "ref.png", base=1300)
     x0, y0, x1, y1 = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
     crop = f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
 
@@ -789,3 +789,44 @@ def test_com_pano_verde_o_fundo_e_trocado_no_filme(tmp_path):
         "o fundo novo nao chegou ao filme montado")
     v, a = montar.duracoes(filme)
     assert abs(v - a) < 0.15, "trocar o fundo dessincronizou o filme"
+
+
+def test_a_troca_ditada_chega_na_legenda(tmp_path):
+    """O caminho inteiro do campo `trocas`: do cenas.json ate a palavra que vai
+    para a tela. Sem ele o motor so conserta erro de escrita, e erro de som --
+    que e o comum -- nao teria conserto nenhum."""
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
+                        falas=[(0.3, 1.5)], total=2.5)
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({
+        "velocidade": 1.0, "legenda": True,
+        "trocas": {"sidense": "Seedance"},
+        "cenas": [{"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov"}]}),
+        encoding="utf-8")
+
+    vistas = []
+
+    def falsa(_):
+        return [{"p": "o", "t": 0.1, "f": 0.2},
+                {"p": "Sidense", "t": 0.3, "f": 0.9},
+                {"p": "chegou", "t": 1.0, "f": 1.4}]
+
+    def espiao(filme, blocos, estilo, destino, **kw):
+        # um bloco e a lista de palavras que aparecem juntas na tela
+        vistas.extend(w["p"] for b in blocos for w in b)
+        import shutil
+        shutil.copyfile(filme, destino)
+        return destino
+
+    from motor import legenda as mod_legenda
+    real = mod_legenda.queimar
+    mod_legenda.queimar = espiao
+    try:
+        montar.montar(p, tmp_path / "f.mp4", transcrever=falsa)
+    finally:
+        mod_legenda.queimar = real
+
+    texto = " ".join(vistas)
+    assert "Seedance" in texto, f"a troca nao chegou na legenda: {texto!r}"
+    assert "Sidense" not in texto

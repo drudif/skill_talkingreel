@@ -49,7 +49,7 @@ def test_filme_sem_emenda_nenhuma(tmp_path):
 
 def test_legenda_na_base_padrao_esta_segura(tmp_path):
     from motor import legenda
-    p = legenda.png("uma frase", "brutalista", tmp_path / "a.png")
+    p = legenda.png("uma frase", None, tmp_path / "a.png")
     assert medidas.dentro_da_faixa_segura(p) == []
 
 
@@ -87,7 +87,7 @@ def test_as_quatro_posicoes_da_legenda_estao_seguras(tmp_path):
     """Nenhuma das quatro posicoes medidas pode cair sob a interface."""
     from motor import legenda
     for posicao in legenda.POSICOES:
-        p = legenda.png("uma frase um pouco mais longa", "brutalista",
+        p = legenda.png("uma frase um pouco mais longa", None,
                         tmp_path / f"{posicao}.png", posicao=posicao)
         assert medidas.dentro_da_faixa_segura(p) == [], (
             f"a posicao '{posicao}' cai fora da faixa segura")
@@ -194,12 +194,12 @@ def test_o_limite_de_baixo_pega_o_erro_que_o_motivou(tmp_path):
     original = config.LEG_BASE
     try:
         config.LEG_BASE = 1375
-        boa = legenda.png("uma frase", "brutalista", tmp_path / "boa.png")
+        boa = legenda.png("uma frase", None, tmp_path / "boa.png")
         assert medidas.dentro_da_faixa_segura(boa) == [], (
             "acusou a posicao que sabemos que funciona")
 
         config.LEG_BASE = 1500
-        ruim = legenda.png("uma frase", "brutalista", tmp_path / "ruim.png")
+        ruim = legenda.png("uma frase", None, tmp_path / "ruim.png")
         achados = medidas.dentro_da_faixa_segura(ruim)
         assert achados and achados[0]["onde"] == "embaixo", (
             "deixou passar a posicao que caiu sob a interface do aplicativo")
@@ -210,7 +210,7 @@ def test_o_limite_de_baixo_pega_o_erro_que_o_motivou(tmp_path):
 def test_as_quatro_posicoes_seguem_seguras_com_o_limite_novo(tmp_path):
     from motor import legenda
     for posicao in legenda.POSICOES:
-        p = legenda.png("uma frase um pouco mais longa", "brutalista",
+        p = legenda.png("uma frase um pouco mais longa", None,
                         tmp_path / f"{posicao}.png", posicao=posicao)
         assert medidas.dentro_da_faixa_segura(p) == [], (
             f"a posicao '{posicao}' passou a cair fora da faixa segura")

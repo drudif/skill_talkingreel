@@ -21,6 +21,11 @@ from motor import arte, config, estilos
 
 MAX_PALAVRAS = 4
 RESPIRO = 0.35            # silencio que separa dois blocos
+CONTORNO_LEGENDA = 4      # espessura do traco em volta da letra da legenda, no
+                          # efeito de contorno. Menor que o do letreiro (7), que
+                          # tem corpo quase o dobro: contorno grosso demais em
+                          # letra pequena fecha o buraco do "a" e do "o".
+
 LIMIAR_PROPRIO = 0.73     # semelhanca minima, sobre a forma sem acento, para
                           # trocar uma palavra da fala pelo nome proprio certo.
                           # MEDIDO dos dois lados com material real. Abaixo de
@@ -166,8 +171,9 @@ def png(texto, estilo, destino, posicao="cheia"):
     if posicao not in POSICOES:
         raise ValueError(f"posicao '{posicao}' desconhecida. Use uma de: "
                          + ", ".join(POSICOES))
-    ficha = estilos.carregar(estilo)
-    f = ImageFont.truetype(estilos.fonte_legenda(estilo), config.LEG_CORPO)
+    peca = estilos.compor(estilo, "legenda")
+    caixa = peca["efeito"] == "caixa"
+    f = ImageFont.truetype(peca["arquivo"], config.LEG_CORPO)
 
     im = Image.new("RGBA", (config.W, config.H), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
@@ -184,15 +190,22 @@ def png(texto, estilo, destino, posicao="cheia"):
     else:                                  # cheia e centro
         x0, y0 = (config.W - largura) / 2, config.LEG_BASE - altura
 
-    d.rectangle([x0, y0, x0 + largura, y0 + altura],
-                fill=estilos.rgb(ficha["legenda_caixa"]) + (255,))
-    cor = estilos.rgb(ficha["legenda_texto"]) + (255,)
+    if caixa:
+        d.rectangle([x0, y0, x0 + largura, y0 + altura],
+                    fill=estilos.rgb(peca["caixa"]) + (255,))
+    cor = estilos.rgb(peca["texto"]) + (255,)
+    # no efeito de contorno a imagem aparece atras da letra, e o que separa uma
+    # da outra e o traco em volta. Sem ele a legenda some assim que o fundo
+    # ficar da cor do texto -- e o fundo aqui e um rosto se mexendo.
+    traco = 0 if caixa else CONTORNO_LEGENDA
+    cor_traco = estilos.rgb(peca["contorno"]) + (255,)
     for i, linha in enumerate(linhas):
         cx = d.textlength(linha, font=f)
         alinhado = (x0 + config.LEG_PAD_X if posicao == "esquerda"
                     else x0 + (largura - cx) / 2)
         d.text((alinhado, y0 + config.LEG_PAD_Y + i * alt_linha),
-               linha, font=f, fill=cor)
+               linha, font=f, fill=cor,
+               stroke_width=traco, stroke_fill=cor_traco)
     im.save(destino)
     return destino
 
