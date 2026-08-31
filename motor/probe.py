@@ -9,8 +9,19 @@ def _ffprobe(args):
 
 
 def dur(caminho):
-    saida = _ffprobe(["-show_entries", "format=duration", "-of", "csv=p=0", str(caminho)])
-    return float(saida) if saida else 0.0
+    """Duracao em segundos, ou 0.0 quando o arquivo nao diz.
+
+    O ffprobe devolve a palavra `N/A` para arquivo truncado, vazio ou que nao e
+    video -- e nao um erro. Sem tratar isso aqui, um arquivo estragado que a
+    pessoa mandou por engano derrubava o programa inteiro com uma mensagem em
+    ingles e um monte de linha de codigo na tela. Devolver 0.0 faz o problema
+    virar aviso em portugues, que e o que ela consegue entender."""
+    saida = _ffprobe(["-show_entries", "format=duration", "-of", "csv=p=0",
+                      str(caminho)])
+    try:
+        return float(saida)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def dimensao(caminho):

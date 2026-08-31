@@ -77,3 +77,20 @@ def test_area_util_funciona_em_arquivo_com_menos_de_1s(tmp_path):
     cw, ch = numeros[0], numeros[1]
     assert abs(cw - 608) <= 10
     assert abs(ch - 1080) <= 10
+
+
+def test_duracao_de_arquivo_que_nao_e_video_e_zero(tmp_path):
+    """O ffprobe devolve a palavra 'N/A', nao um erro. Sem tratar, isso vira
+    uma parada do programa com mensagem em ingles no meio do trabalho da
+    pessoa. Achado rodando o caminho inteiro, nao em teste de unidade."""
+    ruim = tmp_path / "nao-e-video.mp4"
+    ruim.write_bytes(b"nada disso e video")
+    assert probe.dur(ruim) == 0.0
+
+
+def test_area_util_de_arquivo_que_nao_abre_nao_quebra(tmp_path):
+    """Quem chama le None como 'ja esta vertical, nao mexe' -- que e a resposta
+    segura para um arquivo que nao da para ler."""
+    ruim = tmp_path / "vazio.mp4"
+    ruim.write_bytes(b"")
+    assert probe.area_util(ruim) is None

@@ -2,6 +2,24 @@
 
 Este arquivo é a única coisa que os agentes escrevem. O motor lê e executa.
 
+## A regra que vale para todo número de tempo
+
+**Todo instante escrito aqui é segundo da GRAVAÇÃO, contado do começo do arquivo
+original.** Sem exceção: onde a cena começa, onde termina, quando um texto grande
+aparece na tela e quando ele some.
+
+Quem escreve olha a transcrição da gravação e anota o segundo que vê ali. Não
+existe conta a fazer, e não é preciso montar o filme antes para descobrir número
+nenhum. Quem converte para o tempo do filme pronto é o motor, em `motor/tempo.py`,
+e só ele.
+
+**Por que a regra existe.** Entre a gravação e o filme o tempo encolhe duas vezes:
+as pausas dentro da fala são cortadas, e o que sobra é acelerado. As duas coisas
+juntas fazem o mesmo instante cair em lugares diferentes conforme quantas pausas
+vieram antes dele. Escrever o tempo do filme à mão errava pouco no começo da cena
+e muito no fim — e o erro aparecia só depois, no vídeo pronto, com o texto entrando
+fora de hora.
+
 ## Exemplo completo
 
 ```json
@@ -13,14 +31,20 @@ Este arquivo é a única coisa que os agentes escrevem. O motor lê e executa.
   "proprios": ["Ginsu", "Anthropic"],
   "trilha": "audio/trilha.mp3",
   "cenas": [
-    {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov", "teto": 6.0,
-     "letreiro": {"texto": "COMENTA QUERO", "entra": 1.1, "dura": 1.8,
+    {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+     "de": 12.0, "ate": 25.4,
+     "letreiro": {"texto": "COMENTA QUERO", "de": 13.1, "ate": 14.9,
                   "base": 1400, "box": false}},
-    {"n": 2, "trat": "split", "arquivo": "gravacoes/take-02.mov",
+    {"n": 2, "trat": "split", "arquivo": "gravacoes/take-01.mov",
+     "de": 41.2, "ate": 52.0,
      "topo": {"arquivo": "broll/faca.mp4", "ancora": 0.3}}
   ]
 }
 ```
+
+As duas cenas do exemplo saem do **mesmo arquivo**, em trechos diferentes. É assim
+que se escolhe a melhor tomada de uma frase que a pessoa repetiu, e é assim que um
+take longo vira um filme.
 
 ## Os campos da produção
 
@@ -32,6 +56,7 @@ Este arquivo é a única coisa que os agentes escrevem. O motor lê e executa.
 | `legenda_split` | não | onde a legenda fica quando a tela está dividida em duas: `esquerda`, `direita` ou `centro`. Padrão `esquerda` |
 | `proprios` | não | nomes que a transcrição costuma errar, escritos do jeito certo. **Só nome próprio, e só com 4 letras ou mais** |
 | `trilha` | não | a música de fundo. Ela abaixa sozinha quando a pessoa fala. Sem este campo, o filme sai sem música |
+| `contraste` | não | `true` mede cada gravação e corrige a que estiver lavada; `false` deixa a imagem como veio; um número força o mesmo ajuste em todas. Padrão `true` |
 | `cenas` | sim | a lista de cenas, em ordem |
 
 ## Os campos de cada cena
@@ -40,23 +65,93 @@ Este arquivo é a única coisa que os agentes escrevem. O motor lê e executa.
 |---|---|---|
 | `n` | sim | o número da cena |
 | `trat` | sim | `cheia` (só a pessoa) ou `split` (material extra em cima, pessoa embaixo) |
-| `arquivo` | sim | a gravação, relativa à pasta do `cenas.json` |
+| `arquivo` | sim | a gravação, relativa à pasta do `cenas.json`. **Pode se repetir entre cenas** |
+| `de` | não | segundo da gravação em que este trecho começa. Sem ele, começa no início do arquivo |
+| `ate` | não | segundo da gravação em que este trecho termina. Sem ele, vai até o fim do arquivo |
 | `velocidade` | não | troca a velocidade só nesta cena. Sem este campo, vale a velocidade geral da produção |
-| `teto` | não | limite de duração, em segundos, para essa cena |
+| `teto` | não | limite de duração, em segundos, contado a partir de onde a fala começa |
 | `topo` | só no split | `{"arquivo": ..., "ancora": 0.0 a 1.0}`. A âncora escolhe que parte da imagem fica visível: 0 é o topo, 1 é o pé |
 | `letreiro` | não | texto grande sobre a imagem |
+| `fundo` | não | troca o fundo por uma imagem ou por uma cor escrita como `#101010`. **Só funciona com pano verde** — veja abaixo |
+
+**`de` e `ate` recortam antes de tudo.** O motor procura onde a voz começa e termina
+**dentro** desse recorte, e nunca passa dele. Duas cenas do mesmo arquivo com
+recortes diferentes acham falas diferentes, que é o esperado.
+
+**`teto` e `ate` não são a mesma coisa.** `ate` diz onde parar na gravação. `teto`
+diz quantos segundos a cena pode durar depois que a fala começa — serve para cortar
+uma cena que se alongou, sem precisar saber em que segundo a voz entra.
 
 ## O letreiro
 
 | campo | precisa? | o que é |
 |---|---|---|
 | `texto` | sim | o que aparece escrito |
-| `entra` | não | quando aparece. Padrão 0 |
-| `dura` | não | quanto tempo fica. Sem isso, fica até o fim da cena |
+| `de` | não | segundo da gravação em que o texto aparece. Padrão 0, que é o começo da cena |
+| `ate` | não | segundo da gravação em que o texto some. Sem isso, fica até o fim da cena |
 | `base` | não | onde o texto se apoia na altura da tela |
 | `box` | não | caixa sólida atrás do texto. Padrão sem caixa |
+| `animacao` | não | como o texto entra: `aparece`, `sobe`, `esquerda` ou `pulo`. Padrão `aparece` |
 
-**A armadilha do tempo do letreiro.** `entra` e `dura` contam na cena já pronta — depois do corte
-de silêncio e depois da velocidade. Não são o instante da gravação crua: as duas etapas mudam a
-escala do tempo, e não de forma proporcional. O jeito certo de achar o número certo: monte o filme
-uma vez, olhe o `cenas-mapa.json` que sai junto, e some `entra` ao `ini` daquela cena.
+**`de` e `ate` do letreiro são segundos da gravação, iguais aos da cena** — o
+instante em que a pessoa fala aquela frase no arquivo original. O motor desconta
+sozinho o corte das pausas e a aceleração.
+
+**O letreiro precisa cair dentro do recorte da cena.** Um letreiro marcado para
+aparecer fora dele nunca apareceria, e o motor recusa o arquivo dizendo isso, em
+vez de montar um filme silenciosamente sem o texto.
+
+**Como o texto entra.** São quatro entradas, e todas duram menos de meio
+segundo — o suficiente para o olho acompanhar, sem atrasar a leitura.
+
+| entrada | o que acontece |
+|---|---|
+| `aparece` | o texto surge no lugar, de leve |
+| `sobe` | o texto entra vindo de baixo |
+| `esquerda` | o texto entra vindo da esquerda |
+| `pulo` | o texto surge menor, passa um pouco do tamanho e assenta |
+
+A entrada muda **como** o texto chega, nunca **onde** ele para: os quatro
+terminam exatamente na mesma posição do texto parado.
+
+**Texto que ficaria menos de 0,4 segundo na tela é esticado até 0,4.** Acontece
+quando o letreiro foi ancorado num trecho que o corte de pausa removeu. Menos que
+isso ninguém lê, e o texto sumiria sem explicação.
+
+## Trocar o fundo: `fundo`
+
+**Só funciona se a pessoa gravou na frente de um pano ou parede verde.** É o
+verde que diz ao programa o que é cenário e o que é pessoa. Numa sala comum não
+existe essa separação, e o programa apagaria pedaços da pessoa junto com o
+fundo.
+
+O motor **confere sozinho, antes de começar a montar**. Se a gravação não tiver
+pano verde, ele recusa o arquivo e explica — não monta um vídeo estragado.
+
+O que ele confere é quanto da **borda** do quadro é verde forte. A borda, e não
+o quadro inteiro, porque é ela que separa um pano de fundo de uma camiseta
+verde: a pessoa fica no meio, o pano aparece em volta dela. Medido, pano de
+fundo de verdade ocupa de 58% a 85% da borda; camiseta verde, planta num canto
+e imagem colorida qualquer ficam todas por volta de 13%.
+
+A cor do corte sai da própria gravação, não de um verde fixo: panos verdes não
+são todos iguais e a luz muda o tom, e cortar pela cor errada deixa uma borda
+esverdeada no contorno da pessoa.
+
+## Corrigir a imagem lavada: `contraste`
+
+Imagem lavada é aquela em que tudo fica perto do mesmo cinza — sem preto de
+verdade nem branco de verdade. O motor mede quanto da escala de brilho cada
+gravação ocupa e estica só as que estiverem abaixo do normal.
+
+O alvo não é um número escolhido: é a faixa que as gravações bem feitas já
+ocupam, medida em seis delas. Material que já está bom **não é tocado**, porque
+esticar o que já está bom só faz perder desenho nas partes claras e escuras.
+
+## O que sai junto: `cenas-mapa.json`
+
+A montagem grava esse arquivo ao lado do `cenas.json`. Cada cena aparece com os
+dois tempos lado a lado: `de` e `ate` são da gravação, `ini` e `fim` são do filme
+pronto. É por ele que se descobre de que ponto da gravação veio qualquer instante
+do filme, sem montar de novo. Vem também `contraste`, o quanto a imagem daquela
+cena foi esticada, e `pausas`, quantos silêncios foram cortados dentro dela.

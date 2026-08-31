@@ -474,11 +474,21 @@ def test_overlay_duas_vezes_seguidas_sobrevive(tmp_path):
     peca2 = arte.letreiro("DOIS", "brutalista", tmp_path / "pj2.png", base=1650)
     passo2 = tratamentos.com_overlay(passo1, peca2, tmp_path / "oj2.mov", entra=0.0)
 
-    # janelas em volta de cada bbox medido (UM: x454-626,y808-901; DOIS:
-    # x412-674,y1556-1651), com folga mas sem se tocar. Uma janela larga
-    # demais dilui o sinal do mesmo jeito descrito no limiar de _brilho acima.
-    regiao_um = "crop=300:150:390:780"
-    regiao_dois = "crop=300:150:390:1530"
+    # As janelas saem do bbox da PROPRIA peca, nao de coordenada anotada a
+    # mao. Coordenada fixa envelhece: quando cada ficha de estilo ganhou fonte
+    # propria, a mancha de tinta mudou de tamanho, a janela antiga passou a
+    # pegar mais fundo que letra, e o sinal caiu de 5 para exatamente 3 --
+    # reprovando um teste que media a coisa certa com a regua errada. E a mesma
+    # armadilha ja anotada no limiar de _brilho: janela larga demais dilui.
+    from PIL import Image
+
+    def janela(caminho_png):
+        x0, y0, x1, y1 = Image.open(caminho_png).convert("RGBA") \
+            .getchannel("A").getbbox()
+        return f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
+
+    regiao_um = janela(peca1)
+    regiao_dois = janela(peca2)
     t = 1.5
 
     diff_um = abs(_brilho(passo2, t, crop=regiao_um) - _brilho(base, t, crop=regiao_um))
@@ -593,3 +603,152 @@ def test_overlay_sobrevive_a_peca_mais_curta_que_a_base(tmp_path, monkeypatch):
 
     assert abs(mod_probe.dur(saida) - verdadeira) < 0.02, (
         "a imagem acabou antes e levou o filme junto")
+
+
+# ---------------------------------------------------------------------------
+# Trocar o fundo verde
+# ---------------------------------------------------------------------------
+
+def _fracoes(caminho):
+    """(quanto do quadro e azul, quanto e a cor da figura, quanto sobrou de
+    verde). Medir cor por cor e o unico jeito de saber se o corte pegou o pano
+    e SO o pano."""
+    from motor import imagem
+    azul = figura = verde = total = 0
+    for q in imagem._quadros_rgb(caminho, lado=64):
+        for i in range(0, len(q) - 2, 3):
+            r, g, b = q[i], q[i + 1], q[i + 2]
+            total += 1
+            if b > 120 and b > r * 1.6 and b > g * 1.6:
+                azul += 1
+            if 90 < r < 190 and 40 < g < 130 and b < 90 and r > b * 1.5:
+                figura += 1
+            if imagem._e_verde(r, g, b):
+                verde += 1
+    t = max(1, total)
+    return azul / t, figura / t, verde / t
+
+
+def test_trocar_fundo_poe_a_imagem_nova_e_mantem_a_pessoa(tmp_path):
+    from motor import imagem
+    take = fixtures.clipe_croma(tmp_path / "croma.mov")
+    _, figura_antes, verde_antes = _fracoes(take)
+    assert verde_antes > 0.3, "a fixture nao produziu pano verde suficiente"
+
+    saida = tratamentos.trocar_fundo(
+        take, tmp_path / "trocado.mov", "#1030c0",
+        cor=imagem.cor_do_fundo_verde(take))
+    azul, figura, verde = _fracoes(saida)
+
+    assert verde < 0.02, f"sobrou pano verde no quadro ({verde * 100:.1f}%)"
+    assert azul > 0.5, f"o fundo novo nao entrou ({azul * 100:.1f}%)"
+    assert abs(figura - figura_antes) < 0.02, (
+        f"a pessoa foi comida pelo corte: era {figura_antes * 100:.1f}% do "
+        f"quadro e ficou {figura * 100:.1f}%")
+
+
+def test_trocar_fundo_nao_muda_a_duracao(tmp_path):
+    """A armadilha do `-shortest`, que come quadros de video e deixa o audio
+    inteiro. Aqui quem fixa a duracao e o corte na saida."""
+    from motor import imagem
+    take = fixtures.clipe_croma(tmp_path / "c2.mov", total=2.0)
+    saida = tratamentos.trocar_fundo(
+        take, tmp_path / "t2.mov", "#101010",
+        cor=imagem.cor_do_fundo_verde(take))
+    assert abs(probe.dur(saida) - probe.dur(take)) < 0.10, (
+        f"a duracao mudou: {probe.dur(take):.3f}s virou {probe.dur(saida):.3f}s")
+
+
+def test_a_tolerancia_do_corte_esta_provada_dos_dois_lados(tmp_path):
+    """Frouxa demais come a pessoa; apertada demais deixa pano por trocar.
+    MEDIDO: a janela boa vai de 0,04 a 0,18."""
+    from motor import config, imagem
+    take = fixtures.clipe_croma(tmp_path / "c3.mov")
+    cor = imagem.cor_do_fundo_verde(take)
+    _, figura_antes, _ = _fracoes(take)
+
+    frouxa = tratamentos.trocar_fundo(take, tmp_path / "frouxa.mov", "#1030c0",
+                                      cor=cor, tolerancia=0.40)
+    _, figura_frouxa, _ = _fracoes(frouxa)
+    assert figura_frouxa < figura_antes - 0.05, (
+        "tolerancia de 0,40 deveria comer a pessoa -- se nao come, o limite "
+        "de cima nao esta onde a medicao disse")
+
+    escolhida = tratamentos.trocar_fundo(take, tmp_path / "boa.mov", "#1030c0",
+                                         cor=cor)
+    azul_boa, figura_boa, verde_boa = _fracoes(escolhida)
+    assert verde_boa < 0.02 and abs(figura_boa - figura_antes) < 0.02, (
+        f"a tolerancia escolhida ({config.VERDE_TOLERANCIA}) nao esta na "
+        f"janela boa")
+
+    # O outro lado. O que sobra de pano nao volta como verde puro -- o corte
+    # suave e o despill deixam um cinza esverdeado que a leitura de verde nao
+    # pega. Quem denuncia e o fundo novo, que cobre menos do quadro do que
+    # deveria. MEDIDO: com 0,002 o fundo novo cobriu 37% onde deveria cobrir 67.
+    apertada = tratamentos.trocar_fundo(take, tmp_path / "apertada.mov",
+                                        "#1030c0", cor=cor, tolerancia=0.002)
+    azul_apertada, _, _ = _fracoes(apertada)
+    assert azul_apertada < azul_boa - 0.10, (
+        f"tolerancia de 0,002 deveria deixar muito pano por trocar: o fundo "
+        f"novo cobriu {azul_apertada * 100:.0f}% contra {azul_boa * 100:.0f}% "
+        f"com a tolerancia escolhida")
+
+
+def test_trocar_fundo_por_uma_imagem(tmp_path):
+    from PIL import Image
+    from motor import imagem
+    arte = tmp_path / "fundo.png"
+    Image.new("RGB", (1080, 1920), (16, 48, 192)).save(arte)
+    take = fixtures.clipe_croma(tmp_path / "c4.mov")
+    saida = tratamentos.trocar_fundo(take, tmp_path / "t4.mov", arte,
+                                     cor=imagem.cor_do_fundo_verde(take))
+    azul, _, verde = _fracoes(saida)
+    assert azul > 0.5 and verde < 0.02
+
+
+def test_a_peca_animada_nao_muda_a_duracao_do_video(tmp_path):
+    """A mesma armadilha do `-shortest` de com_overlay(), no caminho novo. Se
+    a peca animada encurtar o video, o filme dessincroniza a cada cena e o
+    erro se acumula ate o fim."""
+    from motor import arte
+    base = fixtures.clipe_fala(tmp_path / "b.mov", falas=[(0.2, 2.0)], total=3.0)
+    peca = arte.letreiro_animado("ANIMADO", "brutalista", tmp_path / "p.mov",
+                                 animacao="sobe", dur=1.5)
+    saida = tratamentos.com_peca_animada(base, peca, tmp_path / "o.mov",
+                                         entra=0.5)
+    assert abs(probe.dur(saida) - probe.dur(base)) < 0.08, (
+        f"a duracao mudou: {probe.dur(base):.3f}s virou {probe.dur(saida):.3f}s")
+
+
+def test_a_peca_animada_entra_na_hora_pedida(tmp_path):
+    """`entra` conta no relogio do video de baixo. Se o deslocamento no tempo
+    errar, o letreiro aparece cedo ou tarde -- e a coordenada de tempo inteira
+    perde o sentido."""
+    from PIL import Image
+    from motor import arte
+    base = fixtures.clipe_fala(tmp_path / "b2.mov", falas=[(0.2, 2.5)], total=3.5)
+    peca = arte.letreiro_animado("TARDE", "brutalista", tmp_path / "p2.mov",
+                                 animacao="aparece", dur=1.0, base=1300)
+    saida = tratamentos.com_peca_animada(base, peca, tmp_path / "o2.mov",
+                                         entra=1.5)
+
+    ref = arte.letreiro("TARDE", "brutalista", tmp_path / "ref.png", base=1300)
+    x0, y0, x1, y1 = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
+    crop = f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
+
+    def regiao(t):
+        import subprocess
+        r = subprocess.run(
+            ["ffmpeg", "-v", "error", "-ss", str(t), "-i", str(saida),
+             "-frames:v", "1", "-vf", f"{crop},scale=60:20",
+             "-pix_fmt", "gray", "-f", "rawvideo", "-"], capture_output=True)
+        return list(r.stdout[:1200])
+
+    def dif(a, b):
+        return sum(abs(x - y) for x, y in zip(a, b)) / max(1, len(a))
+
+    limpo = regiao(0.2)
+    assert dif(limpo, regiao(1.2)) < 20, (
+        "o letreiro ja aparece antes da hora pedida")
+    assert dif(limpo, regiao(2.2)) > 20, (
+        "o letreiro nao apareceu depois da hora pedida")

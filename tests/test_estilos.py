@@ -1,6 +1,7 @@
 """Testes das sete fichas de estilo: campos completos, cores validas, contraste
 legivel e fonte resolvivel no disco (com fallback provado, nao so assumido)."""
 import re
+from pathlib import Path
 
 import pytest
 from PIL import Image, ImageDraw, ImageFont
@@ -99,3 +100,82 @@ def test_pillow_abre_a_fonte_resolvida_e_desenha_acentuacao():
         caixa = desenho.textbbox((0, 0), "ÃÉÍÓÚÇ", font=fonte)
         largura = caixa[2] - caixa[0]
         assert largura > 0, f"{chave}: {caminho} desenhou largura zero"
+
+
+# ---------------------------------------------------------------------------
+# As fontes
+#
+# Antes desta separacao os sete estilos usavam a MESMA fonte na pratica: todas
+# as fichas listavam a mesma primeira candidata e ela existia na maquina do
+# autor. "Fonte" era um dos tres eixos que separam um estilo do outro, e era o
+# unico que nao separava nada.
+# ---------------------------------------------------------------------------
+
+def test_cada_estilo_tem_a_propria_fonte_de_letreiro():
+    usadas = {}
+    for chave in estilos.ESTILOS:
+        usadas.setdefault(estilos.fonte(chave), []).append(chave)
+    repetidas = {f: q for f, q in usadas.items() if len(q) > 1}
+    assert not repetidas, (
+        f"estes estilos dividem a mesma fonte de letreiro: "
+        f"{ {Path(f).name: q for f, q in repetidas.items()} }")
+
+
+def test_a_legenda_usa_outra_fonte_que_o_letreiro():
+    """A fonte de titulo num texto pequeno e corrido deixa a leitura pesada.
+    No carrossel de onde as fichas vieram, cada estilo tem uma para cada uso."""
+    iguais = [c for c in estilos.ESTILOS
+              if estilos.fonte(c) == estilos.fonte_legenda(c)]
+    assert not iguais, (
+        f"nestes estilos a legenda usa a fonte do letreiro: {iguais}")
+
+
+def test_as_fontes_da_skill_estao_todas_no_disco():
+    """Elas vem junto com a skill. Se uma faltar, aquele estilo cai calado numa
+    fonte do sistema e deixa de ser o que a ficha promete."""
+    faltando = []
+    for chave, ficha in estilos.ESTILOS.items():
+        for lista in ("fontes", "fontes_legenda"):
+            primeira = ficha[lista][0]
+            if primeira.startswith(estilos.FONTES_DA_SKILL) \
+                    and not Path(primeira).exists():
+                faltando.append((chave, Path(primeira).name))
+    assert not faltando, f"fontes que a skill promete e nao tem: {faltando}"
+
+
+def test_fonte_que_falta_cai_na_reserva(tmp_path, monkeypatch):
+    """A regra que impede a skill de quebrar na maquina de outra pessoa: fonte
+    licenciada nunca e exigida."""
+    monkeypatch.setitem(estilos.ESTILOS, "inventado", {
+        "nome": "so para o teste", "fundo": "#000000", "texto": "#FFFFFF",
+        "contorno": "#000000", "legenda_caixa": "#000000",
+        "legenda_texto": "#FFFFFF", "peso_letreiro": 90,
+        "fontes": [str(tmp_path / "nao-existe.ttf")],
+        "fontes_legenda": [str(tmp_path / "tambem-nao.ttf")]})
+    assert estilos.fonte("inventado") == estilos.RESERVA
+    assert estilos.fonte_legenda("inventado") == estilos.RESERVA
+    assert Path(estilos.RESERVA).exists(), "a reserva tem de existir em todo Mac"
+
+
+def test_ficha_sem_fonte_de_legenda_cai_na_do_letreiro(monkeypatch):
+    monkeypatch.setitem(estilos.ESTILOS, "meio", {
+        "nome": "so para o teste", "fundo": "#000000", "texto": "#FFFFFF",
+        "contorno": "#000000", "legenda_caixa": "#000000",
+        "legenda_texto": "#FFFFFF", "peso_letreiro": 90,
+        "fontes": [estilos.RESERVA]})
+    assert estilos.fonte_legenda("meio") == estilos.fonte("meio")
+
+
+def test_toda_fonte_da_skill_tem_licenca_ao_lado():
+    """Fonte sem licenca no repositorio e um problema de direito, e ele aparece
+    quando o repositorio ja esta publicado."""
+    pasta = Path(estilos.FONTES_DA_SKILL)
+    if not pasta.is_dir():
+        return
+    licencas = " ".join(p.name.lower() for p in pasta.glob("LICENCA-*.txt"))
+    sem = []
+    for fonte_ttf in pasta.glob("*.ttf"):
+        radical = fonte_ttf.stem.split("-")[0].lower()
+        if radical not in licencas.replace("-", ""):
+            sem.append(fonte_ttf.name)
+    assert not sem, f"fontes sem arquivo de licenca ao lado: {sem}"

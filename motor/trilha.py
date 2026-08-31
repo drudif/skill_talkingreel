@@ -10,8 +10,44 @@ normaliza o audio de volta para 0 dB DEPOIS de limitar — desfazendo o
 trabalho. Sem `level=disabled` o pico final sai em 0 dB em vez do teto.
 Medido: -0.0 dB com a opcao padrao, -1.5 dB com ela desligada."""
 import subprocess
+from pathlib import Path
 
 from motor import config, probe
+
+# As faixas que vem com a skill, e para que serve cada uma. A Chili escolhe
+# uma quando a pessoa nao mandou musica propria; o texto ao lado e o que ela
+# tem para decidir, e e o que vai para a folha.
+PRONTAS = {
+    "calma": "conversa, opiniao, relato -- a musica fica atras e nao disputa",
+    "tensao": "quando o assunto tem virada, problema ou alerta",
+    "animada": "humor, novidade, convite -- ritmo para a frente",
+    "neutra": "conteudo tecnico ou institucional, onde a musica e so base",
+}
+FORMATOS = (".mp3", ".m4a", ".wav")
+
+
+def pasta():
+    """Onde as trilhas prontas moram, dentro da propria skill."""
+    return Path(__file__).resolve().parent.parent / "assets" / "trilhas"
+
+
+def disponiveis(onde=None):
+    """As trilhas prontas que existem no disco: {nome: caminho}.
+
+    Devolve so o que esta la de verdade. As quatro faixas nao entram no
+    repositorio -- quem instala a skill poe as suas -- e prometer uma faixa que
+    nao existe faria a montagem falhar la na frente, com o trabalho ja feito."""
+    onde = Path(onde) if onde else pasta()
+    achadas = {}
+    if not onde.is_dir():
+        return achadas
+    for nome in PRONTAS:
+        for ext in FORMATOS:
+            caminho = onde / f"{nome}{ext}"
+            if caminho.exists():
+                achadas[nome] = caminho
+                break
+    return achadas
 
 
 def aplicar(filme, musica, destino, volume=None):

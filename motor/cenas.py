@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from motor import config, estilos
+from motor import arte, config, estilos
 
 # Onde a legenda pode ficar quando a tela esta dividida em duas. Em tela
 # cheia ela e sempre centralizada, entao "cheia" nao e escolha de ninguem.
@@ -26,22 +26,33 @@ class Topo:
 
 @dataclass
 class Letreiro:
+    """`de` e `ate` sao segundos do arquivo ORIGINAL da cena -- o instante em
+    que a pessoa fala aquilo na gravacao crua. Quem converte para o tempo do
+    filme montado e `motor/tempo.py`, e so ele."""
     texto: str
-    entra: float = 0.0
-    dura: Optional[float] = None
+    de: float = 0.0
+    ate: Optional[float] = None
     base: Optional[int] = None
     box: bool = False
+    animacao: str = "aparece"
 
 
 @dataclass
 class Cena:
+    """`de` e `ate` recortam o trecho do arquivo original que vira esta cena.
+    E o que permite tirar varias cenas do mesmo take, e escolher a melhor
+    tomada de uma frase que a pessoa repetiu. Sem eles, a cena e o arquivo
+    inteiro."""
     n: int
     trat: str
     arquivo: Path
     velocidade: float
+    de: Optional[float] = None
+    ate: Optional[float] = None
     teto: Optional[float] = None
     topo: Optional["Topo"] = None
     letreiro: Optional[Letreiro] = None
+    fundo: Optional[str] = None      # so funciona com pano verde de verdade
 
 
 @dataclass
@@ -54,6 +65,8 @@ class Producao:
     legenda: bool = True
     legenda_split: str = "esquerda"
     proprios: list = field(default_factory=list)
+    contraste: object = True    # True mede e corrige; False deixa como veio;
+                                # um numero forca aquele esticamento
 
 
 def _caminho(raiz, rel, onde):
@@ -101,6 +114,21 @@ def carregar(caminho):
             "'proprios' e uma lista de nomes escritos do jeito certo, "
             "por exemplo [\"Ginsu\", \"Anthropic\"]")
 
+    # Correcao de contraste: True mede cada gravacao e corrige a que estiver
+    # lavada; False nao mexe; um numero forca o mesmo esticamento em todas.
+    contraste = dados.get("contraste", True)
+    if not isinstance(contraste, bool):
+        try:
+            contraste = float(contraste)
+        except (TypeError, ValueError):
+            raise CenasInvalidas(
+                "'contraste' aceita true (mede e corrige o que estiver lavado), "
+                "false (deixa a imagem como veio) ou um numero")
+        if not 1.0 <= contraste <= config.CONTRASTE_MAX:
+            raise CenasInvalidas(
+                f"'contraste' com numero tem de ficar entre 1.0 e "
+                f"{config.CONTRASTE_MAX}, veio {contraste}")
+
     # Trilha sonora (opcional)
     trilha = dados.get("trilha")
 
@@ -131,6 +159,40 @@ def carregar(caminho):
         if not arquivo:
             raise CenasInvalidas(f"cena {n}: falta o campo 'arquivo'")
 
+        # Recorte no arquivo original: de onde ate onde usar deste take
+        de = bruto.get("de")
+        ate = bruto.get("ate")
+        if de is not None:
+            de = float(de)
+            if de < 0:
+                raise CenasInvalidas(
+                    f"cena {n}: 'de' e o segundo em que o trecho comeca na "
+                    "gravacao, e nao pode ser negativo")
+        if ate is not None:
+            ate = float(ate)
+            if de is not None and ate <= de:
+                raise CenasInvalidas(
+                    f"cena {n}: o trecho termina em {ate} e comeca em {de}. "
+                    "O fim tem de vir depois do comeco")
+            if de is None and ate <= 0:
+                raise CenasInvalidas(
+                    f"cena {n}: 'ate' e o segundo em que o trecho termina na "
+                    "gravacao, e tem de ser maior que zero")
+
+        # Trocar o fundo. So funciona se a pessoa gravou na frente de um pano
+        # verde -- quem confere isso e a montagem, olhando a imagem.
+        fundo = bruto.get("fundo")
+        if fundo is not None:
+            fundo = str(fundo)
+            if fundo.startswith("#"):
+                if len(fundo) != 7 or any(c not in "0123456789abcdefABCDEF"
+                                          for c in fundo[1:]):
+                    raise CenasInvalidas(
+                        f"cena {n}: a cor de fundo '{fundo}' nao esta escrita "
+                        "do jeito certo. Use seis digitos, como #101010")
+            else:
+                fundo = str(_caminho(raiz, fundo, n))
+
         # Topo (split screen)
         topo = None
         if trat == "split":
@@ -153,16 +215,48 @@ def carregar(caminho):
             if not bruto_letreiro.get("texto"):
                 raise CenasInvalidas(
                     f"cena {n}: o letreiro precisa do campo 'texto'")
-            entra = float(bruto_letreiro.get("entra", 0.0))
-            if entra < 0:
+            if "entra" in bruto_letreiro or "dura" in bruto_letreiro:
                 raise CenasInvalidas(
-                    f"cena {n}: 'entra' do letreiro nao pode ser negativo")
+                    f"cena {n}: o letreiro agora usa 'de' e 'ate', que sao os "
+                    "segundos da GRAVACAO em que o texto aparece e some. "
+                    "'entra' e 'dura' contavam no video ja cortado e punham o "
+                    "texto na hora errada")
+            l_de = float(bruto_letreiro.get("de", 0.0))
+            if l_de < 0:
+                raise CenasInvalidas(
+                    f"cena {n}: 'de' do letreiro e o segundo da gravacao em "
+                    "que o texto aparece, e nao pode ser negativo")
+            l_ate = bruto_letreiro.get("ate")
+            if l_ate is not None:
+                l_ate = float(l_ate)
+                if l_ate <= l_de:
+                    raise CenasInvalidas(
+                        f"cena {n}: o letreiro some em {l_ate} e aparece em "
+                        f"{l_de}. O fim tem de vir depois do comeco")
+            # O letreiro marca uma frase que a pessoa fala DENTRO desta cena.
+            # Fora do recorte ele nunca apareceria, e o silencio seria pior
+            # que o erro: o video sai sem o texto e ninguem descobre por que.
+            if de is not None and l_de < de:
+                raise CenasInvalidas(
+                    f"cena {n}: o letreiro aparece em {l_de} segundos, mas "
+                    f"esta cena so comeca em {de}. Ele nunca apareceria")
+            if ate is not None and l_de >= ate:
+                raise CenasInvalidas(
+                    f"cena {n}: o letreiro aparece em {l_de} segundos, mas "
+                    f"esta cena termina em {ate}. Ele nunca apareceria")
+            animacao = bruto_letreiro.get("animacao", "aparece")
+            if animacao not in arte.ANIMACOES:
+                raise CenasInvalidas(
+                    f"cena {n}: nao conheco a entrada '{animacao}' do "
+                    "letreiro. As que existem sao: "
+                    + ", ".join(arte.ANIMACOES))
             letreiro = Letreiro(
                 texto=bruto_letreiro["texto"],
-                entra=entra,
-                dura=bruto_letreiro.get("dura"),
+                de=l_de,
+                ate=l_ate,
                 base=bruto_letreiro.get("base"),
-                box=bool(bruto_letreiro.get("box", False)))
+                box=bool(bruto_letreiro.get("box", False)),
+                animacao=animacao)
 
         # Montar cena validada
         montadas.append(Cena(
@@ -170,9 +264,12 @@ def carregar(caminho):
             trat=trat,
             arquivo=_caminho(raiz, arquivo, n),
             velocidade=float(bruto.get("velocidade", velocidade)),
+            de=de,
+            ate=ate,
             teto=bruto.get("teto"),
             topo=topo,
-            letreiro=letreiro))
+            letreiro=letreiro,
+            fundo=fundo))
 
     return Producao(
         raiz=raiz,
@@ -182,4 +279,5 @@ def carregar(caminho):
         estilo=estilo,
         legenda_split=legenda_split,
         proprios=proprios,
-        legenda=legenda)
+        legenda=legenda,
+        contraste=contraste)

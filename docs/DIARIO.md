@@ -3,6 +3,85 @@
 Historico de decisoes. Nao e carregado em toda sessao — lido sob demanda, pode crescer.
 Entrada nova no topo, com data.
 
+
+---
+
+## 2026-08-31 — a revisao de escopo
+
+Branch `revisao-escopo`. O pedido foi "comecar do zero"; o que se fez foi reforma, porque quase
+todo o escopo listado como novo ja existia e funcionava, e o valor dele nao esta nas linhas de
+codigo e sim nos numeros calibrados. Comecar do zero teria feito o projeto redescobrir as
+armadilhas uma a uma, todas de falha silenciosa.
+
+Cortado: as tres fases viraram duas aprovacoes; o questionario de perfil e a legenda do post
+sairam. Entrou: coordenada unica de tempo, decupagem de varias tomadas, contraste medido, troca de
+fundo com pano verde, letreiro animado, catalogo dos sete estilos aplicado no video da pessoa,
+filme leve para aprovar, dossie para o paralelismo, e a lista de quatro trilhas.
+
+### O que se mediu, e o que a medida mudou
+
+- **A coordenada unica de tempo.** O problema nao era teorico: com uma pausa de 1,7s cortada no
+  meio da cena, um letreiro ancorado em 4,5s da gravacao cai em **2,658s** do filme. O jeito
+  antigo, somar o instante cru ao inicio da cena, poria em **4,240s** — 1,58s de erro, e crescendo
+  a cada pausa. Agora `motor/tempo.py` converte, e `tempo.marcas()` e a fonte unica que o corte e
+  a conversao compartilham. `tests/test_montar.py` mede isso no video renderizado, nao na conta.
+
+- **O alvo de contraste saiu do material, nao de um numero bonito.** Seis gravacoes reais do
+  projeto de origem ocupam de **163,7 a 165,7** da escala de brilho, todas com zero pixel
+  estourado. Dai o alvo 165. O que fechou o limiar de "lavado" foi a medida do outro lado:
+  material que ja esta em 163,5 perde **0,47%** dos pixels no estouro com esticamento de so 1,15,
+  e **2,61%** com 1,25. Corrigir o que ja esta bom nao e neutro. Limiar em 143, que e 165/1,15.
+
+- **Pano verde se detecta na borda do quadro.** Primeira tentativa foi a fracao do quadro inteiro,
+  e ela quase falhou: croma com enquadramento apertado deu **33%**, camiseta verde deu **20%** —
+  perto demais para um limiar seguro. Medindo so a borda, os mesmos casos deram **58%** e **13%**,
+  fator quatro. A pessoa fica no meio do quadro; o pano aparece em volta dela. Limiar em 40%.
+
+- **A tolerancia do corte do pano: o palpite estava errado.** Escrevi 0,20 de cabeca. Medindo com
+  um pano de luz irregular e uma figura na frente, a janela boa vai de **0,04 a 0,18**: em 0,02
+  sobra pano (o fundo novo cobre 37% do quadro onde devia cobrir 67); em **0,20 a figura comeca a
+  ser comida** e em 0,28 ela some por completo. Fixado em 0,11, no meio da janela. Sem a medicao,
+  o valor que eu tinha escrito apagaria pedaco de gente.
+
+- **Os sete estilos usavam duas fontes, nao sete.** O teste do catalogo reprovou sozinho:
+  `terminal` e `neubrutal` sairam identicos. A causa apareceu ao conferir qual fonte cada ficha
+  usava de fato: **todas listavam a mesma primeira candidata**, e como ela existe na maquina do
+  autor, ganhava sempre — cinco fichas com um peso, duas com outro. O usuario pediu sete estilos
+  de "fonte, cor e estilo"; a fonte era um eixo que existia so no papel, e os sete diferiam so por
+  cor.
+
+  A correcao veio pronta da skill de carrossel, que ja tinha o par de fontes de cada estilo
+  resolvido. As catorze entraram em `assets/fontes/` com as licencas, e `estilos.py` ganhou
+  `fonte_legenda()` separada de `fonte()` — a fonte de titulo num texto pequeno e corrido deixa a
+  leitura pesada. Medido na gravacao real, sobre os 21 pares possiveis: o par mais parecido saiu de
+  **20,8 para 37,0**, `terminal` contra `neubrutal` saiu de **20,8 para 57,5**, e a media dos pares
+  subiu de 57,6 para 65,7. A regra de nunca EXIGIR fonte licenciada continua: cada ficha lista a
+  fonte da skill, depois uma do sistema, depois a que existe em todo Mac.
+
+- **Um arquivo estragado derrubava o programa.** Achado rodando o caminho inteiro com material de
+  verdade, nao em teste de unidade: o ffprobe devolve a palavra `N/A` — e nao um erro — para
+  arquivo truncado ou que nao e video, e `probe.dur` tentava virar isso em numero. O resultado era
+  uma parada com mensagem em ingles e um monte de linha de codigo na tela de quem nao programa.
+  Agora vira 0.0, o dossie marca o arquivo como ilegivel, e a pessoa le "nao deu para abrir, mande
+  de novo".
+
+- **`no_original` e `no_filme` nao sao o par que os nomes sugerem.** Cai nessa na propria
+  conferencia: passei um instante do filme para `no_original`, que espera instante da cena, e a
+  volta devolveu **26,0s onde o certo era 20,0s** — um numero plausivel, sem erro nenhum. Entrou
+  `do_filme()`, que desconta o comeco da cena, e um teste que falha se os dois pares passarem a dar
+  o mesmo resultado.
+
+### A decisao de desenho que sustenta o paralelismo
+
+Bandit e Bingo correm juntos, mas o Bingo **so mede**. A propriedade que torna isso seguro esta
+escrita como teste (`test_medir_duas_vezes_da_o_mesmo_resultado`): nada no dossie depende de
+decisao, entao as mesmas contas dao o mesmo resultado antes ou depois do Bandit. Cortar ou acelerar
+nessa fase jogaria fora material que o roteiro ainda pode pedir — e foi o desenho original pedido,
+recusado por isso.
+
+O mesmo raciocinio vale para o que ja estava no motor: area util, contraste e pano verde sao
+propriedades de ESPACO e saem sempre do arquivo original. Tempo e outra coisa.
+
 ---
 
 ## 2026-08-28 — a skill fechada

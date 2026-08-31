@@ -13,11 +13,16 @@ from pathlib import Path
 
 from motor import arte
 from motor import cenas as mod_cenas
-from motor import config, fala, legenda as mod_legenda, probe, tratamentos, trilha
+from motor import (config, fala, imagem, legenda as mod_legenda, probe, tempo,
+                   tratamentos, trilha)
 
 
 def _bordas(cena):
-    return fala.bordas_com_teto(cena.arquivo, cena.teto)
+    """As bordas da fala DENTRO do trecho que a cena pediu. `de` e `ate`
+    recortam o take antes de procurar onde a voz comeca -- e o que faz duas
+    cenas do mesmo arquivo nao encontrarem a mesma fala."""
+    return fala.bordas_com_teto(cena.arquivo, cena.teto,
+                                de=cena.de, ate=cena.ate)
 
 
 def duracoes(caminho):
@@ -31,11 +36,11 @@ def duracoes(caminho):
     return _d("v:0"), _d("a:0")
 
 
-def _segmento(cena, destino, ja_cortado=False, area=None):
+def _segmento(cena, destino, ja_cortado=False, area=None, contraste=None):
     if cena.trat == "cheia":
-        return tratamentos.tela_cheia(cena, destino, ja_cortado, area)
+        return tratamentos.tela_cheia(cena, destino, ja_cortado, area, contraste)
     if cena.trat == "split":
-        return tratamentos.split(cena, destino, ja_cortado, area)
+        return tratamentos.split(cena, destino, ja_cortado, area, contraste)
     raise ValueError(f"tratamento sem implementacao: {cena.trat}")
 
 
@@ -49,6 +54,19 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
     tmp = Path(tmp or tempfile.mkdtemp(prefix="talkingreel-"))
     tmp.mkdir(parents=True, exist_ok=True)
 
+    # Antes de renderizar qualquer coisa: se alguem pediu para trocar o fundo,
+    # a gravacao precisa ter sido feita na frente de um pano verde. Recusar aqui
+    # custa segundos; descobrir depois custa a montagem inteira -- e o resultado
+    # seria um video com pedacos da pessoa apagados.
+    for cena in prod.cenas:
+        if cena.fundo and not imagem.tem_fundo_verde(cena.arquivo):
+            raise mod_cenas.CenasInvalidas(
+                f"cena {cena.n}: voce pediu para trocar o fundo, mas esta "
+                "gravacao nao foi feita na frente de um pano ou parede verde. "
+                "Trocar o fundo so funciona com pano verde: e o verde que diz "
+                "ao programa o que e cenario e o que e pessoa. Numa sala comum "
+                "o programa apagaria pedacos de voce junto com o fundo.")
+
     segmentos, mapa, t = [], [], 0.0
     for cena in prod.cenas:
         # a area util (crop de pillarbox) e uma propriedade de ENQUADRAMENTO,
@@ -56,35 +74,64 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
         # span da fala e pode devolver um arquivo com menos de 1s -- rodar a
         # deteccao nele deixa a funcao cega (ver motor/probe.py:area_util).
         area = probe.area_util(cena.arquivo) or ""
+        # como a area util, o contraste e propriedade da IMAGEM e sai do arquivo
+        # ORIGINAL: depois do corte a cena pode ter poucos quadros, e a conta
+        # sairia de uma amostra pequena demais.
+        contraste = (imagem.ganho(cena.arquivo) if prod.contraste is True
+                     else (None if prod.contraste is False else prod.contraste))
         ini, fim = _bordas(cena)
+        # detectadas UMA vez e passadas adiante: o corte e o mapa de tempo tem
+        # de olhar a mesma lista de pausas. Detectar duas vezes abriria a porta
+        # para as duas discordarem, e o sintoma seria o letreiro fora de hora.
+        pausas = fala.pausas_internas(cena.arquivo, ini, fim)
         apertado, n_pausas = tratamentos.aperta(
-            cena.arquivo, tmp / f"a{cena.n:03d}.mov", ini, fim)
+            cena.arquivo, tmp / f"a{cena.n:03d}.mov", ini, fim, pausas=pausas)
         cena_apertada = replace(cena, arquivo=Path(apertado))
+        if cena.fundo:
+            # a cor do pano sai do arquivo ORIGINAL, que tem o pano inteiro e
+            # muitos quadros; o trecho cortado pode ter poucos.
+            trocado = tmp / f"v{cena.n:03d}.mov"
+            tratamentos.trocar_fundo(
+                cena_apertada.arquivo, trocado, cena.fundo,
+                cor=imagem.cor_do_fundo_verde(cena.arquivo))
+            cena_apertada = replace(cena_apertada, arquivo=trocado)
         seg = _segmento(cena_apertada, tmp / f"s{cena.n:03d}.mov",
-                        ja_cortado=True, area=area)
-        if cena.letreiro:
-            peca = tmp / f"l{cena.n:03d}.png"
-            arte.letreiro(cena.letreiro.texto, prod.estilo, peca,
-                          base=cena.letreiro.base, box=cena.letreiro.box)
-            com_arte = tmp / f"la{cena.n:03d}.mov"
-            tratamentos.com_overlay(seg, peca, com_arte,
-                                    entra=cena.letreiro.entra,
-                                    dura=cena.letreiro.dura)
-            seg = com_arte
+                        ja_cortado=True, area=area, contraste=contraste)
+        # medido ANTES do letreiro: o overlay nao muda a duracao (e para isso
+        # que serve o eof_action=pass), e o mapa precisa da duracao real para
+        # corrigir o arredondamento acumulado.
         d = probe.dur(seg)
+        m = tempo.Mapa(n=cena.n, ini=ini, fim=fim, marcas=tempo.marcas(ini, fim, pausas),
+                       velocidade=cena.velocidade, offset=t, dur=d)
+        if cena.letreiro:
+            # AQUI mora a coordenada unica: o agente escreveu o segundo da
+            # GRAVACAO, e so este ponto converte para o tempo da cena pronta.
+            entra = m.na_cena(cena.letreiro.de)
+            if cena.letreiro.ate is not None:
+                dura = max(config.LEG_MIN_LETREIRO,
+                           m.na_cena(cena.letreiro.ate) - entra)
+            else:
+                dura = max(config.LEG_MIN_LETREIRO, d - entra)
+            peca = tmp / f"l{cena.n:03d}.mov"
+            arte.letreiro_animado(cena.letreiro.texto, prod.estilo, peca,
+                                  animacao=cena.letreiro.animacao, dur=dura,
+                                  base=cena.letreiro.base,
+                                  box=cena.letreiro.box)
+            com_arte = tmp / f"la{cena.n:03d}.mov"
+            tratamentos.com_peca_animada(seg, peca, com_arte, entra=entra)
+            seg = com_arte
         registro = {"n": cena.n, "trat": cena.trat, "pausas": n_pausas,
-                    "ini": round(t, 3), "fim": round(t + d, 3)}
+                    "ini": round(t, 3), "fim": round(t + d, 3),
+                    "contraste": round(contraste or config.CONTRASTE_BASE, 3),
+                    **m.como_registro()}
         if cena.topo:
             # o laudo precisa saber que material entrou na metade de cima
             # para medir quantas vezes ele repete dentro da cena.
             registro["topo"] = str(cena.topo.arquivo)
         if cena.letreiro:
-            # em tempo de FILME, para a legenda saber onde sumir. `entra` e
-            # `dura` sao contados na cena ja pronta -- depois do corte de
-            # silencio e da velocidade -- entao basta somar o inicio da cena.
-            fim_letreiro = (cena.letreiro.entra + cena.letreiro.dura
-                            if cena.letreiro.dura else d)
-            registro["letreiro"] = [round(t + cena.letreiro.entra, 3),
+            # em tempo de FILME, para a legenda saber onde sumir.
+            fim_letreiro = entra + dura
+            registro["letreiro"] = [round(t + entra, 3),
                                     round(t + min(fim_letreiro, d), 3)]
         mapa.append(registro)
         t += d

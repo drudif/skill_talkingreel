@@ -76,12 +76,16 @@ def test_so_o_bluey_publica_folha():
             f"{outro}.md mexe na folha, que e trabalho do Bluey")
 
 
-def test_a_armadilha_do_tempo_do_letreiro_esta_na_chili():
-    """Quem escolhe o instante do letreiro e a Chili. Se ela ler o instante da
-    gravacao crua, o letreiro cai no lugar errado e o erro cresce ao longo do
-    filme."""
+def test_a_chili_ancora_o_letreiro_no_segundo_da_gravacao():
+    """Quem escolhe o instante do letreiro e a Chili, e a regra e a coordenada
+    unica: ela anota o segundo da GRAVACAO e nao faz conta nenhuma. Se ela
+    voltar a somar tempos de cena a mao, o letreiro cai no lugar errado e o
+    erro cresce ao longo do filme."""
     t = _texto("chili").lower()
-    assert "já pronta" in t and "velocidade" in t
+    assert "segundos da grava" in t, (
+        "a chili nao diz que o instante do letreiro e segundo da gravacao")
+    assert "não faça conta" in t or "nao faca conta" in t, (
+        "a chili nao diz que a conversao e do motor, nao dela")
 
 
 def test_o_bingo_sabe_quando_ligar_a_legenda():

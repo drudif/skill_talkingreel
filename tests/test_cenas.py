@@ -117,11 +117,11 @@ def test_estilo_inexistente_diz_quais_existem(tmp_path):
 def test_letreiro_e_lido(tmp_path):
     p = _grava(tmp_path, {"cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
-         "letreiro": {"texto": "OLA", "entra": 1.0, "dura": 2.0, "box": True}}]})
+         "letreiro": {"texto": "OLA", "de": 1.0, "ate": 3.0, "box": True}}]})
     c = cenas.carregar(p).cenas[0]
     assert c.letreiro.texto == "OLA"
-    assert c.letreiro.entra == 1.0
-    assert c.letreiro.dura == 2.0
+    assert c.letreiro.de == 1.0
+    assert c.letreiro.ate == 3.0
     assert c.letreiro.box is True
 
 
@@ -130,24 +130,110 @@ def test_letreiro_tem_padroes(tmp_path):
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
          "letreiro": {"texto": "OLA"}}]})
     c = cenas.carregar(p).cenas[0]
-    assert c.letreiro.entra == 0.0
-    assert c.letreiro.dura is None
+    assert c.letreiro.de == 0.0
+    assert c.letreiro.ate is None
     assert c.letreiro.box is False
 
 
 def test_letreiro_sem_texto_e_erro(tmp_path):
     p = _grava(tmp_path, {"cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
-         "letreiro": {"entra": 1.0}}]})
+         "letreiro": {"de": 1.0}}]})
     with pytest.raises(cenas.CenasInvalidas, match="texto"):
         cenas.carregar(p)
 
 
-def test_letreiro_com_entra_negativo_e_erro(tmp_path):
+def test_letreiro_com_de_negativo_e_erro(tmp_path):
     p = _grava(tmp_path, {"cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
-         "letreiro": {"texto": "OLA", "entra": -1.0}}]})
-    with pytest.raises(cenas.CenasInvalidas, match="entra"):
+         "letreiro": {"texto": "OLA", "de": -1.0}}]})
+    with pytest.raises(cenas.CenasInvalidas, match="negativo"):
+        cenas.carregar(p)
+
+
+def test_letreiro_no_jeito_antigo_e_recusado_dizendo_o_que_mudou(tmp_path):
+    """`entra` e `dura` contavam no video ja cortado. Aceitar em silencio poria
+    o texto na hora errada; recusar sem explicar deixaria quem escreveu sem
+    saber o que fazer."""
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "letreiro": {"texto": "OLA", "entra": 1.0, "dura": 2.0}}]})
+    with pytest.raises(cenas.CenasInvalidas, match="'de' e 'ate'"):
+        cenas.carregar(p)
+
+
+def test_letreiro_que_some_antes_de_aparecer_e_erro(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "letreiro": {"texto": "OLA", "de": 5.0, "ate": 2.0}}]})
+    with pytest.raises(cenas.CenasInvalidas, match="depois do comeco"):
+        cenas.carregar(p)
+
+
+# --- o recorte da cena no arquivo original ---
+
+def test_recorte_da_cena_e_lido(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "de": 12.0, "ate": 25.5}]})
+    c = cenas.carregar(p).cenas[0]
+    assert c.de == 12.0
+    assert c.ate == 25.5
+
+
+def test_sem_recorte_a_cena_e_o_arquivo_inteiro(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov"}]})
+    c = cenas.carregar(p).cenas[0]
+    assert c.de is None and c.ate is None
+
+
+def test_duas_cenas_podem_sair_do_mesmo_arquivo(tmp_path):
+    """E o que permite escolher a melhor tomada de uma frase repetida, e usar
+    dois pedacos distantes do mesmo take."""
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "de": 0.0, "ate": 5.0},
+        {"n": 2, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "de": 30.0, "ate": 40.0}]})
+    c = cenas.carregar(p).cenas
+    assert c[0].arquivo == c[1].arquivo
+    assert (c[0].de, c[1].de) == (0.0, 30.0)
+
+
+def test_recorte_invertido_e_erro(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "de": 20.0, "ate": 10.0}]})
+    with pytest.raises(cenas.CenasInvalidas, match="depois do comeco"):
+        cenas.carregar(p)
+
+
+def test_recorte_negativo_e_erro(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "de": -3.0}]})
+    with pytest.raises(cenas.CenasInvalidas, match="negativo"):
+        cenas.carregar(p)
+
+
+def test_letreiro_fora_do_recorte_e_erro(tmp_path):
+    """O pior modo de falhar seria aceitar: o filme sai sem o texto e nada
+    avisa por que."""
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "de": 10.0, "ate": 20.0,
+         "letreiro": {"texto": "OLA", "de": 2.0}}]})
+    with pytest.raises(cenas.CenasInvalidas, match="nunca apareceria"):
+        cenas.carregar(p)
+
+
+def test_letreiro_depois_do_fim_do_recorte_e_erro(tmp_path):
+    p = _grava(tmp_path, {"cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/take-01.mov",
+         "de": 10.0, "ate": 20.0,
+         "letreiro": {"texto": "OLA", "de": 25.0}}]})
+    with pytest.raises(cenas.CenasInvalidas, match="nunca apareceria"):
         cenas.carregar(p)
 
 

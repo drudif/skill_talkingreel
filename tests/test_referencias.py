@@ -40,11 +40,6 @@ def test_o_corte_rapido_avisa_que_o_pipeline_usa_outra_coisa():
     assert "energia" in t, "nao explica por que a do motor e melhor"
 
 
-def test_a_legenda_do_post_vale_so_para_o_post():
-    t = (RAIZ / "referencias/legenda-do-post.md").read_text(encoding="utf-8").lower()
-    assert "letreiro" in t, "nao diz que letreiro fica de fora"
-
-
 def test_os_servicos_trazem_o_numero_medido():
     t = (RAIZ / "referencias/servicos.md").read_text(encoding="utf-8")
     for servico in ("Seedance", "Veed", "MiniMax", "Kling"):
@@ -58,9 +53,22 @@ def test_os_servicos_dizem_qual_nao_serve():
 
 
 def test_os_creditos_nomeiam_a_origem_de_cada_coisa():
+    """A `deslopar` saiu da lista junto com a legenda do post, que deixou de
+    fazer parte desta skill. O que ficou continua creditado."""
     t = (RAIZ / "CREDITOS.md").read_text(encoding="utf-8")
-    for origem in ("deslopar", "audio-speed", "audio-silence-cut"):
+    for origem in ("audio-speed", "audio-silence-cut", "um-carrossel-por-favor"):
         assert origem in t, f"falta creditar {origem}"
+
+
+def test_as_fontes_estao_creditadas_uma_a_uma():
+    """Fonte no repositorio sem credito e sem licenca e um problema que aparece
+    depois de publicar."""
+    from motor import estilos
+    t = (RAIZ / "CREDITOS.md").read_text(encoding="utf-8").lower()
+    assert "assets/fontes" in t, "os creditos nao dizem onde as fontes moram"
+    for familia in ("cascadia", "anton", "chivo", "fraunces", "bodoni",
+                    "karla", "jakarta"):
+        assert familia in t, f"a fonte '{familia}' nao esta creditada"
 
 
 def test_nenhum_dado_pessoal_alem_de_credito_de_autoria():

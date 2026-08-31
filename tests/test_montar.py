@@ -1,7 +1,9 @@
 import itertools
 import json
 
-from motor import config, fala, montar, probe
+import pytest
+
+from motor import config, fala, montar, probe, tempo
 from tests import fixtures
 
 
@@ -298,7 +300,7 @@ def test_letreiro_aparece_no_filme(tmp_path):
     p = tmp_path / "cenas.json"
     p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov",
-         "letreiro": {"texto": "APARECE", "entra": 1.0, "base": 1300}}]}),
+         "letreiro": {"texto": "APARECE", "de": 1.3, "base": 1300}}]}),
         encoding="utf-8")
     filme = montar.montar(p, tmp_path / "f.mp4")
 
@@ -320,12 +322,11 @@ def test_letreiro_aparece_no_filme(tmp_path):
     assert dif > 20, f"o letreiro nao apareceu no filme montado (dif={dif})"
 
 
-def test_letreiro_entra_e_relativo_a_cena(tmp_path):
-    """L: 'entra' e relativo ao INICIO DA CENA, nao ao filme. So a SEGUNDA
-    cena tem letreiro, com 'entra' bem dentro dela. Se 'entra' fosse lido
-    como tempo do filme, o letreiro apareceria ainda na cena 1 (t=1.0s
-    global); o que se espera e que ele apareca em cena2.ini + entra, lido do
-    cenas-mapa.json que a montagem grava."""
+def test_letreiro_e_ancorado_no_segundo_da_gravacao(tmp_path):
+    """L: 'de' e o segundo da GRAVACAO em que a pessoa fala aquilo. So a
+    SEGUNDA cena tem letreiro. Se 'de' fosse lido como tempo do filme, o
+    letreiro apareceria ainda na cena 1; o que se espera e que ele caia onde
+    `motor/tempo.py` diz, a partir do cenas-mapa.json que a montagem grava."""
     from PIL import Image
     from motor import arte
     (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
@@ -333,18 +334,18 @@ def test_letreiro_entra_e_relativo_a_cena(tmp_path):
                         falas=[(0.3, 2.5)], total=3.2)
     fixtures.clipe_fala(tmp_path / "gravacoes" / "t2.mov",
                         falas=[(0.3, 2.5)], total=3.5)
-    entra = 1.0
+    de = 1.3                     # segundo da gravacao t2.mov
     p = tmp_path / "cenas.json"
     p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t1.mov"},
         {"n": 2, "trat": "cheia", "arquivo": "gravacoes/t2.mov",
-         "letreiro": {"texto": "SEGUNDA", "entra": entra, "base": 1300}}]}),
+         "letreiro": {"texto": "SEGUNDA", "de": de, "base": 1300}}]}),
         encoding="utf-8")
     filme = montar.montar(p, tmp_path / "f.mp4")
     mapa = json.loads((tmp_path / "cenas-mapa.json").read_text(encoding="utf-8"))
     assert len(mapa) == 2
     scene2_ini = mapa[1]["ini"]
-    esperado = scene2_ini + entra
+    esperado = tempo.de_registro(mapa[1]).no_filme(de)
 
     ref = arte.letreiro("SEGUNDA", "brutalista", tmp_path / "ref.png", base=1300)
     x0, y0, x1, y1 = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
@@ -365,28 +366,29 @@ def test_letreiro_entra_e_relativo_a_cena(tmp_path):
 
     # se 'entra' fosse global, o letreiro estaria visivel em t=entra (1.0s),
     # ainda dentro da cena 1 -- confirma que NAO esta
-    assert dif(sem_letreiro, regiao(entra)) < 20, (
-        "o letreiro ja aparece no instante 'entra' global -- 'entra' esta "
-        "sendo lido como tempo do FILME, nao da cena")
+    assert dif(sem_letreiro, regiao(de)) < 20, (
+        "o letreiro ja aparece no instante 'de' cru -- ele esta sendo lido "
+        "como tempo do FILME, nao da gravacao")
 
     # varre a partir do inicio da cena 2 ate achar o instante em que a
     # tinta aparece de verdade
     medido = None
     t = scene2_ini
-    while t < scene2_ini + entra + 1.5:
+    while t < esperado + 1.5:
         if dif(sem_letreiro, regiao(t)) > 20:
             medido = t
             break
         t += 0.1
     assert medido is not None, "o letreiro nunca apareceu na cena 2"
-    print(f"\nL: esperado cena2.ini({scene2_ini:.3f}) + entra({entra}) = "
-          f"{esperado:.3f}s | medido ~= {medido:.3f}s")
+    print(f"\nL: 'de'={de}s da gravacao -> {esperado:.3f}s do filme "
+          f"(cena 2 comeca em {scene2_ini:.3f}s) | medido ~= {medido:.3f}s")
     assert abs(medido - esperado) < 0.5, (
         f"esperava o letreiro perto de {esperado:.3f}s, apareceu em {medido:.3f}s")
 
 
 def test_letreiro_mais_longo_que_a_cena_nao_quebra_montagem(tmp_path):
-    """M: 'dura' maior que a propria cena nao pode quebrar a montagem. O
+    """M: um letreiro que so sumiria depois do fim da cena nao pode quebrar a
+    montagem. O
     letreiro so teria tempo de aparecer ate o fim da cena mesmo assim; o que
     importa e que o filme monte, saia no tamanho certo e o audio/video
     continuem sincronizados."""
@@ -396,8 +398,8 @@ def test_letreiro_mais_longo_que_a_cena_nao_quebra_montagem(tmp_path):
     p = tmp_path / "cenas.json"
     p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov",
-         "letreiro": {"texto": "MAIS LONGO QUE A CENA", "entra": 0.0,
-                      "dura": 999.0}}]}),
+         "letreiro": {"texto": "MAIS LONGO QUE A CENA", "de": 0.0,
+                      "ate": 999.0}}]}),
         encoding="utf-8")
     filme = montar.montar(p, tmp_path / "f.mp4")
     assert probe.dimensao(filme) == (1080, 1920)
@@ -422,7 +424,7 @@ def test_letreiro_nao_altera_o_audio(tmp_path):
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov"}]}
     dados_com = {"velocidade": 1.0, "legenda": False, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov",
-         "letreiro": {"texto": "SOM IGUAL", "entra": 0.5, "dura": 1.0}}]}
+         "letreiro": {"texto": "SOM IGUAL", "de": 0.8, "ate": 1.8}}]}
     p_sem = tmp_path / "cenas-sem.json"
     p_sem.write_text(json.dumps(dados_base), encoding="utf-8")
     p_com = tmp_path / "cenas-com.json"
@@ -589,7 +591,7 @@ def test_a_legenda_some_sob_o_letreiro(tmp_path):
     p = tmp_path / "cenas.json"
     p.write_text(json.dumps({"velocidade": 1.0, "cenas": [
         {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov",
-         "letreiro": {"texto": "GRANDE", "entra": 0.0, "dura": 3.0}}]}),
+         "letreiro": {"texto": "GRANDE", "de": 0.0, "ate": 3.0}}]}),
         encoding="utf-8")
     filme = montar.montar(
         p, tmp_path / "f.mp4",
@@ -667,3 +669,123 @@ def test_sem_legenda_nao_cria_copia(tmp_path):
         encoding="utf-8")
     montar.montar(p, tmp_path / "f.mp4")
     assert not (tmp_path / "f-sem-legenda.mp4").exists()
+
+
+def test_letreiro_depois_de_uma_pausa_longa_desconta_a_pausa(tmp_path):
+    """O caso que a coordenada unica existe para resolver, medido no filme
+    renderizado.
+
+    A gravacao tem duas falas com uma pausa de 1,7s no meio. A pausa e cortada,
+    entao TUDO que vem depois dela anda para tras no filme. Um letreiro
+    ancorado na segunda fala tem de acompanhar esse recuo. Se alguem ler o
+    segundo da gravacao como se fosse tempo do filme -- o jeito antigo -- o
+    texto entra mais de um segundo atrasado, e o teste falha.
+    """
+    from PIL import Image
+    from motor import arte
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "t.mov",
+                        falas=[(0.3, 1.5), (3.5, 2.0)], total=6.0)
+    de = 4.5                     # bem dentro da SEGUNDA fala
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov",
+         "letreiro": {"texto": "DEPOIS", "de": de, "base": 1300}}]}),
+        encoding="utf-8")
+    filme = montar.montar(p, tmp_path / "f.mp4")
+    reg = json.loads((tmp_path / "cenas-mapa.json").read_text(encoding="utf-8"))[0]
+
+    assert reg["pausas"] >= 1, (
+        "a fixture nao produziu a pausa longa que este teste precisa medir")
+
+    m = tempo.de_registro(reg)
+    esperado = m.no_filme(de)
+    ingenuo = de - reg["de"]          # o jeito antigo: so subtrair o inicio
+    assert ingenuo - esperado > 1.0, (
+        f"a pausa cortada deveria adiantar o letreiro em mais de 1s "
+        f"(ingenuo={ingenuo:.2f}s, convertido={esperado:.2f}s). Sem essa "
+        f"diferenca o teste nao prova nada")
+
+    ref = arte.letreiro("DEPOIS", "brutalista", tmp_path / "ref.png", base=1300)
+    x0, y0, x1, y1 = Image.open(ref).convert("RGBA").getchannel("A").getbbox()
+    crop = f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
+
+    def regiao(t):
+        import subprocess
+        r = subprocess.run(
+            ["ffmpeg", "-v", "error", "-ss", str(max(t, 0)), "-i", str(filme),
+             "-frames:v", "1", "-vf", f"{crop},scale=60:20",
+             "-pix_fmt", "gray", "-f", "rawvideo", "-"], capture_output=True)
+        return list(r.stdout[:1200])
+
+    def dif(a, b):
+        return sum(abs(x - y) for x, y in zip(a, b)) / max(1, len(a))
+
+    limpo = regiao(0.05)
+    medido, t = None, 0.0
+    while t < esperado + 1.0:
+        if dif(limpo, regiao(t)) > 20:
+            medido = t
+            break
+        t += 0.1
+    assert medido is not None, "o letreiro nunca apareceu"
+    print(f"\nP: 'de'={de}s da gravacao -> {esperado:.3f}s do filme "
+          f"(o jeito antigo poria em {ingenuo:.3f}s) | medido ~= {medido:.3f}s")
+    assert abs(medido - esperado) < 0.5, (
+        f"esperava o letreiro perto de {esperado:.3f}s, apareceu em "
+        f"{medido:.3f}s. O jeito antigo poria em {ingenuo:.3f}s")
+
+
+# ---------------------------------------------------------------------------
+# Trocar o fundo: so com pano verde, e a recusa vem antes de montar
+# ---------------------------------------------------------------------------
+
+def test_pedir_fundo_novo_sem_pano_verde_e_recusado_antes_de_montar(tmp_path):
+    """A recusa mais importante do motor.
+
+    Trocar o fundo de uma gravacao feita numa sala comum apagaria pedacos da
+    pessoa. E a recusa tem de vir ANTES da montagem: descobrir depois custaria
+    o trabalho inteiro, e o resultado seria um video estragado que so aparece
+    quando alguem assiste."""
+    from motor import cenas as mod_cenas
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    fixtures.clipe_fala(tmp_path / "gravacoes" / "sala.mov",
+                        falas=[(0.3, 1.5)], total=2.5)
+    from PIL import Image
+    Image.new("RGB", (1080, 1920), (16, 48, 192)).save(tmp_path / "fundo.png")
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/sala.mov",
+         "fundo": "fundo.png"}]}), encoding="utf-8")
+
+    with pytest.raises(mod_cenas.CenasInvalidas, match="verde"):
+        montar.montar(p, tmp_path / "f.mp4")
+    assert not (tmp_path / "f.mp4").exists(), (
+        "o motor comecou a montar antes de conferir o fundo")
+
+
+def test_com_pano_verde_o_fundo_e_trocado_no_filme(tmp_path):
+    from motor import imagem
+    (tmp_path / "gravacoes").mkdir(parents=True, exist_ok=True)
+    take = fixtures.clipe_croma(tmp_path / "gravacoes" / "croma.mov",
+                                total=2.5, falas=[(0.3, 1.6)])
+    assert imagem.tem_fundo_verde(take) is True
+    from PIL import Image
+    Image.new("RGB", (1080, 1920), (16, 48, 192)).save(tmp_path / "fundo.png")
+    p = tmp_path / "cenas.json"
+    p.write_text(json.dumps({"velocidade": 1.0, "legenda": False, "cenas": [
+        {"n": 1, "trat": "cheia", "arquivo": "gravacoes/croma.mov",
+         "fundo": "fundo.png"}]}), encoding="utf-8")
+    filme = montar.montar(p, tmp_path / "f.mp4")
+
+    azul = total = 0
+    for q in imagem._quadros_rgb(filme, lado=64):
+        for i in range(0, len(q) - 2, 3):
+            r, g, b = q[i], q[i + 1], q[i + 2]
+            total += 1
+            if b > 120 and b > r * 1.6 and b > g * 1.6:
+                azul += 1
+    assert azul / max(1, total) > 0.3, (
+        "o fundo novo nao chegou ao filme montado")
+    v, a = montar.duracoes(filme)
+    assert abs(v - a) < 0.15, "trocar o fundo dessincronizou o filme"

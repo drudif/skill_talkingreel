@@ -1,12 +1,30 @@
 ---
 name: talking-reel-done
-description: "Transforma um video em que a pessoa fala direto para a camera num vertical pronto para Instagram e TikTok, com corte de ritmo, letreiro, legenda queimada e trilha sonora. Use quando alguem tiver uma gravacao falando para a camera — um take longo, um desabafo, uma aula, um comentario — e quiser publicar como Reel, TikTok ou Shorts. Tambem serve so para cortar pausas, acelerar, legendar, por texto na tela ou musica embaixo. Nao serve para um video que ja foi montado em outro programa."
+description: "Transforma um ou mais videos em que a pessoa fala direto para a camera num vertical pronto para Instagram e TikTok, com corte de ritmo, letreiro animado, legenda queimada e trilha. Escolhe a melhor tomada quando ela repetiu a frase, junta material complementar em tela dividida, corrige imagem lavada e troca fundo de pano verde. Use quando alguem tiver uma gravacao falando para a camera — um take longo, um desabafo, uma aula, um comentario — e quiser publicar como Reel, TikTok ou Shorts. Tambem serve so para cortar pausas, acelerar, legendar, por texto na tela ou musica embaixo. Nao serve para um video que ja foi montado em outro programa."
 ---
 
 # talking reel: done
 
 Alguém grava falando para a câmera. Esta skill devolve o vídeo montado, no formato certo, com
 legenda queimada e pronto para publicar.
+
+## Como começar
+
+Se a pessoa ainda não mandou nada, abra assim, com estas palavras ou parecidas:
+
+> Oi. Esta skill deixa pronto para publicar o vídeo em que você fala para a câmera: ela corta as
+> pausas, põe legenda, texto na tela e música. Me manda a gravação.
+
+## O que a skill precisa receber
+
+| | o quê |
+|---|---|
+| **obrigatório** | uma ou mais gravações da pessoa falando para a câmera |
+| opcional | outros vídeos ou imagens, para entrar junto |
+| opcional | o roteiro dela — as falas, os textos de tela, onde dividir a tela |
+| opcional | uma trilha |
+
+Sem trilha da pessoa, a Chili propõe uma das que vêm com a skill, em `assets/trilhas/`.
 
 ## Como falar com quem usa
 
@@ -21,22 +39,16 @@ regra do trabalho:
 ## Antes de qualquer coisa
 
 1. Leia `referencias/limites.md`. São as recusas que não se negociam.
-2. Procure o perfil, nesta ordem: `~/.claude/talkingreel-perfil.md`, depois `talkingreel-perfil.md`
-   na pasta do trabalho. Se existir, mostre um resumo de três linhas e pergunte só o que mudou.
-   Se não existir, conduza `referencias/perfil.md` — uma pergunta por mensagem, todas puláveis.
-3. Pergunte onde está a gravação, se o perfil não disser.
+2. Pergunte onde está a gravação, se a pessoa ainda não disse.
 
-## As três fases
+## As duas aprovações
 
-Cada fase termina numa folha de aprovação. **Não passe para a fase seguinte sem a resposta.**
-
-| fase | quem trabalha | a folha decide |
+| aprovação | quem trabalha | a folha decide |
 |---|---|---|
-| 1 · estrutura | Bandit, com o parecer de áudio do Bluey | o que fica do que a pessoa falou, e onde entra material extra |
-| 2 · arte e trilha | Bandit e Chili, em paralelo | estilo, letreiros, posição da legenda, trilha, e de onde cortar cada material extra |
-| 3 · corte | Bingo e Chili, em paralelo | o filme montado, antes de queimar a legenda |
+| primeira | Bandit, Bingo e Chili, ao mesmo tempo | o que fica da fala, o estilo, os letreiros, o material extra e a trilha |
+| segunda | Bingo | o filme leve, montado, para assistir |
 
-A trilha é aprovada ANTES da montagem. O efeito sonoro, ao contrário, entra durante.
+**Não passe de uma folha sem a resposta.** A trilha é aprovada na primeira, antes de montar.
 
 ## Quem é quem
 
@@ -48,11 +60,12 @@ receber. **Leia o arquivo na hora de despachar, não antes**: é o que mantém e
 | agente | o que faz | arquivo |
 |---|---|---|
 | Bluey | conduz, mede e reprova. É ele quem fala com a pessoa | `referencias/agentes/bluey.md` |
-| Bandit | escolhe o que fica da fala e o que sai | `referencias/agentes/bandit.md` |
-| Chili | estilo, letreiro, posição da legenda, trilha e efeito | `referencias/agentes/chili.md` |
-| Bingo | preenche o `cenas.json` e roda o motor | `referencias/agentes/bingo.md` |
+| Bandit | decupa, transcreve, escolhe a melhor tomada e escreve o roteiro | `referencias/agentes/bandit.md` |
+| Bingo | mede os arquivos, depois monta | `referencias/agentes/bingo.md` |
+| Chili | estilo, letreiro, legenda e trilha | `referencias/agentes/chili.md` |
 
-Bandit e Chili trabalham ao mesmo tempo na fase 2; Bingo e Chili, na fase 3. Bluey junta tudo.
+**Bandit e Bingo começam ao mesmo tempo**, e nenhum espera o outro: o Bandit ouve o que foi dito,
+o Bingo mede os arquivos. A Chili entra assim que houver roteiro. Bluey junta tudo.
 
 ## A regra de ferro do motor
 
@@ -67,14 +80,22 @@ de itens; o motor executa. Toda a calibragem mora no motor, medida, e não no qu
 - O contrato do `cenas.json`: `referencias/contrato.md`
 - A folha: `motor/folha.py`, a partir de uma lista de itens
 
+## A regra do tempo
+
+**Todo instante que um agente escreve é segundo da GRAVAÇÃO**, contado do começo do arquivo
+original — onde a cena começa, onde termina, quando um texto aparece na tela. Nenhum agente faz
+conta para descontar o corte das pausas ou a aceleração: quem converte é o motor, em
+`motor/tempo.py`. Ver `referencias/contrato.md`.
+
 ## O que a pessoa recebe no fim
 
 - o vídeo com legenda queimada, 1080x1920
 - o mesmo vídeo sem legenda, para quando o aplicativo legenda sozinho
-- a legenda do post, escrita seguindo `referencias/legenda-do-post.md`
 
 ## Quando a pessoa pede outra coisa
 
 - **acelerar, ou tirar as pausas, e só isso**: `referencias/corte-rapido.md`, sem entrar nas fases
+- **trocar o fundo**: só funciona se ela gravou na frente de um pano verde. O motor confere
+  sozinho e recusa quando não for o caso. Ver `referencias/contrato.md`
 - **editar o vídeo com efeito de IA**: `referencias/servicos.md`. Só se ela pedir
 - **o material dela não entra como está**: não acontece. Gerar imagem ou vídeo por IA só se ela pedir

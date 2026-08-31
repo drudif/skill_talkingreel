@@ -146,7 +146,7 @@ def png(texto, estilo, destino, posicao="cheia"):
         raise ValueError(f"posicao '{posicao}' desconhecida. Use uma de: "
                          + ", ".join(POSICOES))
     ficha = estilos.carregar(estilo)
-    f = ImageFont.truetype(estilos.fonte(estilo), config.LEG_CORPO)
+    f = ImageFont.truetype(estilos.fonte_legenda(estilo), config.LEG_CORPO)
 
     im = Image.new("RGBA", (config.W, config.H), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)

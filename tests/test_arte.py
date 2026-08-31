@@ -1,3 +1,4 @@
+import pytest
 from PIL import Image
 
 from motor import arte, config, estilos
@@ -222,3 +223,149 @@ def test_base_com_tres_linhas_ainda_se_apoia_na_base_pedida(tmp_path):
     altura_texto = y1 - y0
     assert altura_texto > 200, \
         f"texto de {altura_texto}px parece ter saido em 1 linha so, nao 3"
+
+
+# ---------------------------------------------------------------------------
+# O letreiro entrando
+#
+# A animacao transforma o desenho pronto; ela nao redesenha o texto. O que
+# estes testes protegem: que a peca guarde transparencia (sem isso o letreiro
+# entra dentro de um retangulo preto), que ela chegue na posicao certa, e que
+# cada entrada faca o movimento que o nome dela promete.
+# ---------------------------------------------------------------------------
+
+def _quadro(peca, t):
+    """Um quadro da peca animada, como imagem com transparencia."""
+    import subprocess
+    from PIL import Image
+    saida = str(peca) + f".{t:.2f}.png"
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-ss", f"{t:.3f}", "-i", str(peca),
+         "-frames:v", "1", "-c:v", "png", "-pix_fmt", "rgba", saida],
+        check=True)
+    return Image.open(saida).convert("RGBA")
+
+
+@pytest.mark.parametrize("animacao", arte.ANIMACOES)
+def test_cada_entrada_produz_peca_com_transparencia(tmp_path, animacao):
+    """Sem transparencia o letreiro entraria dentro de um retangulo preto,
+    tapando a imagem inteira."""
+    peca = arte.letreiro_animado("OLA MUNDO", "brutalista",
+                                 tmp_path / f"{animacao}.mov",
+                                 animacao=animacao, dur=1.2)
+    im = _quadro(peca, 1.0)
+    alfa = im.getchannel("A")
+    assert alfa.getextrema()[0] == 0, (
+        "nao ha nenhum ponto transparente: a peca taparia o video inteiro")
+    assert alfa.getbbox() is not None, "a peca saiu vazia"
+
+
+@pytest.mark.parametrize("animacao", arte.ANIMACOES)
+def test_a_peca_dura_o_que_foi_pedido(tmp_path, animacao):
+    from motor import probe
+    peca = arte.letreiro_animado("TESTE", "terminal",
+                                 tmp_path / f"d{animacao}.mov",
+                                 animacao=animacao, dur=2.0)
+    assert abs(probe.dur(peca) - 2.0) < 0.12, (
+        f"pedi 2,0s e a peca saiu com {probe.dur(peca):.2f}s")
+
+
+@pytest.mark.parametrize("animacao", arte.ANIMACOES)
+def test_o_letreiro_chega_na_mesma_posicao_do_letreiro_parado(tmp_path, animacao):
+    """A animacao muda como o texto entra, nunca onde ele para. Se parasse em
+    outro lugar, a conferencia de faixa segura -- que roda sobre o letreiro
+    parado -- estaria medindo uma peca diferente da que vai ao ar."""
+    from PIL import Image
+    parado = arte.letreiro("FIM", "brutalista", tmp_path / f"p{animacao}.png",
+                           base=1300)
+    peca = arte.letreiro_animado("FIM", "brutalista",
+                                 tmp_path / f"a{animacao}.mov",
+                                 animacao=animacao, dur=1.5, base=1300)
+    esperado = Image.open(parado).convert("RGBA").getchannel("A").getbbox()
+    medido = _quadro(peca, 1.2).getchannel("A").getbbox()
+    for i, (e, m) in enumerate(zip(esperado, medido)):
+        assert abs(e - m) <= 6, (
+            f"a entrada '{animacao}' parou fora do lugar: o letreiro parado "
+            f"ocupa {esperado} e o animado terminou em {medido}")
+
+
+def test_a_entrada_comeca_fora_da_posicao_final(tmp_path):
+    """Se o primeiro quadro ja estivesse no lugar e opaco, nao haveria
+    animacao nenhuma -- e o teste acima passaria do mesmo jeito."""
+    from PIL import Image
+    peca = arte.letreiro_animado("SOBE", "brutalista", tmp_path / "s.mov",
+                                 animacao="sobe", dur=1.5, base=1300)
+    cedo = _quadro(peca, 0.03).getchannel("A")
+    tarde = _quadro(peca, 1.2).getchannel("A")
+    assert cedo.getbbox() != tarde.getbbox() or \
+        max(cedo.getextrema()) < max(tarde.getextrema()), (
+        "o primeiro quadro ja esta igual ao ultimo: nada se moveu")
+
+
+def test_sobe_move_na_vertical_e_esquerda_move_na_horizontal(tmp_path):
+    def desloc(animacao):
+        peca = arte.letreiro_animado("MOVE", "brutalista",
+                                     tmp_path / f"m{animacao}.mov",
+                                     animacao=animacao, dur=1.5, base=1300)
+        a = _quadro(peca, 0.06).getchannel("A").getbbox()
+        b = _quadro(peca, 1.2).getchannel("A").getbbox()
+        if a is None or b is None:
+            return 0, 0
+        return abs(a[0] - b[0]), abs(a[1] - b[1])
+
+    dx_sobe, dy_sobe = desloc("sobe")
+    dx_esq, dy_esq = desloc("esquerda")
+    assert dy_sobe > dx_sobe, (
+        f"'sobe' deveria mover mais na vertical (moveu {dx_sobe} na "
+        f"horizontal e {dy_sobe} na vertical)")
+    assert dx_esq > dy_esq, (
+        f"'esquerda' deveria mover mais na horizontal (moveu {dx_esq} na "
+        f"horizontal e {dy_esq} na vertical)")
+
+
+def _larguras(peca, instantes):
+    saida = []
+    for t in instantes:
+        caixa = _quadro(peca, t).getchannel("A").getbbox()
+        saida.append(caixa[2] - caixa[0] if caixa else 0)
+    return saida
+
+
+def test_pulo_muda_o_tamanho_do_texto_e_aparece_nao(tmp_path):
+    """O que separa o 'pulo' das outras entradas e a escala mudando. Medir so
+    o pulo nao provaria nada -- e o par que prova, porque 'aparece' passa pelo
+    mesmo caminho de codigo e tem de sair com tamanho constante."""
+    instantes = [0.0, 0.05, 0.10, 0.20, 0.30, 0.44, 1.2]
+    pulo = _larguras(
+        arte.letreiro_animado("PULO", "brutalista", tmp_path / "pu.mov",
+                              animacao="pulo", dur=1.5, base=1300), instantes)
+    aparece = _larguras(
+        arte.letreiro_animado("PULO", "brutalista", tmp_path / "ap.mov",
+                              animacao="aparece", dur=1.5, base=1300), instantes)
+
+    variacao_pulo = max(pulo) - min(pulo)
+    variacao_aparece = max(aparece) - min(aparece)
+    assert variacao_pulo > 20, (
+        f"o 'pulo' quase nao mudou de tamanho ao longo da entrada: "
+        f"larguras {pulo}")
+    assert variacao_aparece <= 2, (
+        f"o 'aparece' mudou de tamanho, e nao deveria: larguras {aparece}")
+
+
+def test_o_pulo_passa_do_tamanho_final_e_volta(tmp_path):
+    """O repuxo e o que faz o movimento parecer vivo em vez de so crescer.
+    Sem ele o 'pulo' seria um 'cresce'."""
+    instantes = [0.0, 0.06, 0.12, 0.18, 0.24, 0.30, 0.36, 0.42, 1.2]
+    larguras = _larguras(
+        arte.letreiro_animado("PULO", "brutalista", tmp_path / "ov.mov",
+                              animacao="pulo", dur=1.5, base=1300), instantes)
+    final = larguras[-1]
+    assert max(larguras[:-1]) > final, (
+        f"o texto nunca passou do tamanho final ({final}px) durante a "
+        f"entrada: {larguras[:-1]}")
+
+
+def test_entrada_desconhecida_e_erro(tmp_path):
+    with pytest.raises(ValueError, match="aparece"):
+        arte.letreiro_animado("X", "brutalista", tmp_path / "x.mov",
+                              animacao="explode")

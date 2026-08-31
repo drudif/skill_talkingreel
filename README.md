@@ -1,10 +1,15 @@
 # talking reel: done
 
-Uma skill de Claude Code. Pega um vídeo em que alguém fala para a câmera e devolve um vertical
-montado para Instagram e TikTok: pausas cortadas, letreiro, legenda queimada e trilha.
+Uma skill de Claude Code. Pega um ou mais vídeos em que alguém fala para a câmera e devolve um
+vertical montado para Instagram e TikTok: pausas cortadas, melhor tomada escolhida, letreiro
+animado, legenda queimada e trilha.
+
+Também junta material complementar em tela dividida, corrige imagem lavada e troca o fundo quando
+a gravação foi feita na frente de um pano verde.
 
 Quem usa não precisa entender de montagem. A skill pergunta o mínimo, mostra o que decidiu numa
-página de aprovação, e espera a resposta antes de seguir.
+página de aprovação — com os sete estilos aplicados no vídeo da própria pessoa — e espera a
+resposta antes de seguir.
 
 ## O que ela precisa
 
@@ -13,6 +18,9 @@ página de aprovação, e espera a resposta antes de seguir.
 
 A transcrição baixa um modelo de cerca de 2,9 GB no primeiro uso. Só acontece quando a legenda
 está ligada.
+
+As quatro trilhas prontas não vêm no repositório — ver
+[assets/trilhas/LEIA-ME.md](assets/trilhas/LEIA-ME.md).
 
 ## Como instalar
 

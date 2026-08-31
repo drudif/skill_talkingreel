@@ -21,6 +21,43 @@ DB_PAUSA = -45                  # limiar para achar pausa interna. A -34 dB a ca
                                 # da palavra era lida como silencio e sumia
 DB_ENVELOPE = -32               # limiar do envelope de energia nas pontas
 
+# --- contraste da imagem ---
+CONTRASTE_BASE = 1.08    # o realce que TODO material recebe, de sempre.
+CONTRASTE_ALVO = 165     # para onde levar a imagem lavada. MEDIDO em seis
+                         # gravacoes reais de talking head: a faixa de brilho
+                         # que elas ocupam ficou entre 163,7 e 165,7 nas seis,
+                         # nenhuma com pixel estourado. O alvo e onde o material
+                         # BEM gravado ja vive, nao um numero escolhido.
+CONTRASTE_LAVADO = 143   # abaixo desta faixa a imagem e corrigida. DERIVADO do
+                         # alvo: 165/1,15 = 143, e 1,15 e o menor esticamento
+                         # que se nota. Provado pelo outro lado: material que ja
+                         # esta em 163,5 perde 0,47% dos pixels no estouro com
+                         # esticamento de so 1,15 -- entao o limiar nao pode
+                         # chegar perto do alvo.
+CONTRASTE_MAX = 1.8      # teto do esticamento. ESTIMATIVA, nao medicao: acima
+                         # disto o que cresce e o granulado da imagem, e material
+                         # que precisaria de mais tem problema de gravacao, nao
+                         # de acabamento. Quem tem de saber disso e a pessoa.
+
+# --- fundo verde ---
+VERDE_DA_MOLDURA = 0.40  # a partir desta fracao da BORDA do quadro em verde, o
+                         # motor aceita trocar o fundo. MEDIDO dos dois lados:
+                         # pano de fundo de verdade deu 85% com a pessoa no meio
+                         # e 58% no enquadramento mais apertado; camiseta verde,
+                         # planta no canto e imagem colorida qualquer ficaram
+                         # todas em 12 a 13%. O limiar fica no meio dessa
+                         # distancia, longe dos dois grupos.
+
+VERDE_TOLERANCIA = 0.11  # quanto o corte do pano verde aceita de variacao de
+                         # tom. MEDIDO dos dois lados, com um pano de luz
+                         # irregular e uma figura na frente: de 0,04 a 0,18 o
+                         # corte sai exato -- todo o pano vai embora e a figura
+                         # fica inteira. Em 0,02 sobra pano (7 pontos do quadro
+                         # por trocar); em 0,20 a figura comeca a ser comida e
+                         # em 0,28 ela some por completo. 0,11 e o meio dessa
+                         # janela.
+VERDE_BORDA = 0.08       # suavizacao do contorno recortado
+
 LUFS = -14                      # normalizacao. As gravacoes chegam por volta de -36 dB
 TETO_DB = -1.5                  # teto do limitador, para a voz nao estourar
 
@@ -36,6 +73,13 @@ LEG_BASE = 1375                 # base em tela cheia. A 1500 caia sob a
                                  # interface do aplicativo
 LEG_SPLIT_X = 60                # margem, na posicao alinhada a esquerda
 LEG_SPLIT_TOPO = 827            # 20px abaixo da divisoria em 807
+LEG_MIN_LETREIRO = 0.4   # tempo minimo que um letreiro fica na tela. ESTIMATIVA,
+                         # nao medicao: e o piso de legibilidade, nao um numero
+                         # tirado de um teste. Existe porque a conversao de tempo
+                         # pode espremer um letreiro a quase nada quando ele foi
+                         # ancorado numa pausa que o corte removeu -- e um texto
+                         # que pisca por 0,1s some sem ninguem entender por que.
+
 LEG_TOPO_LETREIRO = 1300        # letreiro com tinta abaixo disto tapa a legenda
 
 SEGURO_TOPO = 180        # acima disto o aplicativo desenha a propria interface.

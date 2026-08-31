@@ -13,9 +13,15 @@ REGRAS QUE NAO PODEM SER QUEBRADAS:
 import subprocess
 from pathlib import Path
 
-from motor import config, fala, probe
+from motor import config, fala, probe, tempo
 
-_SHARP = "unsharp=5:5:0.7:5:5:0,eq=contrast=1.08:saturation=1.04"
+def _sharp(contraste=None):
+    """O realce que todo segmento recebe. `contraste` vem de
+    `imagem.ganho()`, medido no arquivo ORIGINAL: imagem lavada e esticada ate
+    a faixa que o material bem gravado ocupa, e imagem que ja esta boa recebe
+    so o realce de sempre. Sem numero, e o de sempre."""
+    c = config.CONTRASTE_BASE if contraste is None else contraste
+    return f"unsharp=5:5:0.7:5:5:0,eq=contrast={c:.3f}:saturation=1.04"
 
 
 def _roda(args):
@@ -37,7 +43,7 @@ def _velocidade(vel):
     return f",setpts=PTS/{vel}"
 
 
-def enquadrar(caminho, area=None):
+def enquadrar(caminho, area=None, contraste=None):
     """Preenche 1080x1920 cortando o excesso, nunca deformando.
 
     `area` e o filtro de crop da area util ja detectado (string, possivelmente
@@ -46,10 +52,10 @@ def enquadrar(caminho, area=None):
     pb = area if area is not None else (probe.area_util(caminho) or "")
     return (f"{pb}scale={config.W}:{config.H}"
             f":force_original_aspect_ratio=increase:flags=lanczos,"
-            f"crop={config.W}:{config.H},{_SHARP},setsar=1")
+            f"crop={config.W}:{config.H},{_sharp(contraste)},setsar=1")
 
 
-def tela_cheia(cena, destino, ja_cortado=False, area=None):
+def tela_cheia(cena, destino, ja_cortado=False, area=None, contraste=None):
     if ja_cortado:
         ini, fim = 0.0, probe.dur(cena.arquivo)
     else:
@@ -60,7 +66,7 @@ def tela_cheia(cena, destino, ja_cortado=False, area=None):
           + f"loudnorm=I={config.LUFS}:TP={config.TETO_DB}"]
     _roda(["ffmpeg", "-y", "-v", "error",
            "-ss", f"{ini:.3f}", "-to", f"{fim:.3f}", "-i", str(cena.arquivo),
-           "-vf", f"{enquadrar(cena.arquivo, area)}{vf_vel},fps={config.FPS},format=yuv420p",
+           "-vf", f"{enquadrar(cena.arquivo, area, contraste)}{vf_vel},fps={config.FPS},format=yuv420p",
            *af] + _saida_padrao(destino))
     return destino
 
@@ -82,7 +88,7 @@ def recorte_topo(largura, altura, ancora):
             f"crop={jan_w}:{jan_h}:{x}:{y}")
 
 
-def split(cena, destino, ja_cortado=False, area=None):
+def split(cena, destino, ja_cortado=False, area=None, contraste=None):
     """Cena 3-em-1: material complementar na janela de cima, o take embaixo.
     O audio e sempre o do take; o material de cima entra mudo.
 
@@ -109,7 +115,8 @@ def split(cena, destino, ja_cortado=False, area=None):
         # janela de baixo: o take, com o teto cortado para o rosto caber
         f"[1:v]{pb}scale={config.W}:{config.H}"
         f":force_original_aspect_ratio=increase:flags=lanczos,"
-        f"crop={config.W}:{baixo}:(iw-{config.W})/2:{config.SPLIT_TETO},{_SHARP},"
+        f"crop={config.W}:{baixo}:(iw-{config.W})/2:{config.SPLIT_TETO},"
+        f"{_sharp(contraste)},"
         f"fps={config.FPS},setsar=1[baixo];"
         # empilha e fixa o tamanho: sem isto sai 1918 e o concat quebra
         # fps DEPOIS do setpts da velocidade (vf_vel), igual em tela_cheia():
@@ -124,29 +131,97 @@ def split(cena, destino, ja_cortado=False, area=None):
     return destino
 
 
-def aperta(caminho, destino, ini, fim):
+def trocar_fundo(caminho, destino, fundo, cor=None, tolerancia=None):
+    """Troca o pano verde de tras da pessoa por outra imagem, ou por uma cor.
+
+    SO FUNCIONA COM PANO VERDE DE VERDADE. Quem verifica antes e
+    `imagem.tem_fundo_verde`; chamar isto sem verificar apaga pedacos da pessoa.
+
+    `fundo` e um arquivo de imagem ou video, ou uma cor escrita como `#111111`.
+    `cor` e a cor do pano, que sai de `imagem.cor_do_fundo_verde` -- panos
+    verdes nao sao todos iguais e a luz muda o tom, entao cortar por uma cor
+    fixa deixaria uma borda verde no contorno da pessoa.
+
+    NADA DE `-shortest`, pela mesma razao de com_overlay(): ele come quadros de
+    video e deixa o audio inteiro. Quem fixa a duracao aqui e o `-t` na saida.
+    """
+    d = probe.dur(caminho)
+    w, h = probe.dimensao(caminho)
+    cor = cor or "0x00b140"
+    tol = config.VERDE_TOLERANCIA if tolerancia is None else tolerancia
+    fundo = str(fundo)
+    if fundo.startswith("#"):
+        entrada_fundo = ["-f", "lavfi", "-t", f"{d + 0.05:.3f}",
+                         "-i", f"color=c={fundo}:s={w}x{h}:r={config.FPS}"]
+    else:
+        entrada_fundo = ["-loop", "1", "-framerate", str(config.FPS),
+                         "-t", f"{d + 0.05:.3f}", "-i", fundo]
+    _roda([
+        "ffmpeg", "-y", "-v", "error",
+        "-i", str(caminho), *entrada_fundo,
+        "-filter_complex",
+        # despill tira o verde que reflete na pele e no cabelo. Sem ele o
+        # contorno da pessoa fica esverdeado sobre o fundo novo.
+        f"[0:v]chromakey=color={cor}:similarity={tol:.3f}:blend={config.VERDE_BORDA:.3f},"
+        f"despill=type=green[fg];"
+        f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
+        f"crop={w}:{h},setsar=1[bg];"
+        f"[bg][fg]overlay=0:0:eof_action=pass,format=yuv420p[v]",
+        "-map", "[v]", "-map", "0:a?", "-t", f"{d:.3f}"] + _saida_padrao(destino))
+    return destino
+
+
+def com_peca_animada(base, peca, destino, entra=0.0):
+    """Poe uma peca de video com fundo transparente por cima do video, a partir
+    de `entra` segundos.
+
+    E a irma de com_overlay() para o letreiro que entra em movimento. A peca ja
+    traz a propria duracao, entao aqui nao ha `dura`: quando ela acaba, o
+    letreiro sai.
+
+    As MESMAS duas regras de com_overlay valem, e pela mesma razao medida:
+    nada de `-shortest`, que come quadros de video e deixa o audio inteiro; e
+    `eof_action=pass`, para que os quadros da base sigam passando depois que a
+    peca terminar."""
+    d_peca = probe.dur(peca)
+    saida = (f",fade=t=out:st={max(0.0, d_peca - 0.3):.3f}:d=0.3:alpha=1"
+             if d_peca > 0.35 else "")
+    _roda([
+        "ffmpeg", "-y", "-v", "error",
+        "-i", str(base), "-i", str(peca),
+        "-filter_complex",
+        # o esmaecer da saida conta no relogio da PROPRIA peca, entao vem antes
+        # do setpts. Depois dele, `st` estaria medindo a partir do inicio do
+        # video de baixo e a saida cairia na hora errada.
+        f"[1:v]format=rgba{saida},setpts=PTS-STARTPTS+{entra:.3f}/TB[p];"
+        f"[0:v][p]overlay=0:0:eof_action=pass,format=yuv420p[v]",
+        "-map", "[v]", "-map", "0:a?",
+        "-c:v", "libx264", "-crf", "18", "-preset", "medium",
+        "-c:a", "copy", str(destino)])
+    return destino
+
+
+def aperta(caminho, destino, ini, fim, pausas=None):
     """Corta as pontas E comprime as pausas internas. Devolve (arquivo, quantas
     pausas foram comprimidas).
 
     So cortar as pontas deixa buraco no meio da fala. Pausa acima de PAUSA_MAX
-    vira PAUSA_FICA, e e isso que da o ritmo sem pausa entre falas."""
-    pausas = fala.pausas_internas(caminho, ini, fim)
+    vira PAUSA_FICA, e e isso que da o ritmo sem pausa entre falas.
+
+    `pausas` existe para quem ja as detectou nao pagar de novo pela deteccao,
+    que e uma passada inteira do ffmpeg pelo audio. Quem chama assim tambem
+    garante que o mapa de tempo e o corte olham EXATAMENTE a mesma lista -- se
+    as duas divergirem, o letreiro entra na hora errada e nada acusa."""
+    if pausas is None:
+        pausas = fala.pausas_internas(caminho, ini, fim)
     if not pausas:
         _roda(["ffmpeg", "-y", "-v", "error",
                "-ss", f"{ini:.3f}", "-to", f"{fim:.3f}", "-i", str(caminho)]
               + _saida_padrao(destino))
         return destino, 0
 
-    marcas, t = [], 0.0
-    for a, b in pausas:
-        marcas.append((t, a + config.PAUSA_FICA))
-        t = b
-    marcas.append((t, fim - ini))
-
     partes = []
-    for k, (a, b) in enumerate(marcas):
-        if b - a < 0.05:
-            continue
+    for k, (a, b) in enumerate(tempo.marcas(ini, fim, pausas)):
         pedaco = f"{destino}.p{k}.mov"
         _roda(["ffmpeg", "-y", "-v", "error",
                "-ss", f"{ini + a:.3f}", "-to", f"{ini + b:.3f}", "-i", str(caminho)]

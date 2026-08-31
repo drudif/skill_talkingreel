@@ -65,3 +65,53 @@ def clipe_mudo(destino, total, w=W, h=H, cor="teal"):
         "-c:v", "libx264", "-crf", "28", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
         "-an", str(destino)])
     return destino
+
+
+def clipe_croma(destino, total=1.5, w=320, h=568, com_pessoa=True,
+                verde=True, luz_irregular=True, falas=None):
+    """Uma figura na frente de um pano de fundo.
+
+    `verde=False` troca o pano por cinza, que e o caso de quem gravou na sala
+    de casa. `luz_irregular` faz o tom do pano variar ao longo do quadro, como
+    num estudio de verdade -- pano de cor perfeitamente uniforme faria o corte
+    parecer melhor do que e."""
+    destino = Path(destino)
+    if verde:
+        pano = ("geq=r='0':g='140+40*sin(X/60)':b='64'" if luz_irregular
+                else "geq=r='0':g='176':b='64'")
+    else:
+        pano = "geq=r='154':g='154':b='154'"
+    figura = (f",drawbox=x={int(w * 0.28)}:y={int(h * 0.26)}:"
+              f"w={int(w * 0.44)}:h={int(h * 0.74)}:c=0x8d5524@1:t=fill"
+              if com_pessoa else "")
+    if falas is None:
+        som = ["-an"]
+        entrada_som = []
+    else:
+        volume = "+".join(f"between(t,{i},{i + d})" for i, d in falas) or "0"
+        entrada_som = ["-f", "lavfi", "-t", str(total),
+                       "-i", f"sine=frequency=220:sample_rate={SR}"]
+        som = ["-af", f"volume='{volume}':eval=frame",
+               "-c:a", "pcm_s16le", "-ar", str(SR), "-ac", "2"]
+    _roda([
+        "ffmpeg", "-y", "-v", "error",
+        "-f", "lavfi", "-t", str(total), "-i", f"color=c=black:s={w}x{h}:r={FPS}",
+        *entrada_som,
+        "-vf", pano + figura, *som,
+        "-c:v", "libx264", "-crf", "18", "-preset", "ultrafast",
+        "-pix_fmt", "yuv420p", str(destino)])
+    return destino
+
+
+def clipe_com_objeto_verde(destino, total=1.5, w=320, h=568):
+    """Sala comum com uma camiseta verde. E o falso positivo perigoso: se a
+    deteccao aceitar isto como pano de fundo, o corte apaga o torso da pessoa."""
+    destino = Path(destino)
+    _roda([
+        "ffmpeg", "-y", "-v", "error",
+        "-f", "lavfi", "-t", str(total), "-i", f"color=c=0x9a9a9a:s={w}x{h}:r={FPS}",
+        "-vf", (f"drawbox=x={int(w * 0.28)}:y={int(h * 0.53)}:"
+                f"w={int(w * 0.44)}:h={int(h * 0.47)}:c=0x1f8a3d@1:t=fill"),
+        "-an", "-c:v", "libx264", "-crf", "18", "-preset", "ultrafast",
+        "-pix_fmt", "yuv420p", str(destino)])
+    return destino

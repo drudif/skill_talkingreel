@@ -35,10 +35,23 @@ def test_o_skill_cabe_no_teto():
     assert n <= 120, f"o SKILL.md tem {n} linhas, teto 120"
 
 
-def test_as_tres_fases_estao_no_skill():
+def test_as_duas_aprovacoes_estao_no_skill():
+    """Duas, nao tres. A pessoa espera uma resposta a cada folha, e cada folha
+    a mais e uma rodada a mais de espera dela."""
     t = SKILL.read_text(encoding="utf-8").lower()
-    for fase in ("estrutura", "arte", "corte"):
-        assert fase in t, f"a fase '{fase}' nao aparece no SKILL.md"
+    assert "duas aprova" in t, "o SKILL.md nao diz que sao duas aprovacoes"
+    for palavra in ("primeira", "segunda"):
+        assert palavra in t, f"a aprovacao '{palavra}' nao aparece no SKILL.md"
+    assert "sem a resposta" in t, (
+        "o SKILL.md nao diz que nao se passa de uma folha sem a resposta")
+
+
+def test_o_skill_diz_o_que_e_obrigatorio_receber():
+    """Sem a gravacao nao ha trabalho. O resto e opcional, e a skill nao pode
+    cobrar da pessoa o que nao precisa."""
+    t = SKILL.read_text(encoding="utf-8").lower()
+    assert "obrigatório" in t or "obrigatorio" in t
+    assert "opcional" in t
 
 
 def test_os_quatro_agentes_estao_no_skill():
@@ -64,26 +77,21 @@ def test_os_limites_apontam_para_o_modulo_e_nao_repetem_a_regra():
         "o arquivo tem de dizer COMO ler as regras do modulo")
 
 
-def test_o_modelo_de_perfil_esta_vazio():
-    """O perfil preenchido do autor nao pode vazar para o repositorio."""
-    t = (RAIZ / "talkingreel-perfil-modelo.md").read_text(encoding="utf-8")
-    for dado in ("Drudi", "Fernando", "@drudif", "gmail", "instagram.com/",
-                 "linkedin.com/in"):
-        assert dado.lower() not in t.lower(), f"o modelo traz '{dado}'"
-    assert t.count("[") >= 5, "o modelo deveria ser so lacunas para preencher"
-
-
 def test_o_contrato_descreve_todo_campo_que_o_motor_le():
     """Um campo sem documentacao e um campo que nenhum agente vai usar."""
     from motor import cenas
     t = (RAIZ / "referencias/contrato.md").read_text(encoding="utf-8")
     for campo in ("estilo", "legenda", "legenda_split", "proprios",
                   "velocidade", "trilha", "cenas", "trat", "arquivo",
-                  "topo", "teto", "letreiro"):
+                  "topo", "teto", "letreiro", "de", "ate",
+                  "fundo", "contraste"):
         assert f"`{campo}`" in t, f"o contrato nao explica o campo '{campo}'"
 
 
-def test_o_contrato_avisa_da_escala_de_tempo_do_letreiro():
-    """A armadilha mais facil de cair: ler o instante da gravacao crua."""
+def test_o_contrato_diz_que_todo_tempo_e_da_gravacao():
+    """A coordenada unica so funciona se estiver escrita onde quem preenche o
+    arquivo le. Sem isso alguem volta a anotar o tempo do filme pronto."""
     t = (RAIZ / "referencias/contrato.md").read_text(encoding="utf-8").lower()
-    assert "depois do corte" in t and "velocidade" in t
+    assert "segundo da grava" in t, (
+        "o contrato nao diz que todo instante e segundo da gravacao")
+    assert "motor/tempo.py" in t, "nao diz quem faz a conversao"

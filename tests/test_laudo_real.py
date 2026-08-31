@@ -42,7 +42,7 @@ def _cenario(tmp_path, teto=5.0):
         "cenas": [
             {"n": 1, "trat": "cheia", "arquivo": f"gravacoes/{takes[0].name}",
              "teto": teto,
-             "letreiro": {"texto": "TESTE", "entra": 0.5, "dura": 1.5}},
+             "letreiro": {"texto": "TESTE", "de": 0.8, "ate": 2.3}},
             {"n": 2, "trat": "split", "arquivo": f"gravacoes/{takes[1].name}",
              "teto": teto,
              "topo": {"arquivo": f"broll/{brolls[0].name}"}}]}),

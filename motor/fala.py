@@ -19,10 +19,22 @@ PASSO = 0.010          # 10 ms por janela de envelope
 _TAXA_ENV = 8000       # o envelope nao precisa de qualidade, so de energia
 
 
-def envelope(caminho, passo=PASSO):
-    """Devolve a energia normalizada (0 a 1) em janelas de `passo` segundos."""
+def envelope(caminho, passo=PASSO, de=None, ate=None):
+    """Devolve a energia normalizada (0 a 1) em janelas de `passo` segundos.
+
+    `de` e `ate` limitam a leitura a um trecho do arquivo, em segundos do
+    ORIGINAL. O corte e feito pelo ffmpeg, nao depois: o valor volta
+    normalizado pelo pico DAQUELE trecho, e nao pelo pico do arquivo inteiro.
+    A diferenca importa quando um take tem um pedaco falado alto e outro baixo
+    -- normalizado pelo arquivo todo, o trecho baixo ficaria inteiro abaixo do
+    limiar e a cena sairia sem fala nenhuma."""
+    corte = []
+    if de is not None:
+        corte += ["-ss", f"{de:.3f}"]      # ANTES do -i, sempre
+    if ate is not None:
+        corte += ["-to", f"{ate:.3f}"]
     r = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(caminho),
+        ["ffmpeg", "-v", "error", *corte, "-i", str(caminho),
          "-ac", "1", "-ar", str(_TAXA_ENV), "-f", "f32le", "-"],
         capture_output=True)
     amostras = array.array("f")
@@ -38,24 +50,29 @@ def envelope(caminho, passo=PASSO):
     return [x / topo for x in saida] if topo else saida
 
 
-def bordas(caminho):
-    """(inicio, fim) da fala, com respiro. O respiro de saida e maior porque a
-    cauda da palavra decai devagar."""
-    env = envelope(caminho)
+def bordas(caminho, de=None, ate=None):
+    """(inicio, fim) da fala, em segundos do arquivo ORIGINAL, com respiro. O
+    respiro de saida e maior porque a cauda da palavra decai devagar.
+
+    `de` e `ate` restringem a busca a um trecho. O respiro nunca vaza para fora
+    desse trecho: quem pediu um recorte pediu que o corte parasse ali."""
     total = probe.dur(caminho)
+    piso = 0.0 if de is None else max(0.0, de)
+    teto = total if ate is None else min(total, ate)
+    env = envelope(caminho, de=de, ate=ate)
     if not env:
-        return 0.0, total
+        return piso, teto
     limiar = 10 ** (config.DB_ENVELOPE / 20)
     acesos = [i for i, v in enumerate(env) if v > limiar]
     if not acesos:
-        return 0.0, total
-    ini = max(0.0, acesos[0] * PASSO - config.RESPIRO_IN)
-    fim = min(total, acesos[-1] * PASSO + PASSO + config.RESPIRO_OUT)
+        return piso, teto
+    ini = max(piso, piso + acesos[0] * PASSO - config.RESPIRO_IN)
+    fim = min(teto, piso + acesos[-1] * PASSO + PASSO + config.RESPIRO_OUT)
     return ini, max(ini + 0.10, fim)
 
 
-def bordas_com_teto(caminho, teto=None):
-    ini, fim = bordas(caminho)
+def bordas_com_teto(caminho, teto=None, de=None, ate=None):
+    ini, fim = bordas(caminho, de=de, ate=ate)
     if teto is not None:
         fim = min(fim, ini + teto)
     return ini, fim
