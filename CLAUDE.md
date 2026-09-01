@@ -117,6 +117,15 @@ medidas com o arquivo de verdade, e as tres primeiras deixavam a skill inutiliza
   trocada. Para criar arquivo de teste com a marca: `-display_rotation` ANTES do `-i`
   (`-metadata:s:v:0 rotate=` e ignorado em silencio por este ffmpeg).
 
+- **A transcricao parte numero decimal**: "Seedance 2.5" sai como `Sidense`, `2` e `.5.`, e a peca
+  `.5.` nao tem letra, entao a troca palavra a palavra a pula em silencio. Chave de `trocas` com
+  espaco (`"2 .5"`) funde a sequencia.
+- **Folha publicada nao alcanca o disco de quem a escreveu.** `src="foto.jpg"` abre certo aqui e
+  nao aparece na tela da pessoa, sem erro: ela escolhe estilo sem ver estilo. `folha.embutir`
+  encolhe e vira `data:` URI; `folha.cabe` avisa antes do teto de 16 MB.
+- **O roteiro e procurado no material, e a falta dele vira pergunta.** `entrada.ler` acha
+  `roteiro.md`/`.txt`; `em_portugues` diz que nao achou e pede. Quem escreveu um roteiro raramente
+  pensa em anexa-lo, e descobrir isso depois da decupagem pronta joga fora a etapa mais cara.
 - **O Bandit confere a propria decupagem** com `motor/decupagem.py`, antes de entregar. Ele acha na
   TRANSCRICAO o que so se notaria assistindo: corte no meio de palavra, trecho abrindo ou fechando
   em conjuncao, muleta repetida entre trechos, duas tomadas da mesma frase, trechos sobrepostos.

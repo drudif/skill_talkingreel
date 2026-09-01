@@ -59,7 +59,7 @@ take longo vira um filme.
 | `legenda` | não | queimar a legenda no fim. Padrão `true`. **Desligar pula a transcrição inteira**, que é a etapa mais demorada |
 | `legenda_split` | não | onde a legenda fica quando a tela está dividida em duas: `esquerda`, `direita` ou `centro`. Padrão `esquerda` |
 | `proprios` | não | nomes que a transcrição costuma errar, escritos do jeito certo. **Só nome próprio, e só com 4 letras ou mais**. Conserta erro de escrita parecido com o nome, não erro de som |
-| `trocas` | não | trocas ditadas palavra por palavra: `{"sidense": "Seedance"}`. É o único jeito de consertar quando a transcrição ouviu errado |
+| `trocas` | não | trocas ditadas: `{"sidense": "Seedance"}`. É o único jeito de consertar quando a transcrição ouviu errado. **A chave pode ter mais de uma palavra** — `{"2 .5": "2.5"}` junta as três peças em que ela parte um número decimal |
 | `trilha` | não | a música de fundo. Ela abaixa sozinha quando a pessoa fala. Sem este campo, o filme sai sem música |
 | `abertura` | não | o estalo dos primeiros meio segundo: um clarão, as cores se separando e a imagem fechando de um zoom. `true`, `false`, ou um número de 0 a 1 para regular |
 | `glitch` | não | o mesmo estalo, curto e fraco, numa emenda a cada quatro. `true`, `false`, ou um número de 0 a 1 |

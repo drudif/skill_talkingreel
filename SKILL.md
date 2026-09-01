@@ -19,8 +19,8 @@ no meio, a conta-gotas, é o que faz desistir na metade. Abra com isto, ou parec
 >
 > **Como vai funcionar:**
 >
-> 1. Você me manda a gravação. Só ela é obrigatória — se tiver outros vídeos, fotos, um roteiro ou
->    uma música, mandam junto, mas dá certo sem nada disso.
+> 1. Você me manda a gravação. Só ela é obrigatória — se tiver outros vídeos, fotos, **um roteiro
+>    do que ia falar** ou uma música, mandam junto, mas dá certo sem nada disso.
 > 2. Eu olho o material e te faço **quatro perguntas rápidas**, todas puláveis.
 > 3. Ouço tudo o que você falou e escolho o que fica. Isso demora alguns minutos.
 > 4. Te mando **a primeira folha de aprovação**: os trechos que escolhi, onde entram seus vídeos
@@ -36,12 +36,14 @@ Se ela já mandou a gravação junto com o pedido, diga o mesmo em versão curta
 
 ## O que a skill precisa receber
 
-**Obrigatório:** uma ou mais gravações da pessoa falando para a câmera. **Opcional:** outros vídeos
-ou imagens para entrar junto, o roteiro dela, e uma trilha.
+**Obrigatório:** uma ou mais gravações da pessoa falando. **Opcional:** outros vídeos ou imagens
+para entrar junto, o roteiro dela, e uma trilha.
 
 **Peça os arquivos com nome.** `motor/entrada.py` lê a pasta por nome — `principal.mov`,
-`complementar1.mp4`, `trilha.mp3` — e mostra a regra a quem não nomeou. Adivinhar pelo conteúdo
-seria caro e falível; pedir é barato e não erra.
+`complementar1.mp4`, `roteiro.md`, `trilha.mp3` — e mostra a regra a quem não nomeou. Adivinhar
+pelo conteúdo seria caro e falível; pedir é barato e não erra. **Sem roteiro na pasta, pergunte se
+existe um** antes de mandar decupar: quem escreveu um raramente pensa em anexar, e descobrir depois
+joga fora a etapa mais cara. `entrada.em_portugues` já diz a frase; não a engula.
 
 ## Como falar com quem usa
 
@@ -104,9 +106,8 @@ contrato está em `referencias/contrato.md`; a folha sai de `motor/folha.py`.
 original. Ninguém faz conta para descontar o corte das pausas ou a aceleração: quem converte é
 `motor/tempo.py`.
 
-Montar, de dentro da pasta do trabalho:
-`PYTHONPATH=<a pasta desta skill> python3 -m motor cenas.json saida.mp4` — o `PYTHONPATH` **não é
-opcional**: sem ele o Python não acha o motor quando a gravação está em outra pasta, que é o normal.
+Montar, de dentro da pasta do trabalho: `PYTHONPATH=<a pasta desta skill> python3 -m motor
+cenas.json saida.mp4`. **Sem ele** o Python não acha o motor com a gravação em outra pasta, o normal.
 
 ## No fim, e nos casos de fora
 

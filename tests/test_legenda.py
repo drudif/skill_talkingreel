@@ -358,3 +358,47 @@ def test_bloco_sob_letreiro_e_omitido(tmp_path):
     crop = _crop_da_legenda(tmp_path, "escondido")
     assert _quanto_mudou(saida, 1.4, 3.5, crop) < 6, (
         "a legenda apareceu mesmo sob o letreiro")
+
+
+# --- troca de mais de uma palavra --------------------------------------------
+
+def _fala(*ps):
+    return [{"p": p, "t": float(i), "f": i + 0.5} for i, p in enumerate(ps)]
+
+
+def test_numero_decimal_partido_vira_um_so():
+    """A transcricao devolve "Seedance 2.5" como `Sidense`, `2` e `.5.`. A peca
+    `.5.` nao tem letra nenhuma, entao a troca palavra a palavra a pula e a
+    legenda sairia "Seedance 2 .5." sem ninguem ver."""
+    ps = _fala("Sidense", "2", ".5.", "Comenta")
+    legenda.corrigir(ps, [], {"sidense": "Seedance", "2 .5": "2.5"})
+    assert [w["p"] for w in ps] == ["Seedance", "2.5.", "Comenta"]
+
+
+def test_a_palavra_fundida_cobre_a_fala_inteira():
+    """Ela guarda o comeco da primeira e o fim da ultima. Sem isso a legenda
+    sumiria enquanto a pessoa ainda esta dizendo o numero."""
+    ps = _fala("o", "2", ".5.")
+    legenda.corrigir(ps, [], {"2 .5": "2.5"})
+    assert (ps[1]["t"], ps[1]["f"]) == (1.0, 2.5)
+
+
+def test_a_chave_maior_ganha_da_menor():
+    ps = _fala("GPT", "5", "mini")
+    legenda.corrigir(ps, [], {"gpt 5 mini": "GPT-5 mini", "gpt 5": "GPT-5"})
+    assert [w["p"] for w in ps] == ["GPT-5 mini"]
+
+
+def test_sequencia_que_nao_bate_fica_como_esta():
+    """O limiar aqui e igualdade, nao semelhanca: fundir por parecido juntaria
+    palavras que a pessoa disse separadas."""
+    ps = _fala("o", "2", "e", ".5.")
+    legenda.corrigir(ps, [], {"2 .5": "2.5"})
+    assert [w["p"] for w in ps] == ["o", "2", "e", ".5."]
+
+
+def test_sem_troca_de_varias_palavras_nada_muda():
+    ps = _fala("uma", "frase", "comum")
+    antes = [dict(w) for w in ps]
+    legenda.corrigir(ps, [], {"sidense": "Seedance"})
+    assert ps == antes

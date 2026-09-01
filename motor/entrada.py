@@ -26,10 +26,12 @@ from pathlib import Path
 VIDEO = (".mov", ".mp4", ".m4v", ".avi", ".mkv")
 IMAGEM = (".jpg", ".jpeg", ".png", ".heic", ".webp")
 AUDIO = (".mp3", ".m4a", ".wav", ".aac", ".flac")
+TEXTO = (".md", ".txt", ".rtf", ".text")
 
 _PRINCIPAL = re.compile(r"^principal\s*(\d*)$", re.I)
 _COMPLEMENTAR = re.compile(r"^complementar\s*(\d*)$", re.I)
 _TRILHA = re.compile(r"^trilha\s*(\d*)$", re.I)
+_ROTEIRO = re.compile(r"^roteiro\s*(\d*)$", re.I)
 
 
 def _ordem(nome, padrao):
@@ -44,7 +46,7 @@ def ler(pasta):
     em ordem de numero: `complementar2` depois de `complementar1`, que e a
     ordem em que a pessoa quer que aparecam."""
     pasta = Path(pasta)
-    achado = {"principal": [], "complementar": [], "trilha": [],
+    achado = {"principal": [], "complementar": [], "trilha": [], "roteiro": [],
               "nao_reconhecidos": []}
     if not pasta.is_dir():
         return achado
@@ -60,7 +62,9 @@ def ler(pasta):
             achado["complementar"].append(caminho)
         elif _TRILHA.match(nome) and ext in AUDIO:
             achado["trilha"].append(caminho)
-        elif ext in VIDEO + IMAGEM + AUDIO:
+        elif _ROTEIRO.match(nome) and ext in TEXTO:
+            achado["roteiro"].append(caminho)
+        elif ext in VIDEO + IMAGEM + AUDIO + TEXTO:
             achado["nao_reconhecidos"].append(caminho)
 
     achado["principal"].sort(key=lambda p: _ordem(p.stem, _PRINCIPAL))
@@ -94,6 +98,17 @@ def em_portugues(achado, pasta=None):
         linhas.append(f"Entra junto, nesta ordem: {nomes}.")
     if achado["trilha"]:
         linhas.append(f"Sua música: {achado['trilha'][0].name}.")
+    if achado["roteiro"]:
+        linhas.append(f"Seu roteiro: {achado['roteiro'][0].name}.")
+    elif achado["principal"]:
+        # a ausencia do roteiro NAO passa em silencio: quem escreveu um
+        # raramente pensa em anexa-lo, e descobrir isso depois da decupagem
+        # pronta joga fora a etapa mais cara do trabalho.
+        linhas.append(
+            "Não achei roteiro nenhum. Se você escreveu o que ia falar, ou uma "
+            "lista do que quer que fique no vídeo, me manda — evita eu escolher "
+            "os trechos por conta e você ter de recusar depois. Se não tem, "
+            "tudo bem: eu escolho e você aprova.")
     if achado["nao_reconhecidos"]:
         nomes = ", ".join(p.name for p in achado["nao_reconhecidos"])
         linhas.append(
@@ -129,7 +144,9 @@ def sugerir_renomeacao(pasta):
         if caminho is principal:
             continue
         ext = caminho.suffix.lower()
-        if ext in AUDIO:
+        if ext in TEXTO:
+            sugestoes.append((caminho, f"roteiro{ext}"))
+        elif ext in AUDIO:
             sugestoes.append((caminho, f"trilha{ext}"))
         else:
             n_comp += 1

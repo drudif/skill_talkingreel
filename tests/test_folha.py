@@ -349,3 +349,98 @@ def test_bloco_de_escolha_sem_escolha_continua_inteiro(tmp_path):
                        reg).read_text(encoding="utf-8")
     assert "ESTILO DE LETTERING E LEGENDAS" in t
     assert "TRECHOS ESCOLHIDOS" not in t
+
+
+# --- embutir imagem e som ----------------------------------------------------
+
+def _jpg(caminho, larg=1080, alt=1920):
+    from PIL import Image
+    Image.new("RGB", (larg, alt), (30, 90, 160)).save(caminho)
+    return caminho
+
+
+def test_a_folha_publicada_nao_alcanca_o_disco(tmp_path):
+    """O modo de falhar que isto evita e silencioso: `src="foto.jpg"` abre
+    certo na maquina de quem escreveu e nao aparece na tela de quem decide."""
+    arq = _jpg(tmp_path / "previa.jpg")
+    uri = folha.embutir(arq, largura=folha.LARGURA_PREVIA)
+    assert uri.startswith("data:image/jpeg;base64,")
+    caminho = folha.escrever(
+        [{"id": "e", "titulo": "ESTILO", "tipo": "escolha",
+          "itens": [{"id": "a", "titulo": "Amarelo", "miniatura": uri}]}],
+        "primeira", tmp_path / "f.html")
+    html = caminho.read_text()
+    assert "previa.jpg" not in html, "sobrou caminho de disco na folha"
+    assert "data:image/jpeg;base64," in html
+
+
+def test_encolher_e_o_que_faz_a_folha_caber(tmp_path):
+    """22 previas de 1080x1920 somam 5,2 MB no disco e 6,9 MB em base64. So
+    elas ja passariam de metade do teto."""
+    arq = _jpg(tmp_path / "grande.jpg")
+    inteira = folha.embutir(arq)
+    reduzida = folha.embutir(arq, largura=folha.LARGURA_PREVIA)
+    assert len(reduzida) < len(inteira) / 2
+
+
+def test_encolher_nao_estica_imagem_pequena(tmp_path):
+    import base64
+    from io import BytesIO
+
+    from PIL import Image
+    arq = _jpg(tmp_path / "pequena.jpg", 200, 300)
+    uri = folha.embutir(arq, largura=folha.LARGURA_PREVIA)
+    im = Image.open(BytesIO(base64.b64decode(uri.split(",", 1)[1])))
+    assert im.size == (200, 300)
+
+
+def test_a_amostra_de_musica_e_curta(tmp_path):
+    """A trilha inteira de um dos arquivos reais tem 5,5 MB. Embutir tres
+    assim estouraria o teto sozinho, e ninguem precisa da musica inteira para
+    reconhece-la."""
+    import subprocess
+    som = tmp_path / "trilha.mp3"
+    subprocess.run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                    "-f", "lavfi", "-i", "sine=frequency=440:duration=90",
+                    str(som)], check=True)
+    uri = folha.embutir(som, segundos=25)
+    assert uri.startswith("data:audio/mpeg;base64,")
+    assert len(uri) < len(som.read_bytes()) * 0.6
+
+
+def test_cabe_avisa_antes_de_publicar(tmp_path):
+    caminho = folha.escrever([{"id": "x", "titulo": "T", "fato": "f"}],
+                             "primeira", tmp_path / "f.html")
+    tamanho, passa = folha.cabe(caminho)
+    assert passa and 0 < tamanho < folha.TETO_FOLHA
+
+
+def test_o_botao_nao_diz_enviado_antes_de_haver_resposta(tmp_path):
+    """Ele nascia escrito ENVIADO e desligado. Quem abre a folha le que ja
+    enviou alguma coisa, sem ter respondido nada."""
+    html = folha.escrever([{"id": "x", "titulo": "T", "fato": "f"}],
+                          "primeira", tmp_path / "f.html").read_text()
+    botao = html.split('id="enviar"')[1].split("</button>")[0]
+    assert "ENVIADO" not in botao
+    assert "NADA PARA ENVIAR" in botao
+
+
+def test_o_aviso_de_falta_enviar_sobrevive_a_recarga(tmp_path):
+    """O que foi marcado fica no navegador, mas o `falta enviar` se perdia:
+    ao voltar, a folha dizia TUDO ENVIADO com nada enviado."""
+    js = folha.escrever([{"id": "x", "titulo": "T", "fato": "f"}],
+                        "primeira", tmp_path / "f.html").read_text()
+    assert "if(j&&j.p)sujo=true" in js, "a recarga nao recupera o pendente"
+    assert "{p:sujo,v:v}" in js, "o pendente nao e gravado junto"
+
+
+def test_embutir_som_nao_suja_a_pasta_do_usuario(tmp_path):
+    """A primeira versao gravava a amostra ao lado do arquivo, e largou tres
+    `.amostra-*.mp3` no meio das musicas de quem usa a skill."""
+    import subprocess
+    som = tmp_path / "trilha.mp3"
+    subprocess.run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                    "-f", "lavfi", "-i", "sine=frequency=440:duration=30",
+                    str(som)], check=True)
+    folha.embutir(som, segundos=5)
+    assert [a.name for a in tmp_path.iterdir()] == ["trilha.mp3"]

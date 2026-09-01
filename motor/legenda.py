@@ -69,6 +69,46 @@ def normal(s):
     return re.sub(r"[^\wÀ-ſ]", "", s.lower())
 
 
+def _fundir(palavras, pedidas, trocas):
+    """Aplica as trocas cuja chave tem mais de uma palavra, fundindo-as numa so.
+
+    POR QUE ISTO EXISTE. A transcricao parte numero decimal: "Seedance 2.5" sai
+    como tres palavras, `Sidense`, `2` e `.5.` -- e nenhuma troca palavra a
+    palavra conserta isso, porque nao ha palavra nenhuma que devesse virar
+    "2.5". A peca que sobra, `.5.`, nao tem letra, entao `normal` a esvazia e o
+    laco de baixo a pula: a legenda sairia "Seedance 2 .5." sem ninguem ver.
+
+    A palavra fundida guarda o comeco da primeira e o fim da ultima, que e o
+    que mantem a legenda em cima da fala."""
+    chaves = {k: v for k, v in pedidas.items() if " " in k.strip()}
+    if not chaves:
+        return list(palavras)
+    # a chave mais longa primeiro: "2 .5" nao pode ser comida por "2"
+    ordem = sorted(chaves, key=lambda k: -len(k.split()))
+    saida, i = [], 0
+    while i < len(palavras):
+        for chave in ordem:
+            partes = chave.split()
+            trecho = palavras[i:i + len(partes)]
+            if len(trecho) < len(partes):
+                continue
+            if [normal(w["p"]) or w["p"].strip() for w in trecho] == \
+                    [normal(x) or x for x in partes]:
+                antes = " ".join(w["p"] for w in trecho)
+                # so a pontuacao DEPOIS do ultimo caractere de palavra: em
+                # ".5." o primeiro ponto e do numero e o segundo fecha a frase
+                sufixo = re.sub(r"^.*[\wÀ-ſ]", "", trecho[-1]["p"])
+                novo = chaves[chave] + sufixo
+                trocas.append((antes, novo, round(trecho[0]["t"], 2)))
+                saida.append({**trecho[0], "p": novo, "f": trecho[-1]["f"]})
+                i += len(partes)
+                break
+        else:
+            saida.append(palavras[i])
+            i += 1
+    return saida
+
+
 def corrigir(palavras, proprios, pedidas=None):
     """Conserta SO nome proprio mal reconhecido, e as trocas explicitamente
     pedidas. Mantem o timestamp e a pontuacao colada.
@@ -76,6 +116,7 @@ def corrigir(palavras, proprios, pedidas=None):
     Devolve a lista de (antes, depois, instante) para auditoria."""
     pedidas = pedidas or {}
     trocas = []
+    palavras[:] = _fundir(palavras, pedidas, trocas)
     for w in palavras:
         n = normal(w["p"])
         sufixo = re.sub(r"^[\wÀ-ſ]+", "", w["p"])

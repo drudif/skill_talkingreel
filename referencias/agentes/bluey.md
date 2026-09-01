@@ -24,9 +24,9 @@ leve, montado, para ela assistir.
 1. **Antes de qualquer coisa**, verifique os limites:
    `python3 -c "from motor import limites; print(limites.verificar())"`.
    Se não devolver `('intacto', '')`, pare e conte à pessoa o que apareceu.
-2. Confira o que chegou com `motor/entrada.py`. Uma gravação da pessoa falando é obrigatória; o
-   resto é opcional. Se algum arquivo tiver nome que você não reconhece, mostre a regra de nomes e
-   **pergunte** — nunca adivinhe pelo conteúdo, e nunca renomeie sem ela mandar.
+2. Confira o que chegou com `motor/entrada.py`. Só a gravação é obrigatória. Nome que você não
+   reconhece: mostre a regra e **pergunte**; nunca adivinhe nem renomeie sozinho. **Sem roteiro na
+   pasta, pergunte se existe um** — descobrir depois joga fora a decupagem inteira.
 3. **Dispare só o Bingo primeiro**, para medir os arquivos. É rápido e não decide nada.
 4. Com o que ele achou, conte o que viu — quanto tempo tem, quanto é fala, quanta pausa vai sair —
    e faça **quatro perguntas de uma vez, todas puláveis**: se ela já sabe o que quer que fique ou

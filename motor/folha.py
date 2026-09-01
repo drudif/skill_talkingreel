@@ -88,9 +88,10 @@ border-color:#444}}"""
 _JS = """const E=JSON.parse(document.getElementById('dados').textContent
 .replace('/*E-'+'INI*/','').replace('/*E-'+'FIM*/',''));
 const CHAVE='folha-'+(E.fase||'x');
-try{const g=localStorage.getItem(CHAVE);if(g){const v=JSON.parse(g);
-E.itens.forEach(it=>{const a=v[it.id];if(a){it.decisao=a.decisao;it.nota=a.nota||''}})}}catch(e){}
 let sujo=false,enviando=false;
+try{const g=localStorage.getItem(CHAVE);if(g){const j=JSON.parse(g);
+const v=(j&&j.v)?j.v:j;if(j&&j.p)sujo=true;
+E.itens.forEach(it=>{const a=v[it.id];if(a){it.decisao=a.decisao;it.nota=a.nota||''}})}}catch(e){}
 function achar(id){return E.itens.find(x=>x.id===id)}
 function contar(){return E.itens.filter(x=>x.decisao).length}
 function pinta(){E.itens.forEach(it=>{
@@ -103,10 +104,12 @@ const b=document.getElementById('enviar'),c=document.getElementById('placar');
 if(c)c.textContent=contar()+' de '+E.itens.length+' respondidos'
 +(sujo?' — falta enviar':'');
 if(b){b.disabled=enviando||!sujo;
-b.textContent=enviando?'ENVIANDO...':(sujo?'ENVIAR RESPOSTAS':'ENVIADO')}}
-function guarda(){sujo=true;try{const v={};E.itens.forEach(it=>{
+b.textContent=enviando?'ENVIANDO...':(sujo?'ENVIAR RESPOSTAS'
+:(contar()?'TUDO ENVIADO':'NADA PARA ENVIAR AINDA'))}}
+function salva(){try{const v={};E.itens.forEach(it=>{
 if(it.decisao||it.nota)v[it.id]={decisao:it.decisao,nota:it.nota}});
-localStorage.setItem(CHAVE,JSON.stringify(v))}catch(e){}pinta()}
+localStorage.setItem(CHAVE,JSON.stringify({p:sujo,v:v}))}catch(e){}pinta()}
+function guarda(){sujo=true;salva()}
 pinta();
 function enviar(){if(enviando||!sujo)return;enviando=true;pinta();
 const a=document.documentElement.outerHTML.replace(
@@ -115,7 +118,7 @@ new RegExp('(/\\\\*E-'+'INI\\\\*/)[\\\\s\\\\S]*?(/\\\\*E-'+'FIM\\\\*/)'),
 claude.use('artifact').then(a2=>{
 if(!a2){enviando=false;pinta();return}
 return a2.publish('<!doctype html>'+a).then(()=>{
-sujo=false;enviando=false;pinta()})}).catch(()=>{enviando=false;pinta()})}
+sujo=false;enviando=false;salva()})}).catch(()=>{enviando=false;pinta()})}
 document.addEventListener('click',ev=>{
 if(ev.target.id==='enviar'){enviar();return}
 const b=ev.target.closest('button[data-d]');
@@ -262,7 +265,8 @@ def escrever(secoes, fase, destino):
            f'APROVADO ou REPROVADO no resto. Quando terminar tudo, aperte '
            f'ENVIAR RESPOSTAS no pé da página.</p>'
            f'{corpo}'
-           f'<div class="barra"><button id="enviar" disabled>ENVIADO</button>'
+           f'<div class="barra">'
+           f'<button id="enviar" disabled>NADA PARA ENVIAR AINDA</button>'
            f'<span id="placar"></span></div>'
            f'<script id="dados" type="application/json">'
            f'{INI}{_json_no_script(estado)}{FIM}</script>'
@@ -323,3 +327,58 @@ def recolher(estado, caminho_registro):
              if i.get("decisao") in ("aprovado", "reprovado", "escolhido")}
     return registro.anotar(caminho_registro, novas) if novas else \
         registro.carregar(caminho_registro)
+
+
+# Uma folha publicada nao alcanca o disco de quem a escreveu: `src="foto.jpg"`
+# abre certo aqui e quebra na tela da pessoa, sem erro visivel -- a imagem
+# simplesmente nao aparece, e ela escolhe estilo sem ver estilo nenhum. Por
+# isso tudo vai embutido no HTML, e por isso ha um teto.
+TETO_FOLHA = 15_000_000     # a pagina publicada e recusada acima de 16 MB
+LARGURA_MINIATURA = 240     # a coluna da miniatura tem 74 px na tela
+LARGURA_PREVIA = 460        # o cartao de escolha vai a 150-380 px
+SEGUNDOS_AMOSTRA = 25       # o bastante para reconhecer a musica
+QUALIDADE = 72              # medido: abaixo disto o contorno da letra suja
+
+
+def embutir(caminho, largura=None, segundos=None):
+    """O arquivo virado `data:` URI, para a folha funcionar publicada.
+
+    `largura` encolhe a imagem antes; `segundos` corta o som e o passa a mono
+    de 64 kbps. Sem encolher nao cabe: as 22 previas de estilo saem do motor em
+    1080x1920 e somam 5,2 MB, que em base64 viram 6,9 MB -- so elas."""
+    import base64
+    import subprocess
+    from pathlib import Path
+
+    caminho = Path(caminho)
+    ext = caminho.suffix.lower()
+    if ext in (".mp3", ".m4a", ".wav", ".aac"):
+        import tempfile
+        # o temporario NAO vai na pasta do arquivo: ela e do usuario, e a
+        # primeira rodada largou tres `.amostra-*.mp3` no meio das musicas dele
+        with tempfile.TemporaryDirectory() as td:
+            saida = Path(td) / "amostra.mp3"
+            subprocess.run(
+                ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                 "-i", str(caminho), "-t", str(segundos or SEGUNDOS_AMOSTRA),
+                 "-vn", "-ac", "1", "-b:a", "64k", str(saida)], check=True)
+            dados, tipo = saida.read_bytes(), "audio/mpeg"
+    else:
+        from io import BytesIO
+
+        from PIL import Image
+        im = Image.open(caminho).convert("RGB")
+        if largura and im.width > largura:
+            alt = round(im.height * largura / im.width)
+            im = im.resize((largura, alt), Image.LANCZOS)
+        buf = BytesIO()
+        im.save(buf, "JPEG", quality=QUALIDADE, optimize=True)
+        dados, tipo = buf.getvalue(), "image/jpeg"
+    return f"data:{tipo};base64," + base64.b64encode(dados).decode()
+
+
+def cabe(destino):
+    """O tamanho da folha e se ela passa do teto do que da para publicar."""
+    from pathlib import Path
+    n = Path(destino).stat().st_size
+    return n, n <= TETO_FOLHA
