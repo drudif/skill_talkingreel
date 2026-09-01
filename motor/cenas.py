@@ -74,6 +74,7 @@ class Producao:
     glitch: object = True       # o estalo curto, numa emenda a cada quatro
     contraste: object = True    # True mede e corrige; False deixa como veio;
                                 # um numero forca aquele esticamento
+    hud: Optional[dict] = None  # o painel fixo: {"texto": ..., "vu": bool}
 
 
 def _caminho(raiz, rel, onde):
@@ -167,6 +168,31 @@ def carregar(caminho):
         if not 0.0 <= abertura <= 1.0:
             raise CenasInvalidas(
                 f"'abertura' com numero vai de 0 a 1, veio {abertura}")
+
+    # O painel fixo sobre a imagem. Sem este campo nao ha painel nenhum: e um
+    # elemento que muda a cara do video inteiro, e nao pode aparecer por
+    # descuido de quem escreveu o arquivo.
+    hud = dados.get("hud")
+    if hud is not None:
+        if isinstance(hud, str):
+            hud = {"texto": hud}
+        if not isinstance(hud, dict):
+            raise CenasInvalidas(
+                "'hud' aceita a frase que passa na tela, ou "
+                '{"texto": ..., "vu": true}')
+        texto_hud = (hud.get("texto") or "").strip()
+        vu_hud = hud.get("vu", True)
+        if not texto_hud and not vu_hud:
+            raise CenasInvalidas(
+                "'hud' foi pedido sem frase e sem barra de som: nao sobrou "
+                "painel nenhum para desenhar")
+        from motor import hud as mod_hud
+        if len(texto_hud) > mod_hud.FRASE_MAX:
+            raise CenasInvalidas(
+                f"a frase do painel tem {len(texto_hud)} letras, e o limite e "
+                f"{mod_hud.FRASE_MAX}. Ela anda pela tela: uma frase longa "
+                "demais ninguem termina de ler")
+        hud = {"texto": texto_hud, "vu": bool(vu_hud)}
 
     # O glitch das emendas: True liga com a forca padrao, False desliga, e um
     # numero de 0 a 1 regula.
@@ -357,4 +383,5 @@ def carregar(caminho):
         legenda=legenda,
         abertura=abertura,
         glitch=glitch,
-        contraste=contraste)
+        contraste=contraste,
+        hud=hud)

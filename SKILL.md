@@ -76,6 +76,12 @@ Tela dividida (ele em cima, ela embaixo), tela cheia (só ele, com a voz dela po
 dela (só com pano verde). **Isso vai na folha, item por item** — era um jeito só, e a skill nem
 perguntava. Detalhes e o que cada um exige: `referencias/material-extra.md`.
 
+## O painel de câmera, se ela quiser
+
+Duas peças finas no alto: uma barra que se mexe com a voz dela e uma frase que
+passa devagar, em laço. Entra pelo campo `hud` do `cenas.json`, **e só se for
+pedido** — muda a cara do vídeo inteiro. A frase é do Bandit e vai na folha.
+
 ## As duas aprovações
 
 | aprovação | quem trabalha | a folha decide |

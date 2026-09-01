@@ -37,6 +37,10 @@ transcrever é a etapa mais cara, e refazer porque ela já tinha roteiro é gast
    `referencias/material-extra.md`. Se não mandou nada, não sugira que grave nem deixe lugar
    reservado.
 
+8. **Se ela pediu o painel de câmera, escreva a frase que passa nele.** Uma frase só, até 90
+   letras, que resume o vídeo inteiro — ela fica em laço do começo ao fim, então não pode falar de
+   um trecho. Vale como item da folha, para ela aprovar.
+
 ## Onde os serviços de imagem entram
 
 O padrão é o material dela entrar como está. Se, e só se, você vir **dois ou três momentos** em que

@@ -15,6 +15,7 @@ from motor import arte
 from motor import cenas as mod_cenas
 from motor import (config, fala, imagem, legenda as mod_legenda, probe, tempo,
                    tratamentos, trilha)
+from motor import hud as mod_hud
 
 
 def _bordas(cena):
@@ -160,6 +161,13 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
     if r.returncode != 0:
         raise RuntimeError("ffmpeg falhou ao juntar: " + r.stderr.strip()[:500])
 
+    # a barra do painel responde a QUEM FALA, e a voz so esta sozinha aqui,
+    # antes de a musica entrar. Guardar custa uma copia; nao guardar faria a
+    # barra dancar com a batida da musica, que e o contrario do que ela diz.
+    sem_trilha = tmp / "sem-trilha.mp4"
+    if prod.hud:
+        shutil.copyfile(destino, sem_trilha)
+
     if prod.trilha:
         com_trilha = tmp / "com-trilha.mov"
         trilha.aplicar(destino, prod.trilha, com_trilha)
@@ -191,6 +199,18 @@ def montar(caminho_cenas, destino, tmp=None, transcrever=None):
             destino, com_estalo,
             forca=None if prod.abertura is True else prod.abertura)
         shutil.copyfile(com_estalo, destino)
+
+    if prod.hud:
+        # DEPOIS da abertura, e nao antes: o painel e a interface da camera, e
+        # interface nao entra no zoom da lente. Aplicado antes, ele desabaria
+        # junto com a imagem nos primeiros 0,30s.
+        # E antes da legenda, pelo mesmo motivo de sempre: a legenda e a ultima
+        # coisa a entrar, e as duas versoes de entrega tem de ter o painel.
+        com_painel = tmp / "hud.mp4"
+        mod_hud.aplicar(destino, com_painel, texto=prod.hud.get("texto"),
+                        voz=sem_trilha if sem_trilha.exists() else None,
+                        vu=prod.hud.get("vu", True))
+        shutil.copyfile(com_painel, destino)
 
     if prod.legenda:
         # transcreve o filme JA MONTADO: os tempos ja saem na escala final,

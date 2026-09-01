@@ -64,6 +64,7 @@ take longo vira um filme.
 | `abertura` | não | o estalo dos primeiros meio segundo: um clarão, as cores se separando e a imagem fechando de um zoom. `true`, `false`, ou um número de 0 a 1 para regular |
 | `glitch` | não | o mesmo estalo, curto e fraco, numa emenda a cada quatro. `true`, `false`, ou um número de 0 a 1 |
 | `contraste` | não | `true` mede cada gravação e corrige a que estiver lavada; `false` deixa a imagem como veio; um número força o mesmo ajuste em todas. Padrão `true` |
+| `hud` | não | o painel fixo sobre a imagem: `{"texto": "a frase que passa", "vu": true}`. Só a frase também vale: `"hud": "a frase"`. **Sem este campo não há painel** |
 | `cenas` | sim | a lista de cenas, em ordem |
 
 ## Os campos de cada cena
@@ -88,6 +89,25 @@ recortes diferentes acham falas diferentes, que é o esperado.
 **`teto` e `ate` não são a mesma coisa.** `ate` diz onde parar na gravação. `teto`
 diz quantos segundos a cena pode durar depois que a fala começa — serve para cortar
 uma cena que se alongou, sem precisar saber em que segundo a voz entra.
+
+## O painel fixo
+
+Duas peças finas no alto da tela, sobre o vídeo inteiro, com cara de câmera
+ligada: uma **barra que responde ao som da fala** e uma **frase que passa
+devagar para a direita**, em laço.
+
+| campo | precisa? | o que é |
+|---|---|---|
+| `texto` | não | a frase que passa. Até 90 letras — ela anda, e uma frase longa ninguém termina de ler |
+| `vu` | não | a barra de som. Padrão ligada |
+
+**A barra responde a quem fala, não à música.** O motor a alimenta com o som de
+antes de a trilha entrar. Alimentada pelo som final, ela dançaria com a batida
+da música — inclusive no silêncio de quem fala, que é o contrário do que ela
+diz.
+
+**O painel não segue o estilo escolhido para a legenda.** Ele é a moldura, e
+tem letra e cor próprias, sempre as mesmas.
 
 ## As quatro formas de uma cena
 

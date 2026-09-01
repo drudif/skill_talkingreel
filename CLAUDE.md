@@ -131,6 +131,14 @@ medidas com o arquivo de verdade, e as tres primeiras deixavam a skill inutiliza
   em conjuncao, muleta repetida entre trechos, duas tomadas da mesma frase, trechos sobrepostos.
   Numa rodada real esses quatro tipos passaram e so apareceram no video pronto.
 
+- **O painel de camera tem duas pecas, e cada uma falha em silencio.** A barra: com o audio ja
+  normalizado a -14 LUFS a escala LOG satura (85 a 95% da barra nas cinco amostras do filme real,
+  praticamente parada), e RMS linear anda mas entre 10 e 28%, fino demais para ver. PICO linear vai
+  de 35 a 55% -- e o unico dos tres em que da para ver o som subir e descer. E ela e alimentada
+  pelo filme ANTES da trilha: com o audio final, danca com a batida da musica no silencio da fala.
+  A frase: a imagem tem DUAS repeticoes lado a lado e uma repeticao e sempre maior que a tela --
+  com uma so, ou com uma repeticao menor que 1080, a frase some por um instante a cada volta.
+  O painel entra DEPOIS da abertura: interface de camera nao desaba junto com o zoom da lente.
 - **Dois efeitos de estalo, e a diferenca entre eles e o ponto.** `abertura` abre o video e pode
   ser violenta: crash zoom de 2,4x desabando em 0,30s, canais fora de registro, croma deslocado e
   grao alto. `glitch` marca virada de assunto no MEIO da fala, entao dura um terco disso e o zoom
