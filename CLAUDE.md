@@ -65,6 +65,11 @@ duas divergirem, o letreiro entra fora de hora e nada acusa.
   enquanto a pessoa ainda decide. O que ela marca fica no navegador ate ela mandar.
 - **Escolher um resolve o bloco de escolha inteiro.** Os outros nao ficaram pendentes, ficaram
   para tras; traze-los de volta na folha seguinte faz a pessoa procurar o que nao existe.
+- **Toda folha tem um campo livre no fim, e ele nao e item.** Os campos de nota perguntam sobre
+  AQUELE item; sem um campo geral, quem quer dizer "o corte aos 22s engasga" ou "a musica esta
+  alta" reprova um item so para ter onde escrever. Ele pede o SEGUNDO do filme, com exemplo: sem
+  isso, achar um defeito de meio segundo em 54 obriga a assistir tudo procurando. No registro vai
+  como `_geral`, e o sublinhado o mantem fora de `pendentes` -- ele nunca foi uma pergunta.
 - **Item reprovado volta com id NOVO.** A proposta nova e outra coisa a decidir; reusar o id faz
   o registro achar que ja foi respondida.
 

@@ -91,6 +91,10 @@ pedido** — muda a cara do vídeo inteiro. A frase é do Bandit e vai na folha.
 
 **Não passe de uma folha sem a resposta.** A trilha é aprovada na primeira, antes de montar.
 
+**Toda folha tem um campo livre no fim**, para o que não cabe nas perguntas — e é onde ela aponta
+o segundo de um defeito. `folha.observacao(estado)` devolve o que ela escreveu; leia antes dos
+itens.
+
 ## Quem é quem
 
 Os quatro **não são arquivos de subagente do Claude Code** — uma skill não instala nada em

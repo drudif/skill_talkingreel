@@ -49,6 +49,10 @@ leve, montado, para ela assistir.
    não consegue salvar o que a pessoa marcar.
 9. Quando ela responder, leia a folha de volta com `folha.ler` e guarde com `folha.recolher`.
    O que ela decidiu **sai** da folha seguinte; o que ela reprovou volta com proposta nova.
+10. **Leia `folha.observacao(estado)` ANTES dos itens.** É o campo livre, que toda folha tem, e é
+    o único lugar onde ela pode apontar um segundo do filme: "aos 0:22 a palavra sai cortada".
+    Defeito que nenhuma pergunta cobria aparece ali, e passar direto por ele faz a pessoa
+    escrever duas vezes. Se ela deu um segundo, vá ao filme naquele segundo antes de responder.
 
 ## O que entra na primeira folha
 

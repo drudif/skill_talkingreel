@@ -214,7 +214,8 @@ def test_a_secao_traz_titulo_e_instrucao(tmp_path):
                        tmp_path / "f.html").read_text(encoding="utf-8")
     assert "ESTILO DE LETTERING E LEGENDAS" in t
     assert "Veja os estilos disponiveis e escolha um." in t
-    assert t.count("<section>") == 2
+    # as duas secoes pedidas, mais a de observacao geral, que vai em toda folha
+    assert t.count("<section>") == 3
 
 
 def test_escolha_unica_usa_radio_e_nao_tem_observacao(tmp_path):
@@ -431,7 +432,7 @@ def test_o_aviso_de_falta_enviar_sobrevive_a_recarga(tmp_path):
     js = folha.escrever([{"id": "x", "titulo": "T", "fato": "f"}],
                         "primeira", tmp_path / "f.html").read_text()
     assert "if(j&&j.p)sujo=true" in js, "a recarga nao recupera o pendente"
-    assert "{p:sujo,v:v}" in js, "o pendente nao e gravado junto"
+    assert "{p:sujo,v:v,g:E.geral" in js, "o pendente nao e gravado junto"
 
 
 def test_embutir_som_nao_suja_a_pasta_do_usuario(tmp_path):
@@ -477,3 +478,74 @@ def test_o_filme_da_folha_vai_em_baixa(tmp_path):
     uri = folha.embutir(filme)
     assert len(uri) < filme.stat().st_size, (
         "o filme entrou na folha do tamanho que veio")
+
+
+# --- o campo de observacao geral ---------------------------------------------
+#
+# Os campos de nota dos itens perguntam sobre AQUELE item. Nao havia onde dizer
+# "o corte aos 22 segundos engasga" nem "a musica esta alta": ou a pessoa
+# reprovava um item so para ter onde escrever, ou a coisa se perdia na conversa.
+
+def test_toda_folha_tem_o_campo_de_observacao(tmp_path):
+    html = folha.escrever([{"id": "x", "titulo": "T", "fato": "f"}],
+                          "segunda", tmp_path / "f.html").read_text()
+    assert 'id="geral"' in html and "<textarea" in html
+
+
+def test_ate_a_folha_sem_nada_a_decidir_tem_o_campo(tmp_path):
+    """E justamente ali que ele mais serve: sem itens, sem o campo, a folha nao
+    teria onde receber uma palavra."""
+    html = folha.escrever([], "segunda", tmp_path / "f.html").read_text()
+    assert 'id="geral"' in html
+
+
+def test_o_campo_pede_o_segundo_do_video(tmp_path):
+    """Sem o segundo, achar um defeito de meio segundo num filme de 54 obriga a
+    assistir tudo procurando, varias vezes -- e as vezes nao se acha."""
+    html = folha.escrever([], "segunda", tmp_path / "f.html").read_text()
+    assert "em que segundo do vídeo" in html
+    assert "0:22" in html, "sem exemplo, ninguem escreve no formato pedido"
+
+
+def test_a_observacao_e_lida_do_estado():
+    estado = {"fase": "segunda", "itens": [],
+              "geral": "  aos 0:22 a palavra sai cortada  "}
+    assert folha.observacao(estado) == "aos 0:22 a palavra sai cortada"
+    assert folha.observacao({"fase": "segunda", "itens": []}) == ""
+
+
+def test_a_observacao_vai_para_o_registro_sem_virar_pendencia(tmp_path):
+    reg = tmp_path / "r.json"
+    estado = {"fase": "segunda", "geral": "a música está alta",
+              "itens": [{"id": "a", "titulo": "A", "decisao": "aprovado",
+                         "nota": ""}]}
+    dados = folha.recolher(estado, reg)
+    assert dados["_geral"]["nota"] == "a música está alta"
+
+    from motor import registro
+    restam = registro.pendentes([{"id": "a"}, {"id": "b"}], reg)
+    assert [i["id"] for i in restam] == ["b"], (
+        "a observacao geral virou item pendente")
+
+
+def test_as_observacoes_de_folhas_diferentes_se_somam(tmp_path):
+    """A segunda folha nao apaga o que ela disse na primeira: sao duas coisas
+    que ela apontou, e as duas continuam valendo."""
+    reg = tmp_path / "r.json"
+    folha.recolher({"fase": "primeira", "geral": "primeira coisa",
+                    "itens": []}, reg)
+    dados = folha.recolher({"fase": "segunda", "geral": "segunda coisa",
+                            "itens": []}, reg)
+    assert dados["_geral"]["todas"] == ["primeira coisa", "segunda coisa"]
+    assert dados["_geral"]["nota"] == "segunda coisa"
+
+
+def test_o_texto_do_campo_sobrevive_a_recarga_e_conta_como_pendente(tmp_path):
+    """Escrever e ir embora sem enviar e o modo de perder isso. O texto fica no
+    navegador, e o aviso de que falta enviar volta junto com ele."""
+    js = folha.escrever([], "segunda", tmp_path / "f.html").read_text()
+    assert "g:E.geral" in js, "o texto nao e gravado no navegador"
+    assert "if(j&&typeof j.g==='string')E.geral=j.g" in js, (
+        "o texto nao volta na recarga")
+    assert "if(ev.target.id==='geral'){E.geral=ev.target.value;guarda()}" in js, (
+        "digitar no campo nao marca que falta enviar")

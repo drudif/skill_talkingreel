@@ -64,6 +64,8 @@ button[data-d=reprovado][aria-pressed=true]{background:#b3261e;color:#fff;
 border-color:#b3261e}
 input.nota{font:inherit;font-size:14px;padding:5px 8px;border:1px solid #ddd;
 border-radius:3px;width:100%;margin-top:8px}
+textarea#geral{font:inherit;font-size:15px;padding:9px 11px;border:1px solid #ccc;
+border-radius:4px;width:100%;resize:vertical;background:#fff;color:#111}
 .fim{margin-top:22px;color:#666;font-size:14px}
 .barra{position:sticky;bottom:0;background:#fff;border-top:1px solid #ddd;
 padding:12px 0;margin-top:28px;display:flex;align-items:center;gap:14px}
@@ -81,6 +83,8 @@ border-color:#333}
 :root:not([data-theme=light]) h2{border-color:#eee}
 :root:not([data-theme=light]) p.como{color:#aaa}
 :root:not([data-theme=light]) .i{border-color:#333}
+:root:not([data-theme=light]) textarea#geral{background:#1a1a1a;color:#eee;
+border-color:#444}
 :root:not([data-theme=light]) .esc label{border-color:#333}
 :root:not([data-theme=light]) .esc label:has(input:checked)
 {border-color:#eee;background:#1c1c1c}
@@ -95,6 +99,7 @@ const CHAVE='folha-'+(E.fase||'x');
 let sujo=false,enviando=false;
 try{const g=localStorage.getItem(CHAVE);if(g){const j=JSON.parse(g);
 const v=(j&&j.v)?j.v:j;if(j&&j.p)sujo=true;
+if(j&&typeof j.g==='string')E.geral=j.g;
 E.itens.forEach(it=>{const a=v[it.id];if(a){it.decisao=a.decisao;it.nota=a.nota||''}})}}catch(e){}
 function achar(id){return E.itens.find(x=>x.id===id)}
 function contar(){return E.itens.filter(x=>x.decisao).length}
@@ -104,6 +109,8 @@ if(el.tagName==='BUTTON'&&el.dataset.d)el.setAttribute('aria-pressed',
 String(el.dataset.d===it.decisao));
 else if(el.type==='radio')el.checked=(it.decisao==='escolhido');
 else if(el.classList&&el.classList.contains('nota'))el.value=it.nota||''})});
+const g=document.getElementById('geral');
+if(g&&g.value!==(E.geral||''))g.value=E.geral||'';
 const b=document.getElementById('enviar'),c=document.getElementById('placar');
 if(c)c.textContent=contar()+' de '+E.itens.length+' respondidos'
 +(sujo?' — falta enviar':'');
@@ -112,7 +119,7 @@ b.textContent=enviando?'ENVIANDO...':(sujo?'ENVIAR RESPOSTAS'
 :(contar()?'TUDO ENVIADO':'NADA PARA ENVIAR AINDA'))}}
 function salva(){try{const v={};E.itens.forEach(it=>{
 if(it.decisao||it.nota)v[it.id]={decisao:it.decisao,nota:it.nota}});
-localStorage.setItem(CHAVE,JSON.stringify({p:sujo,v:v}))}catch(e){}pinta()}
+localStorage.setItem(CHAVE,JSON.stringify({p:sujo,v:v,g:E.geral||''}))}catch(e){}pinta()}
 function guarda(){sujo=true;salva()}
 pinta();
 function enviar(){if(enviando||!sujo)return;enviando=true;pinta();
@@ -128,6 +135,8 @@ if(ev.target.id==='enviar'){enviar();return}
 const b=ev.target.closest('button[data-d]');
 if(!b)return;const it=achar(b.dataset.id);
 it.decisao=it.decisao===b.dataset.d?null:b.dataset.d;guarda()});
+document.addEventListener('input',ev=>{
+if(ev.target.id==='geral'){E.geral=ev.target.value;guarda()}});
 document.addEventListener('change',ev=>{const el=ev.target;
 if(el.type==='radio'){
 E.itens.forEach(x=>{if(x.grupo===el.name)x.decisao=null});
@@ -197,6 +206,30 @@ def _linha(i):
             f'</div></div>')
 
 
+# O campo de observacao GERAL, em toda folha. Os campos de nota dos itens
+# perguntam sobre aquele item; nao ha onde dizer "o corte aos 22 segundos
+# engasga" ou "diminui a musica". Sem lugar para isso, ou a pessoa reprova um
+# item so para ter onde escrever, ou a coisa se perde no meio da conversa.
+#
+# PEDIR O SEGUNDO NAO E FORMALIDADE: sem ele, achar um defeito de meio segundo
+# num filme de 54 obriga a assistir tudo procurando, varias vezes.
+_OBSERVACOES = (
+    '<section><h2>OUTRA COISA QUE VOCÊ QUEIRA DIZER</h2>'
+    '<p class="como">Este espaço é para o que não cabe nas perguntas acima. '
+    '<b>Se você viu alguma coisa errada no vídeo</b> — um corte que engasga, '
+    'uma palavra pela metade, um texto que entra fora de hora, a música alta '
+    'demais —, escreva aqui <b>em que segundo do vídeo isso acontece</b>. '
+    'Pode ser aproximado ("por volta de 0:22"). Sem o segundo eu tenho de '
+    'assistir o vídeo inteiro procurando, e às vezes não acho. '
+    'Também serve para pedido geral: mais rápido, mais curto, outro tom.</p>'
+    '<textarea id="geral" rows="4" placeholder="ex: aos 0:22 a palavra sai '
+    'cortada; e a música podia ser mais baixa"></textarea></section>')
+
+
+def _observacoes():
+    return _OBSERVACOES
+
+
 def _secao(s):
     """Um bloco da folha: titulo em caixa alta, uma linha dizendo o que fazer,
     e os itens.
@@ -257,7 +290,7 @@ def escrever(secoes, fase, destino):
             vistos.add(i["id"])
             todos.append((i, bloco))
 
-    estado = {"fase": fase,
+    estado = {"fase": fase, "geral": "",
               "itens": [{"id": i["id"], "titulo": i.get("titulo", ""),
                          "grupo": (b.get("id") or "grupo")
                                   if b.get("tipo") == "escolha" else None,
@@ -265,6 +298,7 @@ def escrever(secoes, fase, destino):
                         for i, b in todos]}
     corpo = ("".join(_secao(b) for b in secoes if b["itens"]) if todos else
              '<p class="fim">Nada para decidir por aqui.</p>')
+    corpo += _observacoes()
     doc = (f'<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
            f'<meta name="viewport" content="width=device-width,initial-scale=1">'
            f'<title>{_e(FASES[fase])}</title><style>{_CSS}</style></head><body>'
@@ -328,13 +362,34 @@ def publicar(secoes, fase, destino, caminho_registro):
 def recolher(estado, caminho_registro):
     """Guarda no registro o que a pessoa decidiu nesta folha.
 
-    Quem nao foi decidido nao entra: continua pendente e volta na proxima."""
+    Quem nao foi decidido nao entra: continua pendente e volta na proxima.
+
+    A OBSERVACAO GERAL entra junto, sob a chave `_geral`. Ela nao e item e nao
+    tem decisao: e o que a pessoa escreveu sobre o filme inteiro, e some se
+    ficar so na tela. O sublinhado no comeco a mantem fora de `pendentes` --
+    ela nunca fica pendente, porque nunca foi uma pergunta."""
     from motor import registro
     novas = {i["id"]: {"decisao": i["decisao"], "nota": i.get("nota", "")}
              for i in estado.get("itens", [])
              if i.get("decisao") in ("aprovado", "reprovado", "escolhido")}
+    geral = (estado.get("geral") or "").strip()
+    if geral:
+        anterior = registro.carregar(caminho_registro).get("_geral", {})
+        antigas = anterior.get("todas", []) if isinstance(anterior, dict) else []
+        if geral not in antigas:
+            antigas = antigas + [geral]
+        novas["_geral"] = {"decisao": None, "nota": geral, "todas": antigas}
     return registro.anotar(caminho_registro, novas) if novas else \
         registro.carregar(caminho_registro)
+
+
+def observacao(estado):
+    """O que a pessoa escreveu no campo geral desta folha, ou string vazia.
+
+    Vale ler ANTES dos itens: e ali que aparece o defeito que nenhuma pergunta
+    cobria -- um corte que engasga, um texto fora de hora -- e e o unico lugar
+    da folha onde ela pode apontar um segundo do filme."""
+    return (estado.get("geral") or "").strip()
 
 
 # Uma folha publicada nao alcanca o disco de quem a escreveu: `src="foto.jpg"`
