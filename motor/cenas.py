@@ -11,7 +11,11 @@ from motor import config, estilos
 # cheia ela e sempre centralizada, entao "cheia" nao e escolha de ninguem.
 LEGENDA_NO_SPLIT = ("esquerda", "direita", "centro")
 
-TRATAMENTOS = ("cheia", "split")
+# As quatro formas de uma cena. As tres ultimas usam o material complementar,
+# e a escolha entre elas e da PESSOA, na folha -- eram uma so, e a skill nem
+# perguntava: todo material entrava em tela dividida.
+TRATAMENTOS = ("cheia", "split", "material", "atras")
+COM_MATERIAL = ("split", "material", "atras")
 
 
 class CenasInvalidas(Exception):
@@ -257,13 +261,15 @@ def carregar(caminho):
             else:
                 fundo = str(_caminho(raiz, fundo, n))
 
-        # Topo (split screen)
+        # O material complementar. `material` e o nome do campo; `topo` e o
+        # nome antigo, de quando a unica forma de entrar era a tela dividida.
         topo = None
-        if trat == "split":
-            bruto_topo = bruto.get("topo")
+        if trat in COM_MATERIAL:
+            bruto_topo = bruto.get("material") or bruto.get("topo")
             if not bruto_topo or not bruto_topo.get("arquivo"):
                 raise CenasInvalidas(
-                    f"cena {n}: split precisa do campo 'topo' com um arquivo")
+                    f"cena {n}: '{trat}' precisa do campo 'material' (ou "
+                    "'topo', o nome antigo) com um arquivo")
             ancora = float(bruto_topo.get("ancora", 0.0))
             if not 0.0 <= ancora <= 1.0:
                 raise CenasInvalidas(
@@ -271,6 +277,16 @@ def carregar(caminho):
             topo = Topo(
                 arquivo=_caminho(raiz, bruto_topo["arquivo"], n),
                 ancora=ancora)
+            # "atras" e a cena cheia com o material no lugar do pano verde: o
+            # caminho do fundo ja existe, com a recusa e a cor do pano medidas.
+            # Escrever isso aqui e o que evita um segundo caminho na montagem.
+            if trat == "atras":
+                if fundo:
+                    raise CenasInvalidas(
+                        f"cena {n}: 'atras' ja poe o seu material no fundo. "
+                        "Com o campo 'fundo' junto, seriam dois fundos para o "
+                        "mesmo lugar")
+                fundo = str(topo.arquivo)
 
         # Letreiro (opcional)
         letreiro = None

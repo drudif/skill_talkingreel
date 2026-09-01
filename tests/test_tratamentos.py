@@ -1122,3 +1122,96 @@ def test_uma_cena_longa_nao_deixa_o_filme_sem_estalo(tmp_path):
     mesmo que tenha demorado."""
     escolhidas = tratamentos.emendas_do_glitch([20.0, 21.0, 40.0])
     assert 20.0 in escolhidas and 40.0 in escolhidas
+
+
+# --- as tres formas de entrar o material complementar ------------------------
+#
+# Elas eram uma so, e a skill nem perguntava: todo material extra virava tela
+# dividida. Estes testes existem porque as outras duas falham em silencio --
+# tela preta com voz, ou um fundo em video que nao se mexe.
+
+def _cores(caminho, de=0.0, ate=None, passo=0.1):
+    """Que cor domina o quadro em cada instante: 'vermelho', 'azul' ou None."""
+    from motor import imagem, probe
+    ate = probe.dur(caminho) if ate is None else ate
+    fora, t = [], de
+    while t < ate - 0.05:
+        bruto = imagem._um_quadro(caminho, t, "scale=8:8,format=rgb24")
+        n = len(bruto) // 3
+        r = sum(bruto[0::3]) / max(1, n)
+        b = sum(bruto[2::3]) / max(1, n)
+        fora.append("vermelho" if r > b * 1.5 else
+                    ("azul" if b > r * 1.5 else None))
+        t += passo
+    return fora
+
+
+def test_material_em_tela_cheia_mostra_o_material_e_dura_o_que_a_fala_dura(tmp_path):
+    arq = fixtures.clipe_fala(tmp_path / "voz.mov", falas=[(0.5, 2.0)], total=3.5)
+    mat = fixtures.clipe_que_muda(tmp_path / "extra.mp4", total=1.0)
+    c = cenas.Cena(n=1, trat="material", arquivo=arq, velocidade=1.0,
+                   topo=cenas.Topo(arquivo=mat, ancora=0.5))
+    saida = tratamentos.material_cheio(c, tmp_path / "m.mov")
+
+    assert probe.dimensao(saida) == (1080, 1920)
+    assert 1.8 < probe.dur(saida) < 2.6, (
+        f"a cena tem de durar a fala (2.0s), e deu {probe.dur(saida):.2f}s")
+    cores = [c for c in _cores(saida) if c]
+    assert cores, "a tela nao mostra o material: nao ha cor nenhuma"
+
+
+def test_material_curto_se_repete_ate_cobrir_a_fala(tmp_path):
+    """Um material de 1 segundo numa fala de 2 deixaria um segundo de tela
+    parada -- ou preta -- com a voz correndo por baixo, e isso so aparece
+    assistindo. O clipe muda de cor no meio JUSTAMENTE para separar repetir de
+    congelar: congelado, ele fica azul para sempre depois do primeiro segundo."""
+    arq = fixtures.clipe_fala(tmp_path / "voz.mov", falas=[(0.3, 2.2)], total=3.0)
+    mat = fixtures.clipe_que_muda(tmp_path / "extra.mp4", total=0.8)
+    c = cenas.Cena(n=1, trat="material", arquivo=arq, velocidade=1.0,
+                   topo=cenas.Topo(arquivo=mat, ancora=0.5))
+    saida = tratamentos.material_cheio(c, tmp_path / "m.mov")
+
+    cores = _cores(saida, passo=0.08)
+    voltas = sum(1 for a, b in zip(cores, cores[1:])
+                 if a == "azul" and b == "vermelho")
+    assert voltas >= 1, (
+        f"o material nao se repetiu: as cores foram {cores}")
+
+
+def test_a_voz_da_pessoa_continua_com_a_imagem_dela_fora(tmp_path):
+    arq = fixtures.clipe_fala(tmp_path / "voz.mov", falas=[(0.4, 1.5)], total=2.5)
+    mat = fixtures.clipe_que_muda(tmp_path / "extra.mp4", total=1.0)
+    c = cenas.Cena(n=1, trat="material", arquivo=arq, velocidade=1.0,
+                   topo=cenas.Topo(arquivo=mat, ancora=0.5))
+    saida = tratamentos.material_cheio(c, tmp_path / "m.mov")
+    from motor import montar
+    v, a = montar.duracoes(saida)
+    assert a > 0.5, "a cena ficou muda: o material entra sem som, mas a voz fica"
+    assert abs(v - a) < 0.12, f"imagem {v:.2f}s e som {a:.2f}s se separaram"
+
+
+def test_o_recorte_da_tela_cheia_corta_o_deitado_pela_largura(tmp_path):
+    """Medido: de um material 16:9 sobram 32% da largura. A ancora, que resolve
+    o split, aqui nao muda nada -- e por isso a docstring diz isso."""
+    f = tratamentos.recorte(1920, 1080, 0.0, 1080, 1920)
+    assert "scale=3413:1920" in f
+    assert f == tratamentos.recorte(1920, 1080, 1.0, 1080, 1920), (
+        "a ancora mexeu num material que nao sobra altura nenhuma")
+    largura_util = 1080 / 3413
+    assert 0.30 < largura_util < 0.34
+
+
+def test_fundo_em_video_se_mexe_atras_da_pessoa(tmp_path):
+    """`-loop 1` serve para imagem parada. Num video ele congela o primeiro
+    quadro: o fundo fica imovel e nada acusa -- o filme monta, o pano verde
+    some, e so quem assiste percebe que a cena de tras nao anda."""
+    from motor import imagem
+    take = fixtures.clipe_croma(tmp_path / "croma.mov", total=2.0,
+                                falas=[(0.2, 1.5)])
+    assert imagem.tem_fundo_verde(take) is True
+    fundo = fixtures.clipe_que_muda(tmp_path / "fundo.mp4", total=2.0)
+    saida = tratamentos.trocar_fundo(take, tmp_path / "t.mov", fundo,
+                                     cor=imagem.cor_do_fundo_verde(take))
+    cores = _cores(saida, passo=0.1)
+    assert "vermelho" in cores and "azul" in cores, (
+        f"o fundo nao mudou de cor ao longo da cena: {cores}")

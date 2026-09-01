@@ -41,6 +41,13 @@ def _segmento(cena, destino, ja_cortado=False, area=None, contraste=None):
         return tratamentos.tela_cheia(cena, destino, ja_cortado, area, contraste)
     if cena.trat == "split":
         return tratamentos.split(cena, destino, ja_cortado, area, contraste)
+    if cena.trat == "material":
+        return tratamentos.material_cheio(cena, destino, ja_cortado, area,
+                                          contraste)
+    if cena.trat == "atras":
+        # a troca do pano verde ja aconteceu antes desta chamada, e o que
+        # sobrou e uma cena comum: a pessoa recortada sobre o material
+        return tratamentos.tela_cheia(cena, destino, ja_cortado, area, contraste)
     raise ValueError(f"tratamento sem implementacao: {cena.trat}")
 
 

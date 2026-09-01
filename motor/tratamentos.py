@@ -81,13 +81,55 @@ def recorte_topo(largura, altura, ancora):
     sobra 75%. Por isso a ancora existe -- cortar pelo centro decepa cabeca.
     ancora 0.0 = topo, 0.5 = centro, 1.0 = base. Na largura o corte e sempre
     centralizado, porque ali sobra pouco."""
-    jan_w, jan_h = config.W, config.DIVISORIA
+    return recorte(largura, altura, ancora, config.W, config.DIVISORIA)
+
+
+def recorte(largura, altura, ancora, jan_w, jan_h):
+    """O mesmo encaixe, para uma janela qualquer. Na tela inteira (1080x1920)
+    quem perde e o material DEITADO, e perde LARGURA: de um 16:9 sobram 32%,
+    cortados pelo centro. Ali a ancora so muda alguma coisa se o material for
+    mais alto que 9:16 -- e por isso ela nao resolve material deitado em tela
+    cheia, que e o caso comum."""
     escala = max(jan_w / largura, jan_h / altura)
     esc_w, esc_h = round(largura * escala), round(altura * escala)
     y = int(round((esc_h - jan_h) * ancora))
     x = int(round((esc_w - jan_w) / 2))
     return (f"scale={esc_w}:{esc_h}:flags=lanczos,"
             f"crop={jan_w}:{jan_h}:{x}:{y}")
+
+
+def material_cheio(cena, destino, ja_cortado=False, area=None, contraste=None):
+    """O material complementar ocupando a tela inteira, com a voz da pessoa.
+
+    A imagem da pessoa some por esses segundos; o som dela continua, e e ele
+    que manda na duracao. Serve para mostrar aquilo de que ela esta falando --
+    no split o material fica pela metade da tela e detalhe pequeno se perde.
+
+    `-stream_loop -1` REPETE o material ate cobrir a fala. Sem isso um material
+    de 4 segundos numa fala de 9 deixa cinco segundos de tela preta com voz --
+    e ninguem ve isso ate assistir. `contraste` e ignorado de proposito: e a
+    correcao medida na gravacao da PESSOA, e o material dela entra como veio."""
+    if ja_cortado:
+        ini, fim = 0.0, probe.dur(cena.arquivo)
+    else:
+        ini, fim = fala.bordas_com_teto(cena.arquivo, cena.teto)
+    d = fim - ini
+    mw, mh = probe.dimensao(cena.topo.arquivo)
+    vf_vel = _velocidade(cena.velocidade)
+    muda_vel = abs(cena.velocidade - 1.0) > 0.001
+    _roda([
+        "ffmpeg", "-y", "-v", "error",
+        "-stream_loop", "-1", "-i", str(cena.topo.arquivo),
+        "-ss", f"{ini:.3f}", "-to", f"{fim:.3f}", "-i", str(cena.arquivo),
+        "-filter_complex",
+        f"[0:v]{recorte(mw, mh, cena.topo.ancora, config.W, config.H)},"
+        f"trim=0:{d:.3f},setpts=PTS-STARTPTS,fps={config.FPS},setsar=1"
+        f"{vf_vel},fps={config.FPS},format=yuv420p[v]",
+        "-map", "[v]", "-map", "1:a",
+        "-af", (f"atempo={cena.velocidade}," if muda_vel else "")
+                + f"loudnorm=I={config.LUFS}:TP={config.TETO_DB}",
+    ] + _saida_padrao(destino))
+    return destino
 
 
 def split(cena, destino, ja_cortado=False, area=None, contraste=None):
@@ -155,6 +197,12 @@ def trocar_fundo(caminho, destino, fundo, cor=None, tolerancia=None):
     if fundo.startswith("#"):
         entrada_fundo = ["-f", "lavfi", "-t", f"{d + 0.05:.3f}",
                          "-i", f"color=c={fundo}:s={w}x{h}:r={config.FPS}"]
+    elif probe.dur(fundo) > 0:
+        # fundo em VIDEO. `-loop 1`, que serve para imagem parada, aqui
+        # congelaria o primeiro quadro: o video de tras ficaria imovel e nada
+        # acusaria. Quem repete video e `-stream_loop`, e ele precisa vir antes
+        # do `-i` do proprio video.
+        entrada_fundo = ["-stream_loop", "-1", "-i", fundo]
     else:
         entrada_fundo = ["-loop", "1", "-framerate", str(config.FPS),
                          "-t", f"{d + 0.05:.3f}", "-i", fundo]

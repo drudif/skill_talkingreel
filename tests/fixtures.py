@@ -115,3 +115,22 @@ def clipe_com_objeto_verde(destino, total=1.5, w=320, h=568):
         "-an", "-c:v", "libx264", "-crf", "18", "-preset", "ultrafast",
         "-pix_fmt", "yuv420p", str(destino)])
     return destino
+
+
+def clipe_que_muda(destino, total=1.0, w=320, h=568):
+    """Um clipe que troca de cor no meio: vermelho na primeira metade, azul na
+    segunda.
+
+    E o que distingue REPETIR de CONGELAR. Um material de cor unica congelado
+    no ultimo quadro e um material repetindo sao a mesma imagem, e um teste
+    feito com ele passaria nos dois casos -- inclusive no errado."""
+    destino = Path(destino)
+    meio = total / 2
+    _roda([
+        "ffmpeg", "-y", "-v", "error",
+        "-f", "lavfi", "-t", f"{total}", "-i", f"color=c=black:s={w}x{h}:r={FPS}",
+        "-vf", (f"geq=r='if(lt(T,{meio}),230,20)':g=20:"
+                f"b='if(lt(T,{meio}),20,230)'"),
+        "-c:v", "libx264", "-crf", "24", "-preset", "ultrafast",
+        "-pix_fmt", "yuv420p", "-an", str(destino)])
+    return destino

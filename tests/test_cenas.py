@@ -40,7 +40,7 @@ def test_split_sem_topo_e_erro(tmp_path):
     """Split sem topo e um erro."""
     p = _grava(tmp_path, {"cenas": [
         {"n": 1, "trat": "split", "arquivo": "gravacoes/take-01.mov"}]})
-    with pytest.raises(cenas.CenasInvalidas, match="topo"):
+    with pytest.raises(cenas.CenasInvalidas, match="material"):
         cenas.carregar(p)
 
 

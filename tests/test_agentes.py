@@ -15,7 +15,11 @@ def _texto(nome):
 @pytest.mark.parametrize("nome", AGENTES)
 def test_cada_agente_cabe_no_teto(nome):
     n = len(_texto(nome).rstrip().split("\n"))
-    assert n <= 80, f"{nome}.md tem {n} linhas, teto 80"
+    # 160, nao 80. O teto baixo estava fazendo o texto do agente perder
+    # instrucao para caber -- e um agente que cabe e nao funciona nao serve
+    # para nada. Ele ainda existe para o arquivo nao virar despejo, mas o
+    # criterio e ser funcional primeiro. Decisao do Drudi, 2026-09-01.
+    assert n <= 160, f"{nome}.md tem {n} linhas, teto 160"
 
 
 @pytest.mark.parametrize("nome", AGENTES)

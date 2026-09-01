@@ -43,6 +43,10 @@ padding:8px;cursor:pointer}
 .esc .t{font-weight:600;font-size:14px}
 .esc .f{font-size:13px;color:#555;margin-top:2px}
 .esc audio{width:100%;height:34px;margin-top:6px;display:block}
+/* o filme e vertical: sem teto de altura, 1920 de altura joga a decisao para
+   fora da tela e a pessoa aprova sem ter visto o fim */
+video{display:block;width:100%;max-width:270px;max-height:60vh;
+border-radius:4px;margin:8px 0;background:#000}
 .esc input{margin-right:6px}
 /* aprovar ou reprovar: linha com miniatura pequena */
 .i{border-top:1px solid #e5e5e5;padding:14px 0;display:flex;gap:12px}
@@ -158,10 +162,12 @@ def _cartao(i, grupo):
            else "")
     som = (f'<audio controls preload="none" src="{_e(i["audio"])}"></audio>'
            if i.get("audio") else "")
+    filme = (f'<video controls playsinline preload="metadata" '
+             f'src="{_e(i["video"])}"></video>' if i.get("video") else "")
     return (f'<label>{img}'
             f'<input type="radio" name="{_e(grupo)}" data-id="{_e(i["id"])}">'
             f'<span class="t">{_e(i["titulo"])}</span>'
-            f'<div class="f">{_e(i.get("fato", ""))}</div>{som}</label>')
+            f'<div class="f">{_e(i.get("fato", ""))}</div>{filme}{som}</label>')
 
 
 def _linha(i):
@@ -177,9 +183,11 @@ def _linha(i):
     # todas de uma vez trava a folha no celular.
     som = (f'<audio class="s" controls preload="none" '
            f'src="{_e(i["audio"])}"></audio>' if i.get("audio") else "")
+    filme = (f'<video class="v" controls playsinline preload="metadata" '
+             f'src="{_e(i["video"])}"></video>' if i.get("video") else "")
     return (f'<div class="i">{img}<div class="c">'
             f'<div class="t">{_e(i["titulo"])}</div>'
-            f'<div class="f">{_e(i.get("fato", ""))}</div>{det}{som}'
+            f'<div class="f">{_e(i.get("fato", ""))}</div>{det}{filme}{som}'
             f'<button data-id="{_e(i["id"])}" data-d="aprovado" '
             f'aria-pressed="false">APROVADO</button>'
             f'<button data-id="{_e(i["id"])}" data-d="reprovado" '
@@ -352,7 +360,17 @@ def embutir(caminho, largura=None, segundos=None):
 
     caminho = Path(caminho)
     ext = caminho.suffix.lower()
-    if ext in (".mp3", ".m4a", ".wav", ".aac"):
+    if ext in (".mp4", ".mov", ".m4v", ".webm"):
+        # o filme montado, para a pessoa assistir na propria folha. Vai SEMPRE
+        # pela versao leve: o arquivo de entrega de 54 segundos tem 76 MB, e em
+        # base64 passaria de 100 -- sozinho, sete vezes o teto da pagina.
+        from motor import previa
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            leve = Path(td) / "leve.mp4"
+            previa.em_baixa(caminho, leve)
+            dados, tipo = leve.read_bytes(), "video/mp4"
+    elif ext in (".mp3", ".m4a", ".wav", ".aac"):
         import tempfile
         # o temporario NAO vai na pasta do arquivo: ela e do usuario, e a
         # primeira rodada largou tres `.amostra-*.mp3` no meio das musicas dele

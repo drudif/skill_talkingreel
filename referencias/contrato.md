@@ -71,13 +71,13 @@ take longo vira um filme.
 | campo | precisa? | o que é |
 |---|---|---|
 | `n` | sim | o número da cena |
-| `trat` | sim | `cheia` (só a pessoa) ou `split` (material extra em cima, pessoa embaixo) |
+| `trat` | sim | como a cena aparece: `cheia`, `split`, `material` ou `atras`. As três últimas usam o material extra — veja abaixo |
 | `arquivo` | sim | a gravação, relativa à pasta do `cenas.json`. **Pode se repetir entre cenas** |
 | `de` | não | segundo da gravação em que este trecho começa. Sem ele, começa no início do arquivo |
 | `ate` | não | segundo da gravação em que este trecho termina. Sem ele, vai até o fim do arquivo |
 | `velocidade` | não | troca a velocidade só nesta cena. Sem este campo, vale a velocidade geral da produção |
 | `teto` | não | limite de duração, em segundos, contado a partir de onde a fala começa |
-| `topo` | só no split | `{"arquivo": ..., "ancora": 0.0 a 1.0}`. A âncora escolhe que parte da imagem fica visível: 0 é o topo, 1 é o pé |
+| `material` | nas três | `{"arquivo": ..., "ancora": 0.0 a 1.0}`. A âncora escolhe que parte da imagem fica visível: 0 é o topo, 1 é o pé. `topo` é o nome antigo do mesmo campo, e continua valendo |
 | `letreiro` | não | texto grande sobre a imagem |
 | `fundo` | não | troca o fundo por uma imagem ou por uma cor escrita como `#101010`. **Só funciona com pano verde** — veja abaixo |
 
@@ -88,6 +88,28 @@ recortes diferentes acham falas diferentes, que é o esperado.
 **`teto` e `ate` não são a mesma coisa.** `ate` diz onde parar na gravação. `teto`
 diz quantos segundos a cena pode durar depois que a fala começa — serve para cortar
 uma cena que se alongou, sem precisar saber em que segundo a voz entra.
+
+## As quatro formas de uma cena
+
+| `trat` | o que aparece na tela | o som |
+|---|---|---|
+| `cheia` | só a pessoa | a voz dela |
+| `split` | o material em cima, a pessoa embaixo | a voz dela; o material entra mudo |
+| `material` | só o material, na tela inteira | a voz dela continua por baixo |
+| `atras` | a pessoa recortada, com o material atrás dela | a voz dela |
+
+**A escolha entre as três últimas é da pessoa, na folha** — não do agente. Ela
+era uma só, e a skill nem perguntava: todo material extra virava tela dividida.
+
+**`material` repete o material até cobrir a fala.** Um material de 4 segundos
+num trecho de 9 deixaria cinco segundos de tela parada com voz correndo por
+baixo. Quem repete é o motor.
+
+**`atras` só funciona com pano verde.** É o verde que diz ao programa o que é
+cenário e o que é pessoa; numa sala comum o programa apagaria pedaços dela. O
+motor mede a gravação antes de montar qualquer coisa e recusa, dizendo isso.
+Com `atras`, o campo `fundo` não pode vir junto: seriam dois fundos para o
+mesmo lugar.
 
 ## O letreiro
 

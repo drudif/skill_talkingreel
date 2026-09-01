@@ -32,7 +32,10 @@ def test_a_descricao_diz_quando_usar_sem_jargao():
 
 def test_o_skill_cabe_no_teto():
     n = len(SKILL.read_text(encoding="utf-8").rstrip().split("\n"))
-    assert n <= 120, f"o SKILL.md tem {n} linhas, teto 120"
+    # 150, nao 120. Pelo mesmo motivo do teto dos agentes: o texto estava
+    # perdendo instrucao para caber. Ele continua existindo porque este
+    # arquivo carrega em TODA sessao -- mas funcional vem antes de curto.
+    assert n <= 150, f"o SKILL.md tem {n} linhas, teto 150"
 
 
 def test_as_duas_aprovacoes_estao_no_skill():

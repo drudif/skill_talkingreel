@@ -42,6 +42,24 @@ PARECIDO = 0.72       # semelhanca acima da qual dois trechos dizem a mesma
                       # coisa. E o caso que o Bandit existe para resolver: a
                       # pessoa repetiu a frase e as duas tomadas ficaram.
 
+# Semelhanca acima da qual um trecho escolhido corresponde a uma linha do
+# ROTEIRO. Bem mais baixo que PARECIDO, e por MEDIDA: ninguem fala o que
+# escreveu.
+#
+# COMO FOI MEDIDO, e o que a medida vale. Nao havia roteiro real para comparar,
+# entao a distancia entre "a mesma intencao dita com outras palavras" saiu dos
+# SEIS PARES DE TOMADAS da gravacao real -- a pessoa refez cada frase, e as
+# duas versoes dizem a mesma coisa com palavras diferentes, que e exatamente a
+# distancia entre uma linha de roteiro e a fala dela. Deu de 0,416 a 0,870, o
+# piso no "da uma olhada nesse trecho". Do outro lado, cinco pares de assuntos
+# DIFERENTES da mesma gravacao foram de 0,082 a 0,309, o teto em "referencias"
+# contra "maos erradas".
+#
+# A janela util e portanto 0,309 a 0,416, e 0,36 fica no meio dela. O primeiro
+# valor escrito aqui foi 0,50, chutado: ele acusava de "fora do roteiro" tres
+# dos seis pares certos.
+DO_ROTEIRO = 0.36
+
 
 def _limpo(palavra):
     """So minuscula e sem pontuacao. O ACENTO FICA: e ele que separa "é" de
@@ -58,14 +76,40 @@ def fala_de(palavras, de, ate):
     return [w for w in palavras if w["f"] > de and w["t"] < ate]
 
 
-def conferir(cenas, palavras, alvo_segundos=None, velocidade=1.15):
+def linhas_do_roteiro(texto):
+    """As frases de um roteiro escrito, uma por linha util.
+
+    Marca de lista, numero, titulo de markdown e linha vazia saem: quem escreve
+    roteiro escreve "- fala do preco", e o hifen nao e fala."""
+    fora = []
+    for linha in (texto or "").splitlines():
+        limpa = re.sub(r"^\s*([-*+•>]|\d+[.)])\s*", "", linha).strip()
+        limpa = re.sub(r"^#+\s*", "", limpa).strip()
+        if len(limpa.split()) >= 3:
+            fora.append(limpa)
+    return fora
+
+
+def _semelhanca(a, b):
+    return difflib.SequenceMatcher(None, a, b).ratio()
+
+
+def conferir(cenas, palavras, alvo_segundos=None, velocidade=1.15,
+             roteiro=None):
     """Os problemas da decupagem, em ordem de gravidade.
 
     `cenas` e a lista que o Bandit escreveu: cada uma com `n`, `arquivo`, `de`
     e `ate`. `palavras` e a transcricao, ja com as trocas de nome aplicadas.
+
+    `roteiro` e o texto que a pessoa escreveu antes de gravar, quando existe.
+    COM ELE, ELE MANDA: o corte deixa de ser escolha do agente e passa a ser
+    procurar na gravacao o que a pessoa ja tinha decidido dizer. A conferencia
+    entao aponta os dois lados -- linha do roteiro que ficou de fora, e trecho
+    escolhido que nao esta em roteiro nenhum.
     """
     achados = []
     falas, limpos = {}, {}
+    
     for c in cenas:
         de, ate = c.get("de", 0.0), c.get("ate", 1e9)
         ws = fala_de(palavras, de, ate)
@@ -168,11 +212,51 @@ def conferir(cenas, palavras, alvo_segundos=None, velocidade=1.15):
                          f"voce pediu {alvo_segundos:.0f}",
                 "conserto": "tire mais algum trecho"})
 
-    ordem = ["palavra partida", "trecho mudo", "trechos sobrepostos",
+    if roteiro:
+        _confere_roteiro(cenas, falas, roteiro, achados)
+
+    # o roteiro vem primeiro: com ele na mao, um trecho fora dele e um erro
+    # maior que uma borda solta -- a pessoa ja tinha decidido o que dizer
+    ordem = ["faltou do roteiro", "fora do roteiro",
+             "palavra partida", "trecho mudo", "trechos sobrepostos",
              "tomada repetida", "borda solta", "muleta repetida",
              "trecho curto", "longo demais"]
     return sorted(achados, key=lambda a: (ordem.index(a["tipo"]),
                                           a["cena"] or 0))
+
+
+def _confere_roteiro(cenas, falas, roteiro, achados):
+    """Os dois lados da comparacao entre o roteiro e o que foi escolhido."""
+    linhas = linhas_do_roteiro(roteiro)
+    if not linhas:
+        return
+    ditos = {n: " ".join(_limpo(w["p"]) for w in ws)
+             for n, ws in falas.items() if ws}
+    alvos = {i: " ".join(_limpo(p) for p in linha.split())
+             for i, linha in enumerate(linhas)}
+
+    achou = set()
+    for n, dito in ditos.items():
+        melhor, quanto = None, 0.0
+        for i, alvo in alvos.items():
+            s = _semelhanca(alvo, dito)
+            if s > quanto:
+                melhor, quanto = i, s
+        if quanto >= DO_ROTEIRO:
+            achou.add(melhor)
+        else:
+            achados.append({
+                "tipo": "fora do roteiro", "cena": n,
+                "o_que": "este trecho nao corresponde a nenhuma linha do "
+                         "roteiro",
+                "conserto": "tire, ou confirme que ele entra de proposito"})
+    for i, linha in enumerate(linhas):
+        if i not in achou:
+            achados.append({
+                "tipo": "faltou do roteiro", "cena": None,
+                "o_que": f'o roteiro pede "{linha[:70]}" e nenhum trecho diz '
+                         "isso",
+                "conserto": "procure na gravacao, ou diga a ela que nao achou"})
 
 
 def em_portugues(achados):

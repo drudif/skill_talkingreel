@@ -444,3 +444,36 @@ def test_embutir_som_nao_suja_a_pasta_do_usuario(tmp_path):
                     str(som)], check=True)
     folha.embutir(som, segundos=5)
     assert [a.name for a in tmp_path.iterdir()] == ["trilha.mp3"]
+
+
+def test_a_segunda_folha_mostra_o_filme_dentro_dela(tmp_path):
+    """A segunda aprovacao existe para a pessoa ASSISTIR. Sem campo de video
+    ela receberia um link para um arquivo no disco de quem montou -- que na
+    tela dela nao abre."""
+    import subprocess
+    filme = tmp_path / "f.mp4"
+    subprocess.run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                    "-f", "lavfi", "-i", "color=c=navy:s=270x480:r=30:d=2",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", str(filme)],
+                   check=True)
+    uri = folha.embutir(filme)
+    assert uri.startswith("data:video/mp4;base64,")
+    html = folha.escrever(
+        [{"id": "filme", "titulo": "O vídeo montado", "fato": "assista",
+          "video": uri}], "segunda", tmp_path / "s.html").read_text()
+    assert "<video" in html and "controls" in html
+    assert "f.mp4" not in html, "sobrou caminho de disco em vez do filme"
+
+
+def test_o_filme_da_folha_vai_em_baixa(tmp_path):
+    """O arquivo de entrega de 54 segundos tem 76 MB; em base64 passaria de
+    100 MB, sete vezes o teto da pagina."""
+    import subprocess
+    filme = tmp_path / "g.mp4"
+    subprocess.run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                    "-f", "lavfi", "-i", "testsrc2=s=1080x1920:r=30:d=2",
+                    "-c:v", "libx264", "-crf", "12", "-pix_fmt", "yuv420p",
+                    str(filme)], check=True)
+    uri = folha.embutir(filme)
+    assert len(uri) < filme.stat().st_size, (
+        "o filme entrou na folha do tamanho que veio")

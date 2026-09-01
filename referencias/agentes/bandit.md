@@ -18,21 +18,24 @@ transcrever é a etapa mais cara, e refazer porque ela já tinha roteiro é gast
 
 1. **Transcreva cada gravação**:
    `python3 -c "from motor import legenda; print(legenda.transcrever('<arquivo>'))"`.
-   Havendo roteiro dela, compare com ele — é assim que se descobre o que ela quis dizer onde a
-   fala saiu enrolada.
 2. **Decupe.** Marque cada trecho aproveitável: um par de segundos na gravação, `de` e `ate`.
+   **Havendo roteiro dela, é ELE que manda**: procure na gravação o que ela já decidiu dizer,
+   linha por linha e na ordem dela. Linha que não achar, diga que não achou — não preencha o
+   buraco com outra coisa.
 3. **Escolha a melhor tomada.** Quando ela repetir a mesma frase — e vai repetir —, fique com uma.
    Prefira a última completa: as anteriores foram os ensaios.
 4. **Jogue fora o erro de gravação**: frase interrompida, "deixa eu começar de novo", pigarro,
    resposta ao telefone. Sai sem perguntar.
-5. **Respeite a duração que ela pediu**, escolhendo menos trechos — nunca cortando no meio de uma
-   frase. Se ela não disse número, não persiga alvo: um vídeo bom de 90s é melhor que um ruim de 30.
-6. **Proponha os letreiros** — o texto grande na tela. Se ela já pediu algum, use os dela e não
-   invente outros. Se não pediu, sugira **de dois a quatro** no vídeo inteiro, com no máximo
-   quatro palavras cada, e **cada um copiando uma frase que ela falou**.
+5. **Respeite a duração que ela pediu**, escolhendo menos trechos, nunca cortando no meio de uma
+   frase. Sem número dito, não persiga alvo: um vídeo bom de 90s é melhor que um ruim de 30.
+6. **Proponha os letreiros** — o texto grande na tela. Pediu algum, use os dela. Não pediu,
+   sugira **de dois a quatro** no vídeo inteiro, no máximo quatro palavras cada, e **cada um
+   copiando uma frase que ela falou**.
 7. **Proponha onde entra o material complementar — só se ela tiver mandado algum.** Diga o segundo,
-   o arquivo e o que ela está dizendo ali. Se não mandou nada, não sugira que grave nem deixe
-   lugar reservado.
+   o arquivo e o que ela está dizendo ali. **De que jeito ele entra é escolha dela, na folha**:
+   tela dividida, tela cheia, ou atrás dela com pano verde — veja
+   `referencias/material-extra.md`. Se não mandou nada, não sugira que grave nem deixe lugar
+   reservado.
 
 ## Onde os serviços de imagem entram
 
@@ -53,16 +56,21 @@ que depende de conta e créditos num serviço de fora e que recusar não muda o 
 ## Antes de entregar, confira a sua própria decupagem
 
 ```
-python3 -c "from motor import decupagem; import json; print(decupagem.em_portugues(decupagem.conferir(<suas cenas>, <a transcrição>, alvo_segundos=<o que ela pediu>)))"
+python3 -c "from motor import decupagem; import json; print(decupagem.em_portugues(decupagem.conferir(<suas cenas>, <a transcrição>, alvo_segundos=<o que ela pediu>, roteiro=<o texto dela, se houver>)))"
 ```
 
-Acha na transcrição o que só se notaria assistindo: corte no meio de palavra,
-trecho abrindo ou fechando em conjunção, muleta em dois trechos, duas tomadas
-dizendo o mesmo, trechos sobrepostos, e o tempo previsto contra o que ela pediu.
+Acha na transcrição o que só se notaria assistindo: corte no meio de palavra, trecho abrindo ou
+fechando em conjunção, muleta repetida em dois trechos, duas tomadas dizendo o mesmo, trechos
+sobrepostos, e o tempo previsto contra o que ela pediu.
+
+**Com `roteiro`, ela acha as duas coisas que mais importam quando ele existe**: linha que a pessoa
+escreveu e não entrou em trecho nenhum, e trecho que entrou sem estar no roteiro. É essa
+conferência que sustenta a regra do passo 2 — com roteiro na mão, o corte não é escolha sua.
+
 Cada achado diz para onde mover o corte: **conserte e rode de novo até passar**.
 
-**Nem todo achado é erro** — às vezes a repetição é proposital. Você decide, mas
-decide olhando.
+**Nem todo achado é erro** — às vezes a repetição é proposital, e às vezes o começo solto é o jeito
+da pessoa falar. Você decide, mas decide olhando.
 
 ## O que você devolve
 
