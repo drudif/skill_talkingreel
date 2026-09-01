@@ -209,3 +209,41 @@ def test_o_painel_so_aparece_se_alguem_pedir(tmp_path):
     p.write_text(json.dumps({
         "cenas": [{"n": 1, "trat": "cheia", "arquivo": "gravacoes/t.mov"}]}))
     assert cenas.carregar(p).hud is None
+
+
+def test_sem_contorno_a_frase_pede_fundo_escuro(tmp_path):
+    """O custo de tirar o contorno, com numero. Foi um PEDIDO, nao um descuido,
+    e por isso o que este teste faz e guardar o limite em vez de reprovar:
+
+        fundo branco       contorno 0:  0,0   contorno 2: 71,7
+        fundo cinza claro  contorno 0: 13,1   contorno 2: 62,8
+        fundo escuro       contorno 0: 90,1   contorno 2: 93,6
+
+    Na gravacao real, de parede bege, a frase mede 69,7 sem contorno e 62,8 com
+    ele: ali ela se le MELHOR sem, porque a tinta subiu de 80% para 100%. Sobre
+    parede branca ela sumiria inteira, e o conserto e `FRASE_CONTORNO = 2`.
+    """
+    branco = tmp_path / "branco.mp4"
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-t", "2",
+         "-i", f"color=c=white:s={config.W}x{config.H}:r={config.FPS}",
+         "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p",
+         str(branco)], check=True)
+
+    def variacao(contorno):
+        antes = hud.FRASE_CONTORNO
+        hud.FRASE_CONTORNO = contorno
+        try:
+            saida = hud.aplicar(branco, tmp_path / f"h{contorno}.mp4",
+                                texto="TESTE DE LEITURA", vu=False)
+            col = _brilho_por_coluna(_faixa(saida, 1.0, hud.FRASE_Y - 4, 40))
+            return (max(col) - min(col)) / 40 / 3
+        finally:
+            hud.FRASE_CONTORNO = antes
+
+    assert variacao(0) < 5, (
+        "sobre branco a frase sem contorno tem de sumir mesmo -- se este teste "
+        "falhar, o desenho mudou e a medida acima nao vale mais")
+    assert variacao(2) > 40, (
+        "o contorno deixou de resolver o caso do fundo branco, e era ele o "
+        "conserto guardado para quando a frase sumir")

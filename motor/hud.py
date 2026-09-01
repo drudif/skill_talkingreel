@@ -35,7 +35,10 @@ VU_PASSO = 2            # tamanho do segmento. 0 e barra continua, 5 e o maximo
 VU_QUEDA = 0.25         # quanto o pico cai por quadro. Alto demais e a barra
                         # pisca; baixo demais ela nunca desce
 VU_FUNDO = 0.14         # a canaleta apagada, atras da barra
-VU_COR = "0xB0FFFFFF"   # AABBGGRR: branco a 69% de opacidade
+VU_COR = "0xFFFFFFFF"   # AABBGGRR: branco solido. As duas pecas do painel usam
+                        # a MESMA tinta -- com opacidades diferentes uma parece
+                        # mais presente que a outra, e o painel deixa de ler
+                        # como uma coisa so
 
 # MEDIDO, e a medida mudou o desenho. Com o audio ja normalizado a -14 LUFS, a
 # escala LOGARITMICA satura: as cinco amostras do filme real ficaram entre 85% e
@@ -46,7 +49,17 @@ VU_MODO = "m=p:ds=lin"
 
 # --- a frase que passa -------------------------------------------------------
 FRASE_CORPO = 22
-FRASE_CONTORNO = 2      # sem ele a frase some sobre parede clara
+FRASE_CONTORNO = 0      # sem contorno, a pedido, e branca chapada como a barra.
+                        # MEDIDO, porque o custo e real e tem numero: a variacao
+                        # de brilho na faixa da frase cai de 71,7 para 0,0 sobre
+                        # fundo BRANCO -- ela some inteira -- e de 62,8 para
+                        # 13,1 sobre cinza claro. Sobre fundo escuro empata
+                        # (90,1 contra 93,6), e na gravacao real, de parede
+                        # bege, ela mede 69,7 e se le melhor SEM contorno do que
+                        # com ele, porque a tinta subiu de 80% para 100%.
+                        # Se um dia a frase sumir sobre uma parede branca, e
+                        # este numero que volta a 2. `tests/test_hud.py` guarda
+                        # os dois lados.
 SEPARADOR = "   ·   "
 VELOCIDADE = 90         # pixels por segundo. A 200 vira borrao; a 40 parece
                         # travada. 90 atravessa a tela em 12 segundos
@@ -91,7 +104,7 @@ def tira(texto, destino, corpo=FRASE_CORPO, largura_tela=None):
     d = ImageDraw.Draw(im)
     for i in range(vezes * 2):
         d.text((i * w_bloco, FRASE_CONTORNO), bloco, font=f,
-               fill=(255, 255, 255, 205),
+               fill=(255, 255, 255, 255),
                stroke_width=FRASE_CONTORNO, stroke_fill=(0, 0, 0, 150))
     destino = Path(destino)
     im.save(destino)
