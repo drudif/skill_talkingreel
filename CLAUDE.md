@@ -151,6 +151,16 @@ medidas com o arquivo de verdade, e as tres primeiras deixavam a skill inutiliza
   esta se desmontando lava tudo, e o pouco que ha para ver some.
 
 ## Armadilhas de medicao
+- **O laudo de emenda acusa CORTE CERRADO, e a maioria do que ele acusa nao e defeito.** Medido no
+  filme real: das 5 emendas acusadas, 4 eram corte na fronteira certa entre duas palavras, so que
+  em fala corrida -- sem respiro de silencio, a janela de 40ms pega voz dos dois lados. So 1 era
+  defeito de verdade (40ms do "que..." anterior entrando antes da pausa). Quem le o laudo tem de
+  cruzar cada acusada com o ENVELOPE do audio no original antes de mexer: devolver para o corte um
+  filme certo custa uma montagem inteira.
+- **A transcricao erra a borda da palavra em ate 0,55s.** Medido: o Whisper rotulou "Ele" em 61,94
+  e a energia da fala so comeca em 62,49. Por isso quem decide onde a cena comeca de verdade e
+  `fala.bordas`, e nao a transcricao -- e por isso uma cena que "corta palavra" pela transcricao
+  pode estar certa.
 - **Nivel de audio se mede contra a FALA do proprio filme, nunca contra o silencio**: num talking
   head bem cortado o percentil de baixo do envelope JA E fala — medido, deu -0,8 dB.
 - **Clipe sintetico sem ruido mente sobre nivel**: usar `clipe_fala(..., ruido_dB=-50)`.
